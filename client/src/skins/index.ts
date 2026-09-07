@@ -9,38 +9,39 @@
  */
 
 /**
- * Chosen by measurement, not by taste.
+ * The thirteen colours, in the order levels introduce them.
  *
- * The first attempt used one Tailwind 500-weight per hue, which meant every colour sat at
- * nearly the same lightness and differed only in hue. Measured in CIE Lab, and simulating
- * the two common forms of colour blindness, the worst pair among the first ten came out at
- * a perceptual distance of 1.8 - indistinguishable - and the whole set spanned only 26
- * points of lightness.
+ * The order is the product decision - red, green, blue, yellow, orange, violet, pink,
+ * light blue, light green, magenta, black, white, gray - and a level using N colours takes
+ * the first N, so early levels only ever see the top of the list.
  *
- * This palette was searched for instead: the six canonical colours were brute-forced over
- * variants of each hue, then the remainder chosen greedily to maximise the smallest
- * perceptual distance. The worst pair is 21 at every count up to twelve, across normal
- * vision, protanopia and deuteranopia, and lightness spans 69 points - so the colours stay
- * separable even where hue perception does not help, and a screenshot in greyscale is
- * still readable.
+ * Only the exact shade of each was tuned, by hill-climbing over variants of every name to
+ * maximise the smallest perceptual distance in CIE Lab, taken as the worst case across
+ * normal vision, protanopia and deuteranopia. The closest pair is 17.4 (pink against gray),
+ * then yellow against orange at 18.9. An earlier palette built from one Tailwind weight per
+ * hue measured 1.8 at ten colours - two shades nobody could separate.
  *
- * Order matters: a level with N colours uses the first N entries, so the most separable
- * colours are used earliest. Changing the order changes every level's appearance.
+ * Black, white and gray are what make this hold up. Every hue sits somewhere on the colour
+ * wheel and they crowd each other as more are added; neutrals sit off the wheel entirely and
+ * separate by lightness, which is also what survives colour blindness.
+ *
+ * Changing the order changes every level's appearance, so it is not a free edit.
  */
 export const PALETTE = [
   '#00000000', // unused; colours are 1-based
-  '#B3261E', // red
-  '#2979FF', // blue
-  '#2E9E4F', // green
-  '#FFE95C', // yellow
-  '#4A148C', // violet
-  '#E65100', // orange
-  '#81D4FA', // sky
-  '#546E7A', // slate
-  '#EFE7D2', // cream
-  '#5D4037', // cocoa
-  '#FFCC80', // apricot
-  '#B0BEC5', // silver
+  '#D92B20', // 1  red
+  '#2FA84A', // 2  green
+  '#007AFF', // 3  blue
+  '#FFD60A', // 4  yellow
+  '#FF8A1E', // 5  orange
+  '#8E3FC0', // 6  violet
+  '#FF66B2', // 7  pink
+  '#7FDBFF', // 8  light blue
+  '#A8E86A', // 9  light green
+  '#B5179E', // 10 magenta
+  '#2C2C2E', // 11 black
+  '#FFFFFF', // 12 white
+  '#7C7C82', // 13 gray
 ] as const;
 
 /**
@@ -58,7 +59,8 @@ export function ballStyle(colour: number): React.CSSProperties {
       'radial-gradient(circle at 33% 27%, rgba(255,255,255,0.34), rgba(255,255,255,0) 42%)',
       'radial-gradient(circle at 50% 120%, rgba(0,0,0,0.30), rgba(0,0,0,0) 50%)',
     ].join(','),
-    boxShadow: 'inset 0 -2px 5px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.25)',
+    boxShadow:
+      'inset 0 -2px 5px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.22)',
   };
 }
 

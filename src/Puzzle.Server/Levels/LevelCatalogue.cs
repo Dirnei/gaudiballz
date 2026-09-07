@@ -80,7 +80,10 @@ public static class LevelCatalogue
         {
             <= 70 => (8, 6),
             <= 90 => (9, 5),
-            _ => (10, 4),
+            <= 110 => (10, 5),
+            <= 130 => (11, 4),
+            <= 150 => (12, 4),
+            _ => (13, 4),
         };
 
         return LevelParameters.ForColours(lateColours, lateCapacity, spareTubes: 1);
@@ -97,7 +100,7 @@ public static class LevelCatalogue
             return "One spare tube from here — but the tubes are deeper.";
         }
 
-        if (levelId == 91)
+        if (levelId == 111)
         {
             return "Shorter tubes. No more room to breathe.";
         }
