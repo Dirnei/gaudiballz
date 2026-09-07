@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Tube } from './Tube';
 import { useGame } from './useGame';
@@ -63,6 +63,22 @@ export function App() {
   }, [game.solved]);
 
   const par = game.info?.parMoves ?? 0;
+
+  // A level that changes the rules announces itself, so a step up in difficulty reads as
+  // intended rather than as the game breaking. Shown once, briefly, on arrival.
+  const note = game.info?.chapterNote ?? null;
+  const [showNote, setShowNote] = useState(false);
+
+  useEffect(() => {
+    if (note === null) {
+      setShowNote(false);
+      return undefined;
+    }
+
+    setShowNote(true);
+    const timer = setTimeout(() => setShowNote(false), 4200);
+    return () => clearTimeout(timer);
+  }, [note]);
 
   return (
     <div
@@ -152,6 +168,22 @@ export function App() {
           ›
         </IconButton>
       </footer>
+
+      <AnimatePresence>
+        {showNote && note !== null && (
+          <motion.div
+            initial={{ opacity: 0, y: -14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -14 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+            className="pointer-events-none absolute inset-x-0 top-16 z-20 flex justify-center px-6"
+          >
+            <div className="rounded-2xl bg-slate-800/95 px-4 py-2.5 text-center text-sm text-slate-200 shadow-xl ring-1 ring-white/10 backdrop-blur">
+              {note}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {game.solved && (

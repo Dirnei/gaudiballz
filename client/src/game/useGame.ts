@@ -19,6 +19,9 @@ import {
 export interface LevelInfo {
   readonly levelId: number;
   readonly parMoves: number;
+  readonly spareTubes: number;
+  /** Set only when this level changes the rules of engagement. */
+  readonly chapterNote: string | null;
 }
 
 interface LevelResponse {
@@ -27,6 +30,8 @@ interface LevelResponse {
   capacity: number;
   colourCount: number;
   parMoves: number;
+  spareTubes: number;
+  chapterNote: string | null;
 }
 
 /**
@@ -75,7 +80,12 @@ export function useGame() {
         }
         const board: Board = createBoard(level.tubes, level.capacity, level.colourCount);
         setState(startGame(board));
-        setInfo({ levelId: level.levelId, parMoves: level.parMoves });
+        setInfo({
+          levelId: level.levelId,
+          parMoves: level.parMoves,
+          spareTubes: level.spareTubes,
+          chapterNote: level.chapterNote,
+        });
         setLoad('ready');
         try {
           localStorage.setItem(LAST_LEVEL_KEY, String(levelId));

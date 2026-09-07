@@ -42,6 +42,8 @@ public sealed class LevelsSlice : ISlice
                 rulesVersion = level.RulesVersion,
                 generatorVersion = level.GeneratorVersion,
                 parMoves = level.ConstructiveSolution.Count,
+                spareTubes = level.Parameters.SpareTubes,
+                chapterNote = LevelCatalogue.ChapterNote(levelId),
             });
         })
         .WithName("GetLevel")
