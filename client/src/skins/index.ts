@@ -56,8 +56,9 @@ export const PALETTE = [
  * so the pattern itself distinguishes them rather than only marking them all as pale — and
  * counting arms works even for someone who cannot separate the hues at all.
  *
- * Drawn in white rather than black: on an already pale ball a dark pattern reads as dirt,
- * while a lighter one reads as sheen.
+ * Two-tone: a light arm with a faint dark one between. White alone on a pale ball is barely
+ * there, and dark alone reads as dirt — pairing them gives the swirl definition without
+ * either problem, and the ball still looks lit rather than marked.
  */
 const SWIRL: Readonly<Record<number, { arms: number; phase: number }>> = {
   4: { arms: 6, phase: 0 }, // yellow
@@ -89,8 +90,8 @@ export function ballStyle(colour: number): React.CSSProperties {
       1,
       0,
       `repeating-conic-gradient(from ${swirl.phase}deg at 38% 34%,` +
-        ` rgba(255,255,255,0.22) 0deg, rgba(255,255,255,0.22) ${step}deg,` +
-        ` rgba(255,255,255,0) ${step}deg, rgba(255,255,255,0) ${step * 2}deg)`,
+        ` rgba(255,255,255,0.26) 0deg, rgba(255,255,255,0.26) ${step}deg,` +
+        ` rgba(0,0,0,0.13) ${step}deg, rgba(0,0,0,0.13) ${step * 2}deg)`,
     );
   }
 
