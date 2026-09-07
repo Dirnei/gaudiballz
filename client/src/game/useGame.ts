@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AFTER_EACH_MOVE,
   ON_REQUEST,
   canUndo as canUndoState,
   createBoard,
+  isLegal,
   isSolved,
   play,
   restart as restartState,
@@ -12,6 +13,7 @@ import {
   undo as undoState,
   type Board,
   type GameState,
+  type Move,
   type Verdict,
 } from '../engine';
 
@@ -71,12 +73,23 @@ export function useGame() {
   const [hintsUsed, setHintsUsed] = useState(0);
   const [hinted, setHinted] = useState<{ from: number; to: number } | null>(null);
 
+  /**
+   * The remaining moves of a winning line, kept between hints.
+   *
+   * Recomputing after every hint is what caused hints to cycle: each search is independent
+   * and may return a different, equally valid line, so hint N and hint N+1 could undo one
+   * another forever. Following one plan removes that entirely; it is only recomputed when
+   * the player deviates from it.
+   */
+  const plan = useRef<Move[]>([]);
+
   useEffect(() => {
     let cancelled = false;
     setLoad('loading');
     setSelected(null);
     setHintsUsed(0);
     setHinted(null);
+    plan.current = [];
 
     fetch(`${API}/api/v1/levels/${levelId}`)
       .then((response) => {
@@ -139,6 +152,8 @@ export function useGame() {
 
       const next = play(state, { from: selected, to: index });
       if (next !== state) {
+        // The player moved for themselves; whatever line was planned no longer applies.
+        plan.current = [];
         setState(next);
         setSelected(null);
       } else {
@@ -162,16 +177,28 @@ export function useGame() {
     [state],
   );
 
-  /** Asks for the next move on a winning path and plays it. Free, and never rationed. */
+  /** Asks for the next move on a winning line and plays it. Free, and never rationed. */
   const useHint = useCallback(() => {
     if (state === null) {
       return;
     }
 
-    const suggestion = solve(state.board, ON_REQUEST).move;
-    if (suggestion === null) {
+    // Follow the existing plan while it still fits the board; only search again once the
+    // player has moved somewhere it does not account for.
+    let planned: Move | null = plan.current[0] ?? null;
+    if (planned === null || !isLegal(state.board, planned)) {
+      const found = solve(state.board, ON_REQUEST);
+      plan.current = [...found.path];
+      planned = plan.current[0] ?? null;
+    }
+
+    if (planned === null) {
       return;
     }
+
+    const suggestion = planned;
+
+    plan.current = plan.current.slice(1);
 
     setHinted(suggestion);
     setSelected(null);
@@ -189,12 +216,14 @@ export function useGame() {
   const undo = useCallback(() => {
     setSelected(null);
     setHinted(null);
+    plan.current = [];
     setState((current) => (current === null ? current : undoState(current)));
   }, []);
 
   const restart = useCallback(() => {
     setSelected(null);
     setHinted(null);
+    plan.current = [];
     setState((current) => (current === null ? current : restartState(current)));
   }, []);
 

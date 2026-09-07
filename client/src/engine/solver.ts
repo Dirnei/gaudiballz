@@ -45,6 +45,14 @@ export interface SolveResult {
   readonly verdict: Verdict;
   /** The next move on a winning path. Present only when the verdict is winnable. */
   readonly move: Move | null;
+  /**
+   * The whole winning sequence, first move first. Empty unless the verdict is winnable.
+   *
+   * Callers that hint repeatedly should follow this rather than asking again after every
+   * move: each search is independent and may return a different, equally valid path, and
+   * two such paths can undo one another indefinitely.
+   */
+  readonly path: readonly Move[];
   readonly nodesExamined: number;
 }
 
@@ -118,14 +126,25 @@ interface Frame {
  * because a hint needs *a* solution, not the shortest one, and breadth-first would hold the
  * whole frontier in memory on a phone to buy optimality nobody asked for.
  */
-export function solve(board: Board, budget: SolveBudget = ON_REQUEST): SolveResult {
+export function solve(
+  board: Board,
+  budget: SolveBudget = ON_REQUEST,
+  /**
+   * The move that produced this position, if any. Its inverse is pruned at the root as
+   * well as deeper down — without this, a search started right after a move is free to
+   * suggest undoing it, and a player following hints one at a time oscillates forever.
+   */
+  previous: Move | null = null,
+): SolveResult {
   if (isSolved(board)) {
-    return { verdict: 'winnable', move: null, nodesExamined: 0 };
+    return { verdict: 'winnable', move: null, path: [], nodesExamined: 0 };
   }
 
   const deadline = Date.now() + budget.maxMillis;
   const visited = new Set<string>([canonicalKey(board)]);
-  const stack: Frame[] = [{ board, moves: orderedMoves(board, null), index: 0, previous: null }];
+  const stack: Frame[] = [
+    { board, moves: orderedMoves(board, previous), index: 0, previous },
+  ];
 
   let nodes = 0;
   let exhausted = true;
@@ -155,8 +174,9 @@ export function solve(board: Board, budget: SolveBudget = ON_REQUEST): SolveResu
     }
 
     if (isSolved(applied.board)) {
-      // The first move of the stack's bottom frame is the one to play now.
-      return { verdict: 'winnable', move: stack[0].moves[stack[0].index - 1], nodesExamined: nodes };
+      // Every frame's current move, root first, is the winning sequence.
+      const path = stack.map((f) => f.moves[f.index - 1]);
+      return { verdict: 'winnable', move: path[0], path, nodesExamined: nodes };
     }
 
     const key = canonicalKey(applied.board);
@@ -178,6 +198,7 @@ export function solve(board: Board, budget: SolveBudget = ON_REQUEST): SolveResu
   return {
     verdict: exhausted ? 'dead' : 'unknown',
     move: null,
+    path: [],
     nodesExamined: nodes,
   };
 }
@@ -186,8 +207,12 @@ export function solve(board: Board, budget: SolveBudget = ON_REQUEST): SolveResu
  * The next move on a winning path, or null when the position cannot be won or the search
  * could not decide.
  */
-export function hint(board: Board, budget: SolveBudget = ON_REQUEST): Move | null {
-  return solve(board, budget).move;
+export function hint(
+  board: Board,
+  budget: SolveBudget = ON_REQUEST,
+  previous: Move | null = null,
+): Move | null {
+  return solve(board, budget, previous).move;
 }
 
 /** Convenience for the interface: is this position definitely lost? */
