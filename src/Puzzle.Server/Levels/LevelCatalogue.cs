@@ -1,58 +1,129 @@
+using System.Collections.Concurrent;
 using Puzzle.Rules;
 
 namespace Puzzle.Server.Levels;
 
 /// <summary>
-/// Maps a level number onto a seed and difficulty, giving the campaign its shape.
+/// Maps a level number onto a difficulty, and picks which generated board the player
+/// actually gets.
 ///
-/// The bands below are measured rather than guessed. Walking generated solutions and
-/// counting the legal moves available at each step:
+/// Those are two separate jobs and the second is easy to overlook. Parameters set the shape
+/// of the campaign; choosing among candidate boards is what stops neighbouring levels
+/// swinging wildly. Without it, levels 51 and 52 measured 40% and 76% tight on identical
+/// settings — same band, but one of them a wall. Across levels 50-70 the spread ran from
+/// 32% to 87%, which is luck, not design.
+///
+/// PARAMETERS. Measured by walking generated solutions and counting the legal moves
+/// available at each step:
 ///
 ///   two spare tubes: 5.5-7.7 options, 12-27% of positions down to three or fewer
 ///   one spare tube:  2.0-3.0 options, 75-95% of positions down to three or fewer
 ///
-/// Removing a spare tube is therefore not a harder level, it is a different game, and it
-/// lands as a wall wherever it is placed. An earlier version dropped it at level 31 with no
-/// other change and the result was brutal - and worse, flat: every level from 31 to 200
-/// measured the same, so the back half had no progression at all.
-///
-/// Two things soften it here. The drop happens once, at level 50, so it reads as a new
-/// chapter rather than a random spike. And it comes with deeper tubes, which measurably buy
-/// some of the freedom back:
-///
-///   one spare, 8 colours, capacity 5:  80% of positions tight
-///   one spare, 9 colours, capacity 5:  68% of positions tight
-///   one spare, 10 colours, capacity 4: 80% of positions tight
-///
-/// which is counter-intuitive and worth stating plainly: on a one-spare board, adding
-/// colours and depth both INCREASE the options available, because they add places to put
-/// things. So the campaign steps the colour count up at the moment it takes the tube away.
-///
-/// Before that point, colours carry the curve on their own. Across 3 to 11 colours the
-/// solution length grows from roughly 12 moves to 39 while the number of options stays
-/// around six, so levels get longer and more tangled without becoming punishing.
+/// Removing a spare tube is not a harder level, it is a different game, and it lands as a
+/// wall wherever it is placed. It happens once, at level 50, and arrives with deeper tubes —
+/// counter-intuitive but measured: on a one-spare board extra colours and extra depth both
+/// ADD places to put things, so eight colours at capacity 6 measures 62% tight against 80%
+/// at capacity 4. Before level 50, colours carry the curve alone on a forgiving board.
 /// </summary>
 public static class LevelCatalogue
 {
     /// <summary>Where the campaign gives up its second spare tube, for good.</summary>
     public const int OneSpareTubeFrom = 50;
 
-    public static Level Build(int levelId)
+    /// <summary>
+    /// How many boards to generate before picking one. Each is cheap, the whole selection
+    /// costs a few milliseconds, and levels are immutable so the result caches hard.
+    /// </summary>
+    private const int Candidates = 14;
+
+    private static readonly IRuleSet Rules = RuleSets.Current;
+
+    /// <summary>
+    /// Levels are immutable and the same handful get requested constantly, so building one
+    /// twice is pure waste. Selection also costs fourteen generations now, which makes the
+    /// cache worth more than it was.
+    /// </summary>
+    private static readonly ConcurrentDictionary<int, Level> Cache = new();
+
+    public static Level Build(int levelId) => Cache.GetOrAdd(levelId, Select);
+
+    private static Level Select(int levelId)
     {
         var parameters = ParametersFor(levelId);
+        var target = TargetTightness(levelId);
 
-        // Mixing the id keeps consecutive levels from feeling related.
-        var seed = Pcg32.SplitMix64((ulong)levelId * 0x9E3779B97F4A7C15UL);
+        Level? best = null;
+        var bestDistance = double.MaxValue;
 
-        return LevelGenerator.Generate(seed, parameters);
+        for (var candidate = 0; candidate < Candidates; candidate++)
+        {
+            // Mixing the id keeps consecutive levels from feeling related; mixing the
+            // candidate index keeps the whole search reproducible.
+            var seed = Pcg32.SplitMix64(
+                ((ulong)levelId * 0x9E3779B97F4A7C15UL) ^ ((ulong)candidate * 0xD1B54A32D192ED03UL));
+
+            var level = LevelGenerator.Generate(seed, parameters);
+            var distance = Math.Abs(Tightness(level) - target);
+
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                best = level;
+            }
+        }
+
+        return best!;
+    }
+
+    /// <summary>
+    /// The share of positions along a level's solution where three or fewer moves are legal.
+    ///
+    /// This predicts how a level feels far better than how many moves it takes. A long level
+    /// with plenty of options is relaxing; a short one with almost none is vicious, because
+    /// every tap is a decision that can lose the board.
+    /// </summary>
+    private static double Tightness(Level level)
+    {
+        var board = level.Board;
+        var total = 0;
+        var tight = 0;
+
+        foreach (var move in level.ConstructiveSolution)
+        {
+            total++;
+            if (Rules.LegalMoves(board).Count <= 3)
+            {
+                tight++;
+            }
+
+            Rules.TryApply(board, move, out board, out _);
+        }
+
+        return total == 0 ? 0 : tight / (double)total;
+    }
+
+    /// <summary>
+    /// What a level at this point in the campaign should feel like. Rises smoothly inside
+    /// each regime so difficulty climbs rather than lurching between neighbours. The two
+    /// regimes get separate ramps because their achievable ranges barely overlap — a
+    /// one-spare board cannot be made relaxing.
+    /// </summary>
+    private static double TargetTightness(int levelId)
+    {
+        if (levelId < OneSpareTubeFrom)
+        {
+            var progress = Math.Clamp((levelId - 1) / (double)(OneSpareTubeFrom - 2), 0, 1);
+            return 0.10 + (progress * 0.26);
+        }
+
+        var late = Math.Clamp((levelId - OneSpareTubeFrom) / 110.0, 0, 1);
+        return 0.45 + (late * 0.40);
     }
 
     public static LevelParameters ParametersFor(int levelId)
     {
         if (levelId < OneSpareTubeFrom)
         {
-            // Colours alone, on a forgiving board. Bands widen as they go: later colours
-            // add more work each and need longer to settle before the next step up.
             var colours = levelId switch
             {
                 <= 5 => 3,
@@ -65,17 +136,6 @@ public static class LevelCatalogue
             return LevelParameters.ForColours(colours, capacity: 4, spareTubes: 2);
         }
 
-        // One spare tube from here. The transition lands on the gentlest one-spare board
-        // there is, which is counter-intuitive and worth stating: with only one spare, extra
-        // colours and extra depth both ADD places to put things, so they loosen the board
-        // rather than tightening it. Measured share of positions with three or fewer moves:
-        //
-        //    8 colours, capacity 6 -> 62%   (level 50 lands here)
-        //    9 colours, capacity 5 -> 68%
-        //   10 colours, capacity 4 -> 80%
-        //
-        // So difficulty past 50 is driven by taking depth away, not by piling on colours,
-        // and the colour count keeps climbing gently for variety rather than for pressure.
         var (lateColours, lateCapacity) = levelId switch
         {
             <= 70 => (8, 6),
@@ -105,9 +165,9 @@ public static class LevelCatalogue
             return "Shorter tubes. No more room to breathe.";
         }
 
-        if (levelId < OneSpareTubeFrom
-            && ParametersFor(levelId).Colours > ParametersFor(levelId - 1).Colours
-            && levelId > 1)
+        if (levelId > 1
+            && levelId < OneSpareTubeFrom
+            && ParametersFor(levelId).Colours > ParametersFor(levelId - 1).Colours)
         {
             return $"A new colour joins — {ParametersFor(levelId).Colours} to sort.";
         }
