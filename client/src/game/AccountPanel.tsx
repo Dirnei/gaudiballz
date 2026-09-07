@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { blockerMessage, passkeyBlocker, register, signIn, usernameAvailable } from './passkeys';
+import { ballStyle, colourForName } from '../skins';
 import type { Identity } from './identity';
 
 interface AccountPanelProps {
@@ -17,9 +18,12 @@ type Status = 'idle' | 'working';
 /**
  * Logging in, registering and logging out.
  *
- * Only ever opened deliberately: nothing in the game prompts for an account, and there is
- * no pitch on completing a level. The words are the ordinary ones — a player should not
- * have to learn what a passkey or an enrolment is in order to keep their progress.
+ * Built from the game's own materials rather than as a generic modal: the panel uses the
+ * glass treatment the tubes have, and an account is represented by a puzzle ball coloured
+ * from its name. That makes it recognisable at a glance and keeps the screen part of the
+ * same world.
+ *
+ * Only ever opened deliberately — nothing in the game prompts for an account.
  */
 export function AccountPanel({
   open,
@@ -33,20 +37,21 @@ export function AccountPanel({
   const [username, setUsername] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
 
-  // Register is a choice first and a form second: the name is only asked for once someone
-  // has said they want an account.
+  // Register is a choice first and a form second.
   const [naming, setNaming] = useState(false);
 
   const blocked = blockerMessage(passkeyBlocker());
   const loggedIn = identity !== null && !identity.isAnonymous;
   const busy = status === 'working';
+  const name = identity?.username ?? '';
+
+  // Previewed live while typing, so the account has a face before it exists.
+  const previewName = naming ? username.trim() : name;
 
   async function handleRegister() {
     setProblem(null);
     setStatus('working');
 
-    // Checked before the device is asked for anything, so a taken name costs a message
-    // rather than a fingerprint prompt followed by a refusal.
     const check = await usernameAvailable(username);
     if (!check.available) {
       setProblem(check.reason ?? 'That name can’t be used.');
@@ -61,23 +66,18 @@ export function AccountPanel({
         onRegistered(username.trim());
         return;
       }
-
       setProblem(
-        outcome === 'name-taken'
-          ? 'Someone just took that name. Try another.'
-          : 'That didn’t complete. Nothing changed — you can try again.',
+        outcome === 'name-taken' ? 'Someone just took that name.' : 'That didn’t complete.',
       );
     } catch {
-      setProblem('That didn’t complete. Nothing changed — you can try again.');
+      setProblem('That didn’t complete.');
     }
-
     setStatus('idle');
   }
 
   async function handleLogIn() {
     setProblem(null);
     setStatus('working');
-
     try {
       const who = await signIn();
       if (who === null) {
@@ -88,11 +88,17 @@ export function AccountPanel({
         return;
       }
     } catch {
-      setProblem('That didn’t complete. Nothing changed — you can try again.');
+      setProblem('That didn’t complete.');
     }
-
     setStatus('idle');
   }
+
+  const primary =
+    'w-full rounded-2xl bg-sky-500 px-4 py-3.5 font-semibold text-white ' +
+    'shadow-lg shadow-sky-500/25 transition-colors hover:bg-sky-400 disabled:opacity-45';
+  const quiet =
+    'w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 transition-colors ' +
+    'hover:text-slate-200 disabled:opacity-45';
 
   return (
     <AnimatePresence>
@@ -102,31 +108,53 @@ export function AccountPanel({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 z-30 flex items-end justify-center bg-slate-950/70 p-4 backdrop-blur-sm sm:items-center"
+          className="absolute inset-0 z-30 flex items-end justify-center bg-slate-950/75 p-4 backdrop-blur-md sm:items-center"
         >
           <motion.div
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 40, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+            initial={{ y: 32, opacity: 0, scale: 0.97 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 24, opacity: 0, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 34 }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-sm rounded-3xl bg-slate-800/95 p-6 shadow-2xl ring-1 ring-white/10"
+            className="w-full max-w-[21rem] overflow-hidden rounded-[1.75rem] p-7 text-center shadow-2xl"
+            style={{
+              // The same glass the tubes are made of.
+              backgroundImage:
+                'linear-gradient(160deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 30%,' +
+                ' rgba(255,255,255,0.02) 70%, rgba(255,255,255,0.06) 100%),' +
+                'radial-gradient(120% 90% at 50% -10%, #1B2748 0%, #131C36 45%, #0B1122 100%)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              borderTopColor: 'rgba(255,255,255,0.22)',
+            }}
           >
-            {/* The state, said rather than left to be inferred. */}
-            {loggedIn ? (
-              <>
-                <p className="text-xs uppercase tracking-widest text-slate-500">Logged in as</p>
-                <h2 className="mt-1 text-xl font-semibold">
-                  {identity.username ?? 'your account'}
-                </h2>
-              </>
-            ) : (
-              <h2 className="text-lg font-semibold">Not logged in</h2>
-            )}
+            {/* An account, drawn as one of the game's own pieces. */}
+            <motion.div
+              key={previewName === '' ? 'empty' : previewName}
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 480, damping: 20 }}
+              className="mx-auto h-16 w-16"
+              style={
+                previewName === ''
+                  ? {
+                      borderRadius: '9999px',
+                      border: '2px dashed rgba(255,255,255,0.18)',
+                    }
+                  : ballStyle(colourForName(previewName))
+              }
+            />
+
+            <h2 className="mt-4 text-xl font-semibold tracking-tight">
+              {loggedIn ? name : naming ? 'Pick a name' : 'Not logged in'}
+            </h2>
 
             {blocked !== null ? (
-              <p className="mt-3 text-sm leading-relaxed text-slate-400">{blocked}</p>
-            ) : loggedIn ? null : naming ? (
+              <p className="mt-2 text-sm leading-relaxed text-slate-400">{blocked}</p>
+            ) : loggedIn ? (
+              <button type="button" onClick={onLogOut} className={`mt-6 ${quiet}`}>
+                Log out
+              </button>
+            ) : naming ? (
               <>
                 <input
                   value={username}
@@ -134,24 +162,24 @@ export function AccountPanel({
                     setUsername(e.target.value);
                     setProblem(null);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && username.trim().length >= 3 && !busy) {
+                      void handleRegister();
+                    }
+                  }}
                   autoComplete="username"
                   spellCheck={false}
                   maxLength={20}
                   autoFocus
                   placeholder="Username"
-                  className="mt-4 w-full rounded-xl bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 outline-none ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-sky-400/60"
+                  className="mt-5 w-full rounded-2xl bg-slate-950/50 px-4 py-3 text-center text-base text-slate-100 outline-none ring-1 ring-white/10 transition placeholder:text-slate-600 focus:ring-2 focus:ring-sky-400/70"
                 />
-
-                {/* Kept because there is genuinely no recovery route. One line says it. */}
-                <p className="mt-2 text-xs text-slate-500">
-                  Your device is the key. Lose them all and the account goes too.
-                </p>
 
                 <button
                   type="button"
                   onClick={handleRegister}
                   disabled={busy || username.trim().length < 3}
-                  className="mt-4 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25 disabled:opacity-40"
+                  className={`mt-3 ${primary}`}
                 >
                   {busy ? 'Waiting for your device…' : 'Create account'}
                 </button>
@@ -163,19 +191,18 @@ export function AccountPanel({
                     setProblem(null);
                   }}
                   disabled={busy}
-                  className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 disabled:opacity-50"
+                  className={`mt-1 ${quiet}`}
                 >
                   Back
                 </button>
               </>
             ) : (
               <>
-                {/* Logging in is what most people are here to do; registering happens once. */}
                 <button
                   type="button"
                   onClick={handleLogIn}
                   disabled={busy}
-                  className="mt-5 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25 disabled:opacity-50"
+                  className={`mt-6 ${primary}`}
                 >
                   {busy ? 'Waiting for your device…' : 'Log in'}
                 </button>
@@ -184,37 +211,25 @@ export function AccountPanel({
                   type="button"
                   onClick={() => setNaming(true)}
                   disabled={busy}
-                  className="mt-2 w-full rounded-2xl px-4 py-2 text-sm text-slate-400 disabled:opacity-50"
+                  className={`mt-1 ${quiet}`}
                 >
                   Register
                 </button>
               </>
             )}
 
-            {problem !== null && (
-              <p className="mt-3 text-center text-xs text-rose-300">{problem}</p>
-            )}
-
-            {/* Only where there is an account to leave: anonymous is the logged-out state. */}
-            {/* Only where there is an account to leave: anonymous is the logged-out state.
-                No confirmation — logging back in is one tap on a passkey. */}
-            {loggedIn && (
-              <button
-                type="button"
-                onClick={onLogOut}
-                className="mt-5 w-full rounded-2xl border-t border-white/10 px-4 py-3 pt-4 text-sm text-slate-400"
-              >
-                Log out
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="mt-3 w-full rounded-2xl px-4 py-2 text-sm text-slate-500"
-            >
-              Close
-            </button>
+            <AnimatePresence>
+              {problem !== null && (
+                <motion.p
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="mt-3 text-xs text-rose-300"
+                >
+                  {problem}
+                </motion.p>
+              )}
+            </AnimatePresence>
           </motion.div>
         </motion.div>
       )}

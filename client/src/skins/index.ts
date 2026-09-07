@@ -120,3 +120,20 @@ export const TUBE_STYLE: React.CSSProperties = {
   borderTop: '1px solid rgba(255,255,255,0.22)',
   boxShadow: 'inset 0 -8px 18px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.28)',
 };
+
+/**
+ * A ball colour derived from a name, so an account is recognisable at a glance by the same
+ * pieces the game is made of rather than by a generic avatar.
+ *
+ * Stable for a given name and spread across the palette; the neutrals at the end are
+ * skipped because a grey or white ball reads as "no account" rather than as someone's.
+ */
+export function colourForName(name: string): number {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+
+  const vivid = 10; // red through magenta; black, white and grey are excluded
+  return 1 + (hash % vivid);
+}

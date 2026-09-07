@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Tube } from './Tube';
 import { useGame } from './useGame';
 import { AccountPanel } from './AccountPanel';
+import { ballStyle, colourForName } from '../skins';
 import { haptics } from './haptics';
 
 /** A tube is finished when it is full and single-coloured; empty tubes are just empty. */
@@ -132,10 +133,14 @@ export function App() {
             onClick={() => setAccountOpen(true)}
             className="flex items-center gap-1.5 rounded-full bg-white/8 py-1.5 pl-2.5 pr-3 text-sm text-slate-300 ring-1 ring-white/10"
           >
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="8" r="3.2" />
-              <path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" strokeLinecap="round" />
-            </svg>
+            {game.identity !== null && !game.identity.isAnonymous ? (
+              <span
+                className="h-4 w-4 shrink-0"
+                style={ballStyle(colourForName(game.identity.username ?? game.identity.playerId))}
+              />
+            ) : (
+              <span className="h-4 w-4 shrink-0 rounded-full border border-dashed border-white/25" />
+            )}
             <span className="max-w-[7rem] truncate">
               {game.identity !== null && !game.identity.isAnonymous
                 ? (game.identity.username ?? 'Account')
