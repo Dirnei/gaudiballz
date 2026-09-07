@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Puzzle.Rules.Tests/Puzzle.Rules.Tests.csproj" />
+    <Project Path="src/Puzzle.Rules/Puzzle.Rules.csproj" />
+    <Project Path="src/Puzzle.Server.Tests/Puzzle.Server.Tests.csproj" />
+    <Project Path="src/Puzzle.Server/Puzzle.Server.csproj" />
+  </Folder>
+</Solution>

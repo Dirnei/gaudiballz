@@ -1,0 +1,66 @@
+schema: spec-driven
+
+context: |
+  PRODUCT
+  A free-to-play sort puzzle game in the ball-sort / nut-sort / water-sort genre,
+  playable in the browser on mobile and desktop. Deliberately ad-free and with no
+  monetization of any kind: helpers that competitors paywall (extra tube, hint) are
+  free and unlimited here. There is no premium tier, no currency, no energy system,
+  and no telemetry beyond what the player's own stats need.
+
+  CORE MECHANIC
+  A board is a set of tubes, each a stack holding up to a fixed capacity of coloured
+  items. A move takes the top run of same-coloured items from a source tube and places
+  it on a destination tube. The move is legal only when the source is non-empty, the
+  destination is not the source, and the destination is either empty or has a matching
+  top colour with room to spare. The board is solved when every tube is either empty or
+  holds only one colour and is full. "Ball sort", "nut sort" and "thread jam" are the
+  same mechanic with different art, so they are visual skins over one engine, never
+  separate game modes.
+
+  ARCHITECTURE
+  Client plays, server verifies. The rules engine runs in the browser so taps are
+  instant and the game works offline; the backend replays a submitted move list to
+  confirm a completion before it counts. This means two implementations of the same
+  rules exist (TypeScript and C#) and they MUST agree exactly. They are kept in step by
+  a shared, language-neutral conformance fixture set; any change to rule behaviour
+  changes the fixtures first.
+
+  Levels are procedurally generated server-side by reverse-shuffling a solved board, so
+  every level is solvable by construction and is fully reproducible from its seed and
+  difficulty parameters. Persistence stores seeds and parameters, never board contents.
+  Generation must be deterministic across machines and .NET versions, so it uses an
+  explicitly specified PRNG rather than any platform default.
+
+  Players get an anonymous id on first launch with no signup; linking an account later
+  is optional and exists only to sync progress between phone and PC.
+
+  TECH STACK
+  Backend: C# / .NET 10, Akka.NET, MongoDB.
+  Frontend: React + TypeScript + Vite, DOM/SVG rendering with Motion for animation,
+  Tailwind for styling, shipped as an installable PWA. No WebGL engine: the board is a
+  few dozen elements and DOM keeps text crisp, layout responsive and accessibility free.
+  The pure rules engine, the generator and the solver live in a domain library with no
+  Akka, no Mongo and no I/O dependencies.
+
+  CONVENTIONS
+  Capability specs are flat kebab-case directories under openspec/specs/.
+  Specs state observable behaviour only; algorithms, class names and library choices
+  belong in a change's design.md, not in a spec.
+  Git commit messages are a single subject line, 74 characters maximum, with no body.
+  CI runs `openspec validate --all --strict`, so every requirement needs SHALL or MUST,
+  at least one `#### Scenario:` heading, and a Purpose of at least 50 characters.
+
+rules:
+  specs:
+    - Never name a class, function, library or algorithm in a spec; describe the
+      observable behaviour a player or client can rely on instead.
+    - Rule behaviour that both the TypeScript and C# engines implement must be stated
+      precisely enough to be turned into a shared conformance fixture.
+  design:
+    - State explicitly where Akka.NET actors earn their place over a plain service
+      class, and say so honestly when they do not.
+    - Call out any determinism requirement, since seeded generation must reproduce
+      identically across machines and runtimes.
+  tasks:
+    - Order tasks so the test that proves a behaviour is written before the code.

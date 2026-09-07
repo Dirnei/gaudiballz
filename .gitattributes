@@ -1,0 +1,11 @@
+# Normalise to LF in the repository, matching .editorconfig. Without this the working
+# tree and CI (Linux) disagree about every line, and diffs fill with whitespace churn.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+
+# Generated; keep it out of diffs and language stats.
+client/package-lock.json linguist-generated=true -diff

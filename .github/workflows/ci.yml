@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  CI: true
+
+jobs:
+  specs:
+    name: Specs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install OpenSpec
+        run: npm install -g @fission-ai/openspec@1.9.0
+      # Strict mode: every requirement needs SHALL or MUST, at least one scenario, and
+      # every capability a Purpose of 50+ characters. Enforced from the first change so
+      # the spec set never accumulates requirements nobody can test.
+      - name: Validate specs and changes
+        run: openspec validate --all --strict --no-interactive
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release
+      # Docker is available on ubuntu-latest, so the Testcontainers-backed suites run
+      # here too. The kernel and architecture suites have no container dependency.
+      #
+      # Test projects run on Microsoft Testing Platform: each is a self-hosting executable
+      # rather than a library a VSTest host loads.
+      - run: dotnet test --no-build --configuration Release
+
+  client:
+    name: Client
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+
+  # The gate that matters most. Both engines run against the same committed fixtures in
+  # conformance/v1/, and this job blocks merges on either side. Its failure mode is a
+  # player solving a puzzle and being told they did not.
+  conformance:
+    name: Cross-language conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      # --filter-trait, not --filter: MTP silently ignores the VSTest-style flag, which
+      # would run the whole suite while looking like a targeted gate.
+      - run: dotnet test src/Puzzle.Rules.Tests -- --filter-trait "Category=Conformance"
+      - run: npm ci
+        working-directory: client
+      - run: npm run test:conformance
+        working-directory: client

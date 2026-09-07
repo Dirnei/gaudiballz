@@ -1,0 +1,17 @@
+<!--
+  The rules engine: board model, legal-move rule, move application, win condition, plus
+  seeded generation and solving.
+
+  It references no packages at all, and Puzzle.Rules.Tests asserts that. This is the one
+  boundary worth enforcing in the whole repository: the engine has a TypeScript twin in
+  client/src/engine, and the conformance fixtures only work if its behaviour is a pure
+  function of its inputs.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+</Project>

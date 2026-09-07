@@ -1,0 +1,47 @@
+## .NET
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.user
+*.suo
+*.userprefs
+.vs/
+.vscode/
+!.vscode/extensions.json
+*.dotCover
+BenchmarkDotNet.Artifacts/
+TestResults/
+coverage*.json
+coverage*.xml
+*.coverage
+
+## Node / client
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+## PWA build output
+client/dev-dist/
+client/public/sw.js
+client/public/workbox-*.js
+
+## Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Local data
+docker/mongo-data/

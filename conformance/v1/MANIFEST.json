@@ -1,0 +1,6 @@
+{
+  "rulesVersion": 1,
+  "generatorVersion": 1,
+  "description": "Shared behavioural fixtures for the C# and TypeScript rules engines. Both suites run against these files and both block merges. See docs/RULES.md for the numbered rules each fixture cites.",
+  "files": {}
+}

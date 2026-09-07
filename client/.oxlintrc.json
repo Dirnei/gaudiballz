@@ -1,0 +1,45 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc", "import"],
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  },
+  "overrides": [
+    {
+      "files": ["src/engine/**/*.ts", "src/engine/**/*.tsx"],
+      "excludeFiles": ["src/engine/**/*.test.ts", "src/engine/**/*.test.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "react",
+                "message": "The engine must stay pure. It is one half of a cross-language pair with Puzzle.Domain and is held in step by conformance fixtures; importing React makes its behaviour depend on a render tree. Put UI state in src/game/ instead."
+              },
+              {
+                "name": "react-dom",
+                "message": "The engine must stay pure - no DOM. Put rendering in src/skins/ and state binding in src/game/."
+              },
+              {
+                "name": "motion",
+                "message": "Animation belongs in src/game/ and src/skins/, not in the rules engine."
+              },
+              {
+                "name": "motion/react",
+                "message": "Animation belongs in src/game/ and src/skins/, not in the rules engine."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["../game/*", "../skins/*", "@/game/*", "@/skins/*"],
+                "message": "The engine sits below game and skins and must not depend upward on them."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

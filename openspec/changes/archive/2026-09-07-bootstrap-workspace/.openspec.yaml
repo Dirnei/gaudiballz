@@ -1,0 +1,8 @@
+schema: spec-driven
+created: 2026-09-06
+goal: A buildable .NET 10 solution and Vite client skeleton with CI, so every
+  later change lands on something testable
+skip_specs: true
+affected_areas:
+  - tooling
+  - build

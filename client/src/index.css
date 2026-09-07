@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark light;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  /* The board is the interface; nothing should scroll or rubber-band under a tap. */
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}

@@ -1,0 +1,30 @@
+services:
+
+  # A single-node replica set rather than a standalone mongod.
+  #
+  # Standalone would be simpler, but it silently lacks behaviour the application depends
+  # on: TTL indexes, majority write concern, and change streams all require a replica
+  # set. Testing against standalone and deploying against a replica set means the
+  # integration suite validates a topology nobody runs.
+  mongo:
+    image: mongo:8
+    container_name: puzzle-mongo
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initiates the set on first run and is a no-op afterwards, so `up` is idempotent.
+      test: >
+        mongosh --quiet --eval "
+          try { rs.status().ok }
+          catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}).ok }
+        "
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  mongo-data:
