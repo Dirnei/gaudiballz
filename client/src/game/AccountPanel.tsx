@@ -170,23 +170,26 @@ export function AccountPanel({
                 </button>
               </>
             ) : (
-              <div className="mt-5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNaming(true)}
-                  className="flex-1 rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25"
-                >
-                  Register
-                </button>
+              <>
+                {/* Logging in is what most people are here to do; registering happens once. */}
                 <button
                   type="button"
                   onClick={handleLogIn}
                   disabled={busy}
-                  className="flex-1 rounded-2xl bg-white/8 px-4 py-3 font-medium text-slate-200 ring-1 ring-white/10 disabled:opacity-50"
+                  className="mt-5 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25 disabled:opacity-50"
                 >
-                  {busy ? '…' : 'Log in'}
+                  {busy ? 'Waiting for your device…' : 'Log in'}
                 </button>
-              </div>
+
+                <button
+                  type="button"
+                  onClick={() => setNaming(true)}
+                  disabled={busy}
+                  className="mt-2 w-full rounded-2xl px-4 py-2 text-sm text-slate-400 disabled:opacity-50"
+                >
+                  Register
+                </button>
+              </>
             )}
 
             {problem !== null && (
