@@ -11,6 +11,7 @@ interface AccountPanelProps {
   readonly onLoggedIn: (identity: Identity) => void;
   readonly onRegistered: (username: string) => void;
   readonly onLogOut: () => void;
+  readonly onUnlockWithCode: (code: string) => Promise<{ levelId: number } | null>;
 }
 
 type Status = 'idle' | 'working';
@@ -32,6 +33,7 @@ export function AccountPanel({
   onLoggedIn,
   onRegistered,
   onLogOut,
+  onUnlockWithCode,
 }: AccountPanelProps) {
   const [status, setStatus] = useState<Status>('idle');
   const [username, setUsername] = useState('');
@@ -39,6 +41,10 @@ export function AccountPanel({
 
   // Register is a choice first and a form second.
   const [naming, setNaming] = useState(false);
+
+  const [levelCode, setLevelCode] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [enteringCode, setEnteringCode] = useState(false);
 
   const blocked = blockerMessage(passkeyBlocker());
   const loggedIn = identity !== null && !identity.isAnonymous;
@@ -91,6 +97,20 @@ export function AccountPanel({
       setProblem('That didn’t complete.');
     }
     setStatus('idle');
+  }
+
+  async function handleCodeUnlock() {
+    setCodeError(null);
+    setStatus('working');
+    const result = await onUnlockWithCode(levelCode);
+    setStatus('idle');
+    if (result === null) {
+      setCodeError('Invalid code.');
+    } else {
+      setEnteringCode(false);
+      setLevelCode('');
+      onClose();
+    }
   }
 
   const primary =
@@ -230,6 +250,71 @@ export function AccountPanel({
                 </motion.p>
               )}
             </AnimatePresence>
+
+            {/* Level code entry — always available, no account needed. */}
+            <div className="mt-6 border-t border-white/8 pt-5">
+              {enteringCode ? (
+                <>
+                  <input
+                    value={levelCode}
+                    onChange={(e) => {
+                      setLevelCode(e.target.value);
+                      setCodeError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && levelCode.trim().length > 0 && !busy) {
+                        void handleCodeUnlock();
+                      }
+                    }}
+                    autoComplete="off"
+                    spellCheck={false}
+                    maxLength={6}
+                    autoFocus
+                    placeholder="Enter level code"
+                    className="w-full rounded-2xl bg-slate-950/50 px-4 py-3 text-center font-mono text-base uppercase tracking-widest text-slate-100 outline-none ring-1 ring-white/10 transition placeholder:text-slate-600 placeholder:tracking-normal placeholder:normal-case focus:ring-2 focus:ring-sky-400/70"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleCodeUnlock()}
+                    disabled={busy || levelCode.trim().length === 0}
+                    className={`mt-3 ${primary}`}
+                  >
+                    {busy ? 'Checking…' : 'Unlock'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEnteringCode(false);
+                      setCodeError(null);
+                      setLevelCode('');
+                    }}
+                    className={`mt-1 ${quiet}`}
+                  >
+                    Cancel
+                  </button>
+                  <AnimatePresence>
+                    {codeError !== null && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className="mt-3 text-xs text-rose-300"
+                      >
+                        {codeError}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEnteringCode(true)}
+                  className={quiet}
+                >
+                  Enter a level code
+                </button>
+              )}
+            </div>
           </motion.div>
         </motion.div>
       )}

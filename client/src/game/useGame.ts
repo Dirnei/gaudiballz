@@ -46,6 +46,7 @@ interface LevelResponse {
   parMoves: number;
   spareTubes: number;
   chapterNote: string | null;
+  code: string;
 }
 
 /**
@@ -59,6 +60,7 @@ interface LevelResponse {
 import { API } from './identity';
 
 const LAST_LEVEL_KEY = 'puzzle.lastLevel';
+const UNLOCKED_LEVEL_KEY = 'puzzle.unlockedLevel';
 
 export type LoadState = 'loading' | 'ready' | 'error';
 
@@ -78,11 +80,26 @@ export function useGame() {
 
   const [state, setState] = useState<GameState | null>(null);
   const [info, setInfo] = useState<LevelInfo | null>(null);
+  const [levelCode, setLevelCode] = useState<string | null>(null);
   const [load, setLoad] = useState<LoadState>('loading');
   const [selected, setSelected] = useState<number | null>(null);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [attempt, setAttempt] = useState<Attempt>(startLevel);
   const [hinted, setHinted] = useState<{ from: number; to: number } | null>(null);
+
+  const [unlockedLevel, setUnlockedLevel] = useState(() => {
+    try {
+      const stored = localStorage.getItem(UNLOCKED_LEVEL_KEY);
+      return stored === null ? 0 : Math.max(0, Number(stored) || 0);
+    } catch {
+      return 0;
+    }
+  });
+
+  const levelCeiling = Math.max(
+    (progress?.highestCompleted ?? 0) + 1,
+    unlockedLevel,
+  );
 
   /**
    * The remaining moves of a winning line, kept between hints.
@@ -160,6 +177,7 @@ export function useGame() {
           spareTubes: level.spareTubes,
           chapterNote: level.chapterNote,
         });
+        setLevelCode(level.code);
         setLoad('ready');
         try {
           localStorage.setItem(LAST_LEVEL_KEY, String(levelId));
@@ -321,8 +339,12 @@ export function useGame() {
   }, [state, levelId, hintsUsed]);
 
   const goToLevel = useCallback((next: number) => {
-    setLevelId(Math.max(1, next));
-  }, []);
+    const clamped = Math.max(1, next);
+    if (clamped > levelCeiling) {
+      return;
+    }
+    setLevelId(clamped);
+  }, [levelCeiling]);
 
   /**
    * Signing in on a device that has already played: this device's progress is folded into
@@ -358,13 +380,40 @@ export function useGame() {
     setLevelId(1);
     try {
       localStorage.removeItem(LAST_LEVEL_KEY);
+      localStorage.removeItem(UNLOCKED_LEVEL_KEY);
     } catch {
       // Nothing to clear.
     }
+    setUnlockedLevel(0);
 
     // Straight back to playable, with nothing to dismiss.
     setIdentity(await ensureIdentity());
   }, []);
+
+  const unlockWithCode = useCallback(async (code: string): Promise<{ levelId: number } | null> => {
+    try {
+      const response = await fetch(`${API}/api/v1/levels/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+      if (!response.ok) {
+        return null;
+      }
+      const result = (await response.json()) as { levelId: number };
+      const newUnlock = Math.max(unlockedLevel, result.levelId);
+      setUnlockedLevel(newUnlock);
+      try {
+        localStorage.setItem(UNLOCKED_LEVEL_KEY, String(newUnlock));
+      } catch {
+        // Best-effort persistence.
+      }
+      setLevelId(result.levelId);
+      return result;
+    } catch {
+      return null;
+    }
+  }, [unlockedLevel]);
 
   const registered = useCallback((username: string) => {
     setIdentity((current) =>
@@ -373,6 +422,8 @@ export function useGame() {
 
   return {
     levelId,
+    levelCode,
+    levelCeiling,
     info,
     load,
     state,
@@ -382,8 +433,8 @@ export function useGame() {
     loggedIn: signedIn,
     logOut: signOut,
     registered,
+    unlockWithCode,
     solved: state !== null && isSolved(state.board),
-    // Only what the player could see for themselves.
     stuck: noMoves,
     undosRemaining: attempt.undosRemaining,
     undosUsed: attempt.undosUsed,

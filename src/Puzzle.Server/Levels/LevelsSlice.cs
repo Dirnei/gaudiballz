@@ -20,6 +20,7 @@ public sealed class LevelsSlice : ISlice
 
     public static void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
+        var codes = endpoints.ServiceProvider.GetRequiredService<LevelCodes>();
         var group = endpoints.MapGroup("/api/v1/levels").WithTags("Levels");
 
         group.MapGet("/{levelId:int}", (int levelId) =>
@@ -44,10 +45,22 @@ public sealed class LevelsSlice : ISlice
                 parMoves = level.ConstructiveSolution.Count,
                 spareTubes = level.Parameters.SpareTubes,
                 chapterNote = LevelCatalogue.ChapterNote(levelId),
+                code = codes.CodeFor(levelId),
             });
         })
         .WithName("GetLevel")
         // Immutable: the same id always yields the same board.
         .CacheOutput(policy => policy.Expire(TimeSpan.FromDays(365)));
+
+        group.MapPost("/unlock", (UnlockRequest request) =>
+        {
+            var levelId = codes.LevelFor(request.Code);
+            return levelId is null
+                ? Results.BadRequest(new { error = "Invalid level code." })
+                : Results.Ok(new { levelId });
+        })
+        .WithName("UnlockLevel");
     }
+
+    private sealed record UnlockRequest(string Code);
 }

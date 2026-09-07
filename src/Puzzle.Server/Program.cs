@@ -38,6 +38,10 @@ builder.Services.AddSingleton(actors);
 builder.Services.AddSingleton(new PlayerRegistry(
     actors.ActorOf(PlayerRegistryActor.PropsFor(store), "players")));
 
+builder.Services.AddSingleton(new LevelCodes(
+    builder.Configuration["LevelCodes:Secret"]
+    ?? "local-development-level-code-secret"));
+
 // ---- slices ---------------------------------------------------------------
 
 PlayerIdentitySlice.AddServices(builder.Services);

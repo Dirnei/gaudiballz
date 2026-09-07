@@ -57,6 +57,52 @@ function IconButton({
   );
 }
 
+function copyText(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  }
+  return fallbackCopy(text);
+}
+
+function fallbackCopy(text: string): Promise<void> {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.position = 'fixed';
+  el.style.opacity = '0';
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  return Promise.resolve();
+}
+
+function LevelBadge({ levelId, code }: { levelId: number; code: string | null }) {
+  const [copied, setCopied] = useState(false);
+
+  function copy() {
+    if (code === null) return;
+    void copyText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="group flex items-center gap-2.5 rounded-full bg-white/8 py-1.5 pl-3.5 pr-3 ring-1 ring-white/10"
+    >
+      <span className="text-sm font-semibold">Level {levelId}</span>
+      {code !== null && (
+        <span className="rounded-md bg-white/6 px-1.5 py-0.5 font-mono text-[0.65rem] tracking-widest text-slate-400 transition-colors group-active:bg-sky-500/20 group-active:text-sky-300">
+          {copied ? '✓' : code}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export function App() {
   const game = useGame();
   const completedCount = useRef(0);
@@ -126,9 +172,7 @@ export function App() {
       />
 
       <header className="relative flex items-center justify-between px-5 pt-3">
-        <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm font-semibold ring-1 ring-white/10">
-          Level {game.levelId}
-        </div>
+        <LevelBadge levelId={game.levelId} code={game.levelCode} />
 
         <div className="flex items-center gap-2">
           <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm tabular-nums ring-1 ring-white/10">
@@ -233,7 +277,7 @@ export function App() {
         >
           ↻
         </IconButton>
-        <IconButton label="Next level" onClick={() => game.goToLevel(game.levelId + 1)}>
+        <IconButton label="Next level" onClick={() => game.goToLevel(game.levelId + 1)} disabled={game.levelId >= game.levelCeiling}>
           ›
         </IconButton>
       </footer>
@@ -254,6 +298,7 @@ export function App() {
           setAccountOpen(false);
           void game.logOut();
         }}
+        onUnlockWithCode={game.unlockWithCode}
       />
 
       {/* A restart throws away the progress on the level, so it is asked about first. */}
