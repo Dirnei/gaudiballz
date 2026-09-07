@@ -45,3 +45,6 @@ desktop.ini
 
 ## Local data
 docker/mongo-data/
+
+## rtk writes its vitest JSON report here
+client/.vitest/

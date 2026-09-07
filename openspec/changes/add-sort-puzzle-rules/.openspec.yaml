@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-09-07
+goal: One rule set implemented twice and proven identical, so a solved board is
+  never rejected

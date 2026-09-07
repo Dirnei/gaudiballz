@@ -1,0 +1,274 @@
+{
+  "requirement": "legality",
+  "cases": [
+    {
+      "id": "legal-matching-colour",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 0,
+        "to": 1
+      },
+      "expect": {
+        "rejection": "None",
+        "movedCount": 1,
+        "resultBoard": {
+          "tubes": [
+            [
+              1,
+              1
+            ],
+            [
+              1,
+              2,
+              2,
+              2
+            ],
+            [
+              1
+            ],
+            [
+              2
+            ]
+          ],
+          "capacity": 4,
+          "colourCount": 2
+        }
+      }
+    },
+    {
+      "id": "reject-colour-mismatch",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 2,
+        "to": 1
+      },
+      "expect": {
+        "rejection": "ColourMismatch",
+        "movedCount": 0
+      }
+    },
+    {
+      "id": "reject-destination-full",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            2,
+            2
+          ],
+          [],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 1,
+        "to": 0
+      },
+      "expect": {
+        "rejection": "DestinationFull",
+        "movedCount": 0
+      }
+    },
+    {
+      "id": "reject-source-empty",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            2,
+            2
+          ],
+          [],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 2,
+        "to": 3
+      },
+      "expect": {
+        "rejection": "SourceEmpty",
+        "movedCount": 0
+      }
+    },
+    {
+      "id": "reject-same-tube",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 0,
+        "to": 0
+      },
+      "expect": {
+        "rejection": "SameTube",
+        "movedCount": 0
+      }
+    },
+    {
+      "id": "reject-tube-out-of-range",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 0,
+        "to": 9
+      },
+      "expect": {
+        "rejection": "TubeOutOfRange",
+        "movedCount": 0
+      }
+    },
+    {
+      "id": "legal-useless-onto-empty",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1,
+            2,
+            2
+          ],
+          [
+            2,
+            2
+          ],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 0,
+        "to": 3
+      },
+      "expect": {
+        "rejection": "None",
+        "movedCount": 2,
+        "resultBoard": {
+          "tubes": [
+            [],
+            [
+              1,
+              1,
+              2,
+              2
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "capacity": 4,
+          "colourCount": 2
+        }
+      }
+    }
+  ]
+}

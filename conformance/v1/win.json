@@ -1,0 +1,111 @@
+{
+  "requirement": "win",
+  "cases": [
+    {
+      "id": "solved-all-full-and-uniform",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            2,
+            2
+          ],
+          [],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "expect": {
+        "solved": true
+      }
+    },
+    {
+      "id": "not-solved-colour-split-across-partial-tubes",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            2,
+            2
+          ],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "expect": {
+        "solved": false
+      }
+    },
+    {
+      "id": "not-solved-mixed-tube",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2,
+            2
+          ],
+          [],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "expect": {
+        "solved": false
+      }
+    },
+    {
+      "id": "not-solved-single-partial-tube",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            2,
+            2
+          ],
+          [
+            1
+          ],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "expect": {
+        "solved": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "requirement": "pour-amount",
+  "cases": [
+    {
+      "id": "whole-run-fits",
+      "board": {
+        "tubes": [
+          [
+            2,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 0,
+        "to": 3
+      },
+      "expect": {
+        "rejection": "None",
+        "movedCount": 2,
+        "resultBoard": {
+          "tubes": [
+            [
+              2
+            ],
+            [
+              2,
+              2,
+              1
+            ],
+            [
+              1,
+              2
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "capacity": 4,
+          "colourCount": 2
+        }
+      }
+    },
+    {
+      "id": "run-exactly-fills",
+      "board": {
+        "tubes": [
+          [
+            2,
+            2,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            1
+          ],
+          [
+            1
+          ],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 0,
+        "to": 1
+      },
+      "expect": {
+        "rejection": "None",
+        "movedCount": 1,
+        "resultBoard": {
+          "tubes": [
+            [
+              2,
+              2,
+              1
+            ],
+            [
+              2,
+              2,
+              1,
+              1
+            ],
+            [
+              1
+            ],
+            []
+          ],
+          "capacity": 4,
+          "colourCount": 2
+        }
+      }
+    },
+    {
+      "id": "partial-pour-space-of-one",
+      "board": {
+        "tubes": [
+          [
+            2,
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            1
+          ],
+          [
+            2
+          ],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 0,
+        "to": 1
+      },
+      "expect": {
+        "rejection": "None",
+        "movedCount": 1,
+        "resultBoard": {
+          "tubes": [
+            [
+              2,
+              1,
+              1
+            ],
+            [
+              2,
+              2,
+              1,
+              1
+            ],
+            [
+              2
+            ],
+            []
+          ],
+          "capacity": 4,
+          "colourCount": 2
+        }
+      }
+    },
+    {
+      "id": "only-topmost-run-moves",
+      "board": {
+        "tubes": [
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "move": {
+        "from": 0,
+        "to": 3
+      },
+      "expect": {
+        "rejection": "None",
+        "movedCount": 2,
+        "resultBoard": {
+          "tubes": [
+            [
+              1
+            ],
+            [
+              1,
+              1,
+              2
+            ],
+            [
+              1
+            ],
+            [
+              2,
+              2,
+              2
+            ]
+          ],
+          "capacity": 4,
+          "colourCount": 2
+        }
+      }
+    }
+  ]
+}

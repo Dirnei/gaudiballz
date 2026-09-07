@@ -1,6 +1,11 @@
 {
   "rulesVersion": 1,
   "generatorVersion": 1,
-  "description": "Shared behavioural fixtures for the C# and TypeScript rules engines. Both suites run against these files and both block merges. See docs/RULES.md for the numbered rules each fixture cites.",
-  "files": {}
+  "description": "Shared behavioural fixtures for the C# and TypeScript rules engines. Both suites run against these files and both block merges. Each file cites the requirement it exercises from the sort-puzzle-rules capability spec.",
+  "files": {
+    "enumeration.json": "8e3ad27e2d8ae4093e47ed71dcf728d769d29b162451a52616ae9d7906998d0e",
+    "legality.json": "633e600e4ae13e389c3927d6aa4b720f16e3cda960479f393d9ca12d7e293b12",
+    "pour-amount.json": "c0eaac92b43fb5f97234822bfdbba1bf8cffb30aea672a70e61bc761c649d4aa",
+    "win.json": "4b56244411edead1d76ed543e6158b7473de0f5ba3f2d84f9bfa292e514ae045"
+  }
 }

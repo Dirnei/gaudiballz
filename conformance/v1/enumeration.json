@@ -1,0 +1,149 @@
+{
+  "requirement": "enumeration",
+  "cases": [
+    {
+      "id": "order-by-source-then-destination",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            2
+          ],
+          [
+            1,
+            2,
+            2
+          ],
+          [
+            1
+          ],
+          [
+            2
+          ]
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "expect": {
+        "moves": [
+          {
+            "from": 0,
+            "to": 1
+          },
+          {
+            "from": 0,
+            "to": 3
+          },
+          {
+            "from": 1,
+            "to": 0
+          },
+          {
+            "from": 1,
+            "to": 3
+          },
+          {
+            "from": 3,
+            "to": 0
+          },
+          {
+            "from": 3,
+            "to": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "empty-tubes-are-valid-destinations",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            2
+          ],
+          [
+            2
+          ],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "expect": {
+        "moves": [
+          {
+            "from": 0,
+            "to": 3
+          },
+          {
+            "from": 1,
+            "to": 2
+          },
+          {
+            "from": 1,
+            "to": 3
+          },
+          {
+            "from": 2,
+            "to": 1
+          },
+          {
+            "from": 2,
+            "to": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "solved-board-still-enumerates",
+      "board": {
+        "tubes": [
+          [
+            1,
+            1,
+            1,
+            1
+          ],
+          [
+            2,
+            2,
+            2,
+            2
+          ],
+          [],
+          []
+        ],
+        "capacity": 4,
+        "colourCount": 2
+      },
+      "expect": {
+        "moves": [
+          {
+            "from": 0,
+            "to": 2
+          },
+          {
+            "from": 0,
+            "to": 3
+          },
+          {
+            "from": 1,
+            "to": 2
+          },
+          {
+            "from": 1,
+            "to": 3
+          }
+        ]
+      }
+    }
+  ]
+}
