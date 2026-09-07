@@ -13,6 +13,8 @@ export interface Identity {
   readonly playerId: string;
   readonly token: string;
   readonly isAnonymous: boolean;
+  /** What the account is called. Null while nobody is logged in. */
+  readonly username: string | null;
 }
 
 export const API =
@@ -66,13 +68,22 @@ export async function ensureIdentity(): Promise<Identity | null> {
     try {
       const response = await fetch(`${API}/api/v1/players/me`, { headers: authHeaders() });
       if (response.ok) {
-        const me = (await response.json()) as { playerId: string; isAnonymous: boolean };
-        return { playerId: me.playerId, token, isAnonymous: me.isAnonymous };
+        const me = (await response.json()) as {
+          playerId: string;
+          isAnonymous: boolean;
+          username: string | null;
+        };
+        return {
+          playerId: me.playerId,
+          token,
+          isAnonymous: me.isAnonymous,
+          username: me.username ?? null,
+        };
       }
     } catch {
       // Offline. Keep playing as whoever this browser already was.
       const playerId = read(PLAYER_KEY);
-      return playerId === null ? null : { playerId, token, isAnonymous: true };
+      return playerId === null ? null : { playerId, token, isAnonymous: true, username: null };
     }
   }
 

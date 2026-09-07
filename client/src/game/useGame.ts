@@ -342,8 +342,9 @@ export function useGame() {
     setIdentity(await ensureIdentity());
   }, []);
 
-  const enrolled = useCallback(() => {
-    setIdentity((current) => (current === null ? current : { ...current, isAnonymous: false }));
+  const registered = useCallback((username: string) => {
+    setIdentity((current) =>
+      current === null ? current : { ...current, isAnonymous: false, username });
   }, []);
 
   return {
@@ -354,9 +355,9 @@ export function useGame() {
     selected,
     identity,
     progress,
-    signedIn,
-    signOut,
-    enrolled,
+    loggedIn: signedIn,
+    logOut: signOut,
+    registered,
     solved: state !== null && isSolved(state.board),
     // Only a proved verdict counts as lost; `unknown` must never surface as defeat.
     stuck: verdict === 'dead',

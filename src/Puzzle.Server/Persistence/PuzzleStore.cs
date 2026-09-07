@@ -66,6 +66,16 @@ public sealed class PuzzleStore
                 new CreateIndexOptions { Name = "players_by_last_seen" }),
             cancellationToken: token);
 
+        // Uniqueness enforced here rather than by a check-then-write, which would let two
+        // registrations racing for the same name both pass their check. Sparse, because
+        // anonymous players have no username and every one of them would otherwise collide
+        // on null.
+        await _players.Indexes.CreateOneAsync(
+            new CreateIndexModel<PlayerDocument>(
+                Builders<PlayerDocument>.IndexKeys.Ascending(p => p.UsernameKey),
+                new CreateIndexOptions { Name = "players_by_username", Unique = true, Sparse = true }),
+            cancellationToken: token);
+
         // Progress needs no secondary index: the composite id serves the per-player range
         // scan off the primary key.
     }
@@ -172,6 +182,43 @@ public sealed class PuzzleStore
                 .Set(c => c.SignCount, signCount)
                 .Set(c => c.LastUsedAt, DateTime.UtcNow),
             cancellationToken: token);
+
+    /// <summary>Lowercased for comparison; the display form keeps what the player typed.</summary>
+    public static string NormaliseUsername(string username) => username.Trim().ToLowerInvariant();
+
+    public Task<PlayerDocument?> FindByUsernameAsync(
+        string username, CancellationToken token = default)
+    {
+        var key = NormaliseUsername(username);
+        return _players.Find(p => p.UsernameKey == key).FirstOrDefaultAsync(token)!;
+    }
+
+    /// <summary>
+    /// Claims a username for a player.
+    ///
+    /// Returns false when it is taken. The duplicate-key error from the unique index is the
+    /// authority, not the lookup before it: between checking and writing, someone else can
+    /// take the name.
+    /// </summary>
+    public async Task<bool> TryClaimUsernameAsync(
+        string playerId, string username, CancellationToken token = default)
+    {
+        try
+        {
+            var result = await _players.UpdateOneAsync(
+                p => p.Id == playerId,
+                Builders<PlayerDocument>.Update
+                    .Set(p => p.Username, username.Trim())
+                    .Set(p => p.UsernameKey, NormaliseUsername(username)),
+                cancellationToken: token);
+
+            return result.MatchedCount > 0;
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return false;
+        }
+    }
 
     public Task MarkEnrolledAsync(string playerId, CancellationToken token = default) =>
         _players.UpdateOneAsync(

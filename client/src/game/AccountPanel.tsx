@@ -1,66 +1,94 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { blockerMessage, enrol, passkeyBlocker, signIn } from './passkeys';
+import { blockerMessage, passkeyBlocker, register, signIn, usernameAvailable } from './passkeys';
 import type { Identity } from './identity';
 
 interface AccountPanelProps {
   readonly open: boolean;
   readonly identity: Identity | null;
   readonly onClose: () => void;
-  readonly onSignedIn: (identity: Identity) => void;
-  readonly onEnrolled: () => void;
-  readonly onSignOut: () => void;
+  readonly onLoggedIn: (identity: Identity) => void;
+  readonly onRegistered: (username: string) => void;
+  readonly onLogOut: () => void;
 }
 
-type Status = 'idle' | 'working' | 'failed';
+type Status = 'idle' | 'working';
 
 /**
- * Where a player creates or uses a passkey.
+ * Logging in, registering and logging out.
  *
- * It is only ever opened deliberately. Nothing in the game prompts for an account: no
- * pitch on completing a level, no banner, no badge, no reminder. The game has no
- * advertising and nothing to sell, so pushing registration would buy nothing and interrupt
- * the thing people came for.
+ * Only ever opened deliberately: nothing in the game prompts for an account, and there is
+ * no pitch on completing a level. The words are the ordinary ones — a player should not
+ * have to learn what a passkey or an enrolment is in order to keep their progress.
  */
 export function AccountPanel({
   open,
   identity,
   onClose,
-  onSignedIn,
-  onEnrolled,
-  onSignOut,
+  onLoggedIn,
+  onRegistered,
+  onLogOut,
 }: AccountPanelProps) {
   const [status, setStatus] = useState<Status>('idle');
-  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [username, setUsername] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
+  const [confirmingLogOut, setConfirmingLogOut] = useState(false);
 
-  const blocker = passkeyBlocker();
-  const blocked = blockerMessage(blocker);
+  const blocked = blockerMessage(passkeyBlocker());
+  const loggedIn = identity !== null && !identity.isAnonymous;
+  const busy = status === 'working';
 
-  async function handleEnrol() {
+  async function handleRegister() {
+    setProblem(null);
     setStatus('working');
-    try {
-      setStatus((await enrol()) ? 'idle' : 'failed');
-      if (status !== 'failed') {
-        onEnrolled();
-      }
-    } catch {
-      setStatus('failed');
+
+    // Checked before the device is asked for anything, so a taken name costs a message
+    // rather than a fingerprint prompt followed by a refusal.
+    const check = await usernameAvailable(username);
+    if (!check.available) {
+      setProblem(check.reason ?? 'That name can’t be used.');
+      setStatus('idle');
+      return;
     }
-  }
 
-  async function handleSignIn() {
-    setStatus('working');
     try {
-      const signedIn = await signIn();
-      if (signedIn === null) {
-        setStatus('failed');
+      const outcome = await register(username);
+      if (outcome === 'registered') {
+        setStatus('idle');
+        onRegistered(username.trim());
         return;
       }
-      setStatus('idle');
-      onSignedIn(signedIn);
+
+      setProblem(
+        outcome === 'name-taken'
+          ? 'Someone just took that name. Try another.'
+          : 'That didn’t complete. Nothing changed — you can try again.',
+      );
     } catch {
-      setStatus('failed');
+      setProblem('That didn’t complete. Nothing changed — you can try again.');
     }
+
+    setStatus('idle');
+  }
+
+  async function handleLogIn() {
+    setProblem(null);
+    setStatus('working');
+
+    try {
+      const who = await signIn();
+      if (who === null) {
+        setProblem('That passkey isn’t linked to an account here.');
+      } else {
+        setStatus('idle');
+        onLoggedIn(who);
+        return;
+      }
+    } catch {
+      setProblem('That didn’t complete. Nothing changed — you can try again.');
+    }
+
+    setStatus('idle');
   }
 
   return (
@@ -81,90 +109,102 @@ export function AccountPanel({
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-sm rounded-3xl bg-slate-800/95 p-6 shadow-2xl ring-1 ring-white/10"
           >
-            <h2 className="text-lg font-semibold">Keep your progress</h2>
-
-            {blocked !== null ? (
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">{blocked}</p>
-            ) : identity !== null && !identity.isAnonymous ? (
+            {/* The state, said rather than left to be inferred. */}
+            {loggedIn ? (
               <>
-                <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                  This device has a passkey. Your progress is on your account and will be
-                  here on any device you sign in to.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleEnrol}
-                  disabled={status === 'working'}
-                  className="mt-5 w-full rounded-2xl bg-white/8 px-4 py-3 text-sm font-medium ring-1 ring-white/10 disabled:opacity-50"
-                >
-                  Add another passkey
-                </button>
+                <p className="text-xs uppercase tracking-widest text-slate-500">Logged in as</p>
+                <h2 className="mt-1 text-xl font-semibold">
+                  {identity.username ?? 'your account'}
+                </h2>
               </>
             ) : (
               <>
-                <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                  Add a passkey and your progress follows you to any device. No password, no
-                  email, nothing to fill in.
+                <p className="text-xs uppercase tracking-widest text-slate-500">Not logged in</p>
+                <h2 className="mt-1 text-lg font-semibold">
+                  Your progress is on this device only
+                </h2>
+              </>
+            )}
+
+            {blocked !== null ? (
+              <p className="mt-3 text-sm leading-relaxed text-slate-400">{blocked}</p>
+            ) : loggedIn ? (
+              <p className="mt-3 text-sm leading-relaxed text-slate-400">
+                Your progress is saved to your account and will be here on any device you log
+                in to.
+              </p>
+            ) : (
+              <>
+                <p className="mt-3 text-sm leading-relaxed text-slate-400">
+                  Register to keep your progress across devices. Pick a name — no password,
+                  no email.
                 </p>
 
-                {/* Stated before enrolling, not after. There is no recovery route and the
-                    product should not imply one. */}
+                <label className="mt-4 block">
+                  <span className="text-xs text-slate-500">Username</span>
+                  <input
+                    value={username}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      setProblem(null);
+                    }}
+                    autoComplete="username"
+                    spellCheck={false}
+                    maxLength={20}
+                    placeholder="3–20 characters"
+                    className="mt-1 w-full rounded-xl bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 outline-none ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-sky-400/60"
+                  />
+                </label>
+
                 <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200/90 ring-1 ring-amber-400/20">
-                  If you lose every device holding the passkey, the account goes with it —
-                  there’s no password or email to recover it from.
+                  Your device holds the key. If you lose every device that has it, the
+                  account goes with it — there’s no password or email to recover it from.
                 </p>
 
                 <button
                   type="button"
-                  onClick={handleEnrol}
-                  disabled={status === 'working'}
-                  className="mt-5 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25 disabled:opacity-50"
+                  onClick={handleRegister}
+                  disabled={busy || username.trim().length < 3}
+                  className="mt-4 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25 disabled:opacity-40"
                 >
-                  {status === 'working' ? 'Waiting for your device…' : 'Create a passkey'}
+                  {busy ? 'Waiting for your device…' : 'Register'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleLogIn}
+                  disabled={busy}
+                  className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 disabled:opacity-50"
+                >
+                  Log in
                 </button>
               </>
             )}
 
-            {blocked === null && (
-              <button
-                type="button"
-                onClick={handleSignIn}
-                disabled={status === 'working'}
-                className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 disabled:opacity-50"
-              >
-                Sign in with an existing passkey
-              </button>
+            {problem !== null && (
+              <p className="mt-3 text-center text-xs text-rose-300">{problem}</p>
             )}
 
-            {status === 'failed' && (
-              <p className="mt-3 text-center text-xs text-rose-300">
-                That didn’t complete. Nothing changed — you can try again.
-              </p>
-            )}
-
-            {/* Only when there is an account to leave. Anonymous is the signed-out state, so
-                offering it there would be offering to sign out of nothing — and it was the
-                reason a destructive warning had to exist at all. */}
-            {identity !== null && !identity.isAnonymous && (
+            {/* Only where there is an account to leave: anonymous is the logged-out state. */}
+            {loggedIn && (
               <div className="mt-5 border-t border-white/10 pt-4">
-                {confirmingSignOut ? (
+                {confirmingLogOut ? (
                   <>
                     <p className="mb-3 text-xs leading-relaxed text-slate-400">
-                      Your progress stays on the account. Sign in with your passkey to pick
-                      it up again.
+                      Your progress stays on the account. Log in with your passkey to pick it
+                      up again.
                     </p>
-
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={onSignOut}
+                        onClick={onLogOut}
                         className="flex-1 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-medium text-slate-100"
                       >
-                        Sign out
+                        Log out
                       </button>
                       <button
                         type="button"
-                        onClick={() => setConfirmingSignOut(false)}
+                        onClick={() => setConfirmingLogOut(false)}
                         className="flex-1 rounded-2xl px-4 py-2.5 text-sm text-slate-400"
                       >
                         Cancel
@@ -174,10 +214,10 @@ export function AccountPanel({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setConfirmingSignOut(true)}
+                    onClick={() => setConfirmingLogOut(true)}
                     className="w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400"
                   >
-                    Sign out
+                    Log out
                   </button>
                 )}
               </div>

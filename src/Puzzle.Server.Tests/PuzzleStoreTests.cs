@@ -175,6 +175,82 @@ public sealed class PuzzleStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_username_can_be_claimed_and_found()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        await _store.CreateAnonymousPlayerAsync(id, Token);
+
+        Assert.True(await _store.TryClaimUsernameAsync(id, "Dirnei", Token));
+
+        var found = await _store.FindByUsernameAsync("Dirnei", Token);
+        Assert.Equal(id, found!.Id);
+        Assert.Equal("Dirnei", found.Username);
+    }
+
+    [Fact]
+    public async Task A_taken_username_is_refused()
+    {
+        var first = Guid.NewGuid().ToString("N");
+        var second = Guid.NewGuid().ToString("N");
+        var name = $"taken{Guid.NewGuid():N}"[..12];
+
+        await _store.CreateAnonymousPlayerAsync(first, Token);
+        await _store.CreateAnonymousPlayerAsync(second, Token);
+
+        Assert.True(await _store.TryClaimUsernameAsync(first, name, Token));
+        Assert.False(await _store.TryClaimUsernameAsync(second, name, Token));
+    }
+
+    /// <summary>
+    /// Two names differing only in capitalisation would look identical everywhere they are
+    /// shown, so the index is on the lowercased form.
+    /// </summary>
+    [Fact]
+    public async Task Capitalisation_does_not_make_a_name_free()
+    {
+        var first = Guid.NewGuid().ToString("N");
+        var second = Guid.NewGuid().ToString("N");
+        var name = $"case{Guid.NewGuid():N}"[..12];
+
+        await _store.CreateAnonymousPlayerAsync(first, Token);
+        await _store.CreateAnonymousPlayerAsync(second, Token);
+
+        Assert.True(await _store.TryClaimUsernameAsync(first, name.ToLowerInvariant(), Token));
+        Assert.False(await _store.TryClaimUsernameAsync(second, name.ToUpperInvariant(), Token));
+    }
+
+    /// <summary>
+    /// The reason uniqueness is an index rather than a lookup: a check-then-write lets two
+    /// registrations racing for the same name both pass their check.
+    /// </summary>
+    [Fact]
+    public async Task Only_one_of_many_racing_claims_succeeds()
+    {
+        var name = $"race{Guid.NewGuid():N}"[..12];
+        var players = Enumerable.Range(0, 8).Select(_ => Guid.NewGuid().ToString("N")).ToArray();
+
+        foreach (var id in players)
+        {
+            await _store.CreateAnonymousPlayerAsync(id, Token);
+        }
+
+        var results = await Task.WhenAll(
+            players.Select(id => _store.TryClaimUsernameAsync(id, name, Token)));
+
+        Assert.Equal(1, results.Count(claimed => claimed));
+    }
+
+    [Fact]
+    public async Task Anonymous_players_do_not_collide_on_having_no_username()
+    {
+        // The index is sparse; without that every anonymous player would clash on null.
+        foreach (var _ in Enumerable.Range(0, 5))
+        {
+            await _store.CreateAnonymousPlayerAsync(Guid.NewGuid().ToString("N"), Token);
+        }
+    }
+
+    [Fact]
     public async Task Enrolling_marks_the_player_no_longer_anonymous()
     {
         var id = Guid.NewGuid().ToString("N");

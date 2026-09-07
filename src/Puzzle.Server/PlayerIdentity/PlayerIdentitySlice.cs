@@ -56,7 +56,30 @@ public sealed class PlayerIdentitySlice : ISlice
 
             await store.TouchPlayerAsync(playerId, token);
 
-            return Results.Ok(new { playerId = player.Id, isAnonymous = player.IsAnonymous });
+            return Results.Ok(new
+            {
+                playerId = player.Id,
+                isAnonymous = player.IsAnonymous,
+                username = player.Username,
+            });
+        });
+
+        // Checked before the device is asked for a passkey, so a taken name is reported
+        // while the player is still typing rather than after the ceremony.
+        group.MapGet("/username-available", async (string username, PuzzleStore store, CancellationToken token) =>
+        {
+            var problem = UsernameProblem(username);
+            if (problem is not null)
+            {
+                return Results.Ok(new { available = false, reason = problem });
+            }
+
+            var taken = await store.FindByUsernameAsync(username, token) is not null;
+            return Results.Ok(new
+            {
+                available = !taken,
+                reason = taken ? "That name is taken." : null,
+            });
         });
 
         MapEnrolment(group);
@@ -73,12 +96,38 @@ public sealed class PlayerIdentitySlice : ISlice
     private static void MapEnrolment(RouteGroupBuilder group)
     {
         group.MapPost("/passkey/enrol/begin",
-            async (HttpContext http, IFido2 fido2, PuzzleStore store, PlayerTokens tokens, CancellationToken token) =>
+            async (HttpContext http, RegisterRequest request, IFido2 fido2, PuzzleStore store,
+                   PlayerTokens tokens, CancellationToken token) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null)
                 {
                     return Results.Unauthorized();
+                }
+
+                var player = await store.FindPlayerAsync(playerId, token);
+                if (player is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                // Only needed when the account has no name yet; a second passkey on an
+                // existing account keeps the one it already has.
+                if (player.Username is null)
+                {
+                    var problem = UsernameProblem(request.Username);
+                    if (problem is not null)
+                    {
+                        return Results.BadRequest(new { error = problem });
+                    }
+
+                    // Claimed here rather than after the ceremony: the unique index is the
+                    // authority, so a name taken between the availability check and now is
+                    // caught before the player's device is troubled.
+                    if (!await store.TryClaimUsernameAsync(playerId, request.Username, token))
+                    {
+                        return Results.Conflict(new { error = "That name is taken." });
+                    }
                 }
 
                 var existing = await store.CredentialsForAsync(playerId, token);
@@ -90,8 +139,8 @@ public sealed class PlayerIdentitySlice : ISlice
                         Id = System.Text.Encoding.UTF8.GetBytes(playerId),
                         // No email, no username to choose. The display name is the game's,
                         // not a field anyone has to fill in.
-                        Name = $"Sort Puzzle ({playerId[..6]})",
-                        DisplayName = "Sort Puzzle",
+                        Name = player.Username ?? request.Username,
+                        DisplayName = player.Username ?? request.Username,
                     },
                     ExcludeCredentials = [.. existing.Select(c =>
                         new PublicKeyCredentialDescriptor(Base64Url.DecodeFromChars(c.Id)))],
@@ -204,13 +253,40 @@ public sealed class PlayerIdentitySlice : ISlice
 
                 await store.UpdateSignCountAsync(credentialId, result.SignCount, token);
 
+                var account = await store.FindPlayerAsync(credential.PlayerId, token);
+
                 return Results.Ok(new
                 {
                     playerId = credential.PlayerId,
                     token = tokens.Issue(credential.PlayerId),
                     isAnonymous = false,
+                    username = account?.Username,
                 });
             });
+    }
+
+    public sealed record RegisterRequest(string Username);
+
+    /// <summary>What is wrong with this username, or null when nothing is.</summary>
+    private static string? UsernameProblem(string? username)
+    {
+        var trimmed = username?.Trim() ?? string.Empty;
+
+        if (trimmed.Length < 3)
+        {
+            return "A name needs at least 3 characters.";
+        }
+
+        if (trimmed.Length > 20)
+        {
+            return "A name can be at most 20 characters.";
+        }
+
+        // Letters, digits, and a couple of separators. Deliberately narrow: a name that is
+        // shown to the player should not be able to hide characters they cannot see.
+        return trimmed.All(c => char.IsLetterOrDigit(c) || c is '-' or '_')
+            ? null
+            : "Use letters, numbers, hyphens or underscores.";
     }
 
     private static string? BearerFrom(HttpContext http)

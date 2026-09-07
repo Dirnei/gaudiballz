@@ -16,7 +16,7 @@ describe('signing out', () => {
   });
 
   it('forgets the token and player id', () => {
-    remember({ playerId: 'abc123', token: 'a.token', isAnonymous: true });
+    remember({ playerId: 'abc123', token: 'a.token', isAnonymous: true, username: null });
     expect(storedToken()).toBe('a.token');
 
     forgetIdentity();

@@ -15,8 +15,20 @@ public sealed class PlayerDocument
     public DateTime CreatedAt { get; set; }
     public DateTime LastSeenAt { get; set; }
 
-    /// <summary>False once at least one passkey is attached.</summary>
+    /// <summary>False once the account has been registered with a username and a passkey.</summary>
     public bool IsAnonymous { get; set; } = true;
+
+    /// <summary>What the player called the account. Null while anonymous.</summary>
+    public string? Username { get; set; }
+
+    /// <summary>
+    /// The username lowercased, which is what the unique index is on.
+    ///
+    /// Uniqueness is case-insensitive because two accounts differing only in capitalisation
+    /// would look identical everywhere they are shown, which defeats the point of naming
+    /// them. Stored rather than computed so the index can enforce it.
+    /// </summary>
+    public string? UsernameKey { get; set; }
 }
 
 /// <summary>
@@ -90,6 +102,15 @@ public static class BsonRegistration
                 map.AutoMap();
                 map.MapIdMember(p => p.Id).SetSerializer(new StringSerializer(BsonType.String));
                 map.SetIgnoreExtraElements(true);
+
+                // Omitted entirely when absent, not written as null.
+                //
+                // A sparse unique index skips documents where the field does not exist — but
+                // the driver writes an explicit null by default, so the field *does* exist and
+                // every anonymous player collides on null. Dropping the field is what makes
+                // the sparse index behave the way it reads.
+                map.GetMemberMap(p => p.Username).SetIgnoreIfNull(true);
+                map.GetMemberMap(p => p.UsernameKey).SetIgnoreIfNull(true);
             });
 
             BsonClassMap.RegisterClassMap<CredentialDocument>(map =>

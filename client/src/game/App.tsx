@@ -124,14 +124,23 @@ export function App() {
               looks the same whether or not there is an account behind it. */}
           <button
             type="button"
-            aria-label="Account and passkeys"
+            aria-label={
+              game.identity !== null && !game.identity.isAnonymous
+                ? `Logged in as ${game.identity.username ?? 'your account'}`
+                : 'Not logged in — log in or register'
+            }
             onClick={() => setAccountOpen(true)}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/8 text-slate-300 ring-1 ring-white/10"
+            className="flex items-center gap-1.5 rounded-full bg-white/8 py-1.5 pl-2.5 pr-3 text-sm text-slate-300 ring-1 ring-white/10"
           >
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="8" r="3.2" />
               <path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" strokeLinecap="round" />
             </svg>
+            <span className="max-w-[7rem] truncate">
+              {game.identity !== null && !game.identity.isAnonymous
+                ? (game.identity.username ?? 'Account')
+                : 'Log in'}
+            </span>
           </button>
         </div>
       </header>
@@ -205,17 +214,17 @@ export function App() {
         open={accountOpen}
         identity={game.identity}
         onClose={() => setAccountOpen(false)}
-        onSignedIn={(who) => {
+        onLoggedIn={(who) => {
           setAccountOpen(false);
-          void game.signedIn(who);
+          void game.loggedIn(who);
         }}
-        onEnrolled={() => {
+        onRegistered={(username) => {
           setAccountOpen(false);
-          game.enrolled();
+          game.registered(username);
         }}
-        onSignOut={() => {
+        onLogOut={() => {
           setAccountOpen(false);
-          void game.signOut();
+          void game.logOut();
         }}
       />
 

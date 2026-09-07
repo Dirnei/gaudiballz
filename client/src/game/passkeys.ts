@@ -56,17 +56,44 @@ function toBase64Url(buffer: ArrayBuffer): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
+/** Whether a name is free, checked before the device is asked for anything. */
+export async function usernameAvailable(
+  username: string,
+): Promise<{ available: boolean; reason: string | null }> {
+  try {
+    const response = await fetch(
+      `${API}/api/v1/players/username-available?username=${encodeURIComponent(username)}`,
+    );
+    if (!response.ok) {
+      return { available: false, reason: 'Could not check that name just now.' };
+    }
+    return (await response.json()) as { available: boolean; reason: string | null };
+  } catch {
+    return { available: false, reason: 'Could not check that name just now.' };
+  }
+}
+
+export type RegisterOutcome = 'registered' | 'name-taken' | 'failed';
+
 /**
- * Attaches a passkey to the player already playing, so nothing completed beforehand is
- * lost.
+ * Registers the player already playing, so nothing completed beforehand is lost.
+ *
+ * The name is claimed before the device is asked for a passkey: a name taken between the
+ * availability check and now should cost a message, not a fingerprint prompt followed by a
+ * refusal.
  */
-export async function enrol(): Promise<boolean> {
+export async function register(username: string): Promise<RegisterOutcome> {
   const begin = await fetch(`${API}/api/v1/players/passkey/enrol/begin`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ username }),
   });
+
+  if (begin.status === 409) {
+    return 'name-taken';
+  }
   if (!begin.ok) {
-    return false;
+    return 'failed';
   }
 
   const options = await begin.json();
@@ -83,7 +110,7 @@ export async function enrol(): Promise<boolean> {
   })) as PublicKeyCredential | null;
 
   if (created === null) {
-    return false;
+    return 'failed';
   }
 
   const attestation = created.response as AuthenticatorAttestationResponse;
@@ -103,7 +130,7 @@ export async function enrol(): Promise<boolean> {
     }),
   });
 
-  return finish.ok;
+  return finish.ok ? 'registered' : 'failed';
 }
 
 /**
