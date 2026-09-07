@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-09-07
+goal: Progress belongs to a player, not a browser, without ever asking for a password
