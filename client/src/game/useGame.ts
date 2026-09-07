@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ensureIdentity, remember, type Identity } from './identity';
+import { drain, loadProgress, mergeIntoAccount, recordCompletion, type Progress } from './progress';
 import {
   AFTER_EACH_MOVE,
   ON_REQUEST,
@@ -48,14 +50,16 @@ interface LevelResponse {
  * host the page came from plus the API port - the host rather than localhost, because the
  * game is mostly tested from a phone on the same network.
  */
-const API =
-  import.meta.env['VITE_API_URL'] ??
-  (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5199` : '');
+import { API } from './identity';
+
 const LAST_LEVEL_KEY = 'puzzle.lastLevel';
 
 export type LoadState = 'loading' | 'ready' | 'error';
 
 export function useGame() {
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
+
   const [levelId, setLevelId] = useState(() => {
     // A convenience, not progress tracking - that arrives with the progression capability.
     try {
@@ -82,6 +86,44 @@ export function useGame() {
    * the player deviates from it.
    */
   const plan = useRef<Move[]>([]);
+
+  /**
+   * Identity and progress on launch. Silent: no form, no prompt, nothing to dismiss. If the
+   * network is not there the game simply starts anyway and picks this up later.
+   */
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const who = await ensureIdentity();
+      if (cancelled) {
+        return;
+      }
+
+      setIdentity(who);
+      if (who === null) {
+        return;
+      }
+
+      // Anything recorded while offline goes out now.
+      await drain();
+
+      const loaded = await loadProgress();
+      if (cancelled || loaded === null) {
+        return;
+      }
+
+      setProgress(loaded);
+
+      // Resume where the account got to, when that is further than this browser.
+      setLevelId((current) =>
+        loaded.highestCompleted + 1 > current ? loaded.highestCompleted + 1 : current);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -227,8 +269,56 @@ export function useGame() {
     setState((current) => (current === null ? current : restartState(current)));
   }, []);
 
+  /**
+   * Records a completion once per solved attempt.
+   *
+   * The queue is written before the network is touched, so a failed, slow, or interrupted
+   * request leaves the work waiting rather than losing it.
+   */
+  const recorded = useRef<string | null>(null);
+  useEffect(() => {
+    if (state === null || !isSolved(state.board)) {
+      return;
+    }
+
+    const attempt = `${levelId}:${state.moves.length}:${hintsUsed}`;
+    if (recorded.current === attempt) {
+      return;
+    }
+    recorded.current = attempt;
+
+    void (async () => {
+      await recordCompletion(levelId, state.moves.length, hintsUsed);
+      const refreshed = await loadProgress();
+      if (refreshed !== null) {
+        setProgress(refreshed);
+      }
+    })();
+  }, [state, levelId, hintsUsed]);
+
   const goToLevel = useCallback((next: number) => {
     setLevelId(Math.max(1, next));
+  }, []);
+
+  /**
+   * Signing in on a device that has already played: this device's progress is folded into
+   * the account rather than either side being discarded.
+   */
+  const signedIn = useCallback(async (who: Identity) => {
+    remember(who);
+    setIdentity(who);
+
+    const local = progress?.levels ?? [];
+    const merged = await mergeIntoAccount(local);
+    if (merged !== null) {
+      setProgress(merged);
+      setLevelId((current) =>
+        merged.highestCompleted + 1 > current ? merged.highestCompleted + 1 : current);
+    }
+  }, [progress]);
+
+  const enrolled = useCallback(() => {
+    setIdentity((current) => (current === null ? current : { ...current, isAnonymous: false }));
   }, []);
 
   return {
@@ -237,6 +327,10 @@ export function useGame() {
     load,
     state,
     selected,
+    identity,
+    progress,
+    signedIn,
+    enrolled,
     solved: state !== null && isSolved(state.board),
     // Only a proved verdict counts as lost; `unknown` must never surface as defeat.
     stuck: verdict === 'dead',

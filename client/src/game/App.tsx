@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Tube } from './Tube';
 import { useGame } from './useGame';
+import { AccountPanel } from './AccountPanel';
 import { haptics } from './haptics';
 
 /** A tube is finished when it is full and single-coloured; empty tubes are just empty. */
@@ -69,6 +70,7 @@ export function App() {
   }, [game.stuck]);
 
   const par = game.info?.parMoves ?? 0;
+  const [accountOpen, setAccountOpen] = useState(false);
 
   // A level that changes the rules announces itself, so a step up in difficulty reads as
   // intended rather than as the game breaking. Shown once, briefly, on arrival.
@@ -117,6 +119,20 @@ export function App() {
             <span className="font-semibold">{game.moveCount}</span>
             {par > 0 && <span className="text-slate-400"> / {par}</span>}
           </div>
+
+          {/* Reachable at any time, and it never asks. No dot, no badge, no reminder — it
+              looks the same whether or not there is an account behind it. */}
+          <button
+            type="button"
+            aria-label="Account and passkeys"
+            onClick={() => setAccountOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/8 text-slate-300 ring-1 ring-white/10"
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="8" r="3.2" />
+              <path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -184,6 +200,20 @@ export function App() {
           ›
         </IconButton>
       </footer>
+
+      <AccountPanel
+        open={accountOpen}
+        identity={game.identity}
+        onClose={() => setAccountOpen(false)}
+        onSignedIn={(who) => {
+          setAccountOpen(false);
+          void game.signedIn(who);
+        }}
+        onEnrolled={() => {
+          setAccountOpen(false);
+          game.enrolled();
+        }}
+      />
 
       <AnimatePresence>
         {game.stuck && !game.solved && (

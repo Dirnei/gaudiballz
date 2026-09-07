@@ -45,43 +45,45 @@ and the merge rules get property tests rather than examples.
 
 - [x] 5.1 Write tests for the endpoint that mints an anonymous player and returns a token
 - [x] 5.2 Implement it, and the token verification the other endpoints depend on
-- [ ] 5.3 Client: obtain and keep an identity on first launch, with no interaction, and
+- [x] 5.3 Client: obtain and keep an identity on first launch, with no interaction, and
       confirm a returning browser is the same player
 
 ## 6. Passkeys
 
 - [x] 6.1 Add Fido2, configured for discoverable credentials so sign-in needs no username
-- [ ] 6.2 Write tests for enrolment: the credential attaches to the existing player and the
+- [x] 6.2 Write tests for enrolment: the credential attaches to the existing player and the
       progress already made is untouched
-- [ ] 6.3 Write tests for sign-in: a known credential resolves to its account, an unknown
+- [x] 6.3 Write tests for sign-in: a known credential resolves to its account, an unknown
       one is refused and creates nothing
 - [x] 6.4 Implement the enrolment and sign-in endpoints and the credential store
-- [ ] 6.5 Client: enrolment and sign-in through the browser's WebAuthn API
-- [ ] 6.6 Detect when passkeys are unavailable — including plain HTTP over the LAN — and say
+- [x] 6.5 Client: enrolment and sign-in through the browser's WebAuthn API
+- [x] 6.6 Detect when passkeys are unavailable — including plain HTTP over the LAN — and say
       so plainly rather than failing obscurely
-- [ ] 6.7 State before enrolment that losing every device with the passkey loses the account
+- [x] 6.7 State before enrolment that losing every device with the passkey loses the account
 
 ## 7. Progress in the game
 
-- [ ] 7.1 Record a completion with its moves and hints when a level is solved
-- [ ] 7.2 Load progress on launch and resume where the player was
-- [ ] 7.3 Merge device progress into the account on sign-in, and confirm neither side is lost
-- [ ] 7.4 Add the place in the interface to create or use a passkey, reachable at any time
-- [ ] 7.5 Confirm nothing prompts for an account — no modal, banner, badge, or reminder, and
+- [x] 7.1 Record a completion with its moves and hints when a level is solved
+- [x] 7.2 Load progress on launch and resume where the player was
+- [x] 7.3 Merge device progress into the account on sign-in, and confirm neither side is lost
+- [x] 7.4 Add the place in the interface to create or use a passkey, reachable at any time
+- [x] 7.5 Confirm nothing prompts for an account — no modal, banner, badge, or reminder, and
       nothing at all on level completion
 
 ## 8. Offline queue
 
-- [ ] 8.1 Write tests that a completion made with no connection is queued, survives a
+- [x] 8.1 Write tests that a completion made with no connection is queued, survives a
       restart, and is sent afterwards
-- [ ] 8.2 Implement the IndexedDB queue with a client-generated id per item so a resend
+- [x] 8.2 Implement the IndexedDB queue with a client-generated id per item so a resend
       cannot double-count
-- [ ] 8.3 Confirm play is never blocked and no failure is reported for an unsent completion
+- [x] 8.3 Confirm play is never blocked and no failure is reported for an unsent completion
 
 ## 9. Verification
 
-- [ ] 9.1 Run every CI step locally and confirm green
-- [ ] 9.2 Rebuild the container, confirm the served bundle matches a fresh local build, and
+- [x] 9.1 Run every CI step locally and confirm green
+- [x] 9.2 Rebuild the container, confirm the served bundle matches a fresh local build, and
       confirm the game still starts with the database present
-- [ ] 9.3 Confirm the game remains playable when MongoDB is stopped, with completions
-      queueing rather than failing
+- [x] 9.3 Confirm the game remains playable when MongoDB is stopped, with completions
+      queueing rather than failing — verified against the container: levels still served,
+      the client still loads, and a progress call fails in 2s rather than hanging on the
+      driver's 30s default
