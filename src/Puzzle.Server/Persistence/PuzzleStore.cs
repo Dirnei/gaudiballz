@@ -1,0 +1,172 @@
+using MongoDB.Driver;
+using Puzzle.Server.Progression;
+
+namespace Puzzle.Server.Persistence;
+
+public sealed class MongoOptions
+{
+    public string ConnectionString { get; set; } = "mongodb://localhost:27017/?replicaSet=rs0";
+    public string Database { get; set; } = "puzzle";
+}
+
+/// <summary>
+/// Everything that touches MongoDB.
+///
+/// Every write here is expressed so that repeating it is harmless: upserts with
+/// <c>$setOnInsert</c>, and bests with <c>$min</c>. That is deliberate — a retried request,
+/// a restarted actor, or two devices submitting at once must not be able to lose work or
+/// inflate a count, and pushing that into the update operators means there is no
+/// read-modify-write window to lose it in.
+/// </summary>
+public sealed class PuzzleStore
+{
+    private readonly IMongoCollection<PlayerDocument> _players;
+    private readonly IMongoCollection<CredentialDocument> _credentials;
+    private readonly IMongoCollection<ProgressDocument> _progress;
+
+    public PuzzleStore(MongoOptions options)
+    {
+        BsonRegistration.Register();
+
+        var database = new MongoClient(options.ConnectionString).GetDatabase(options.Database);
+
+        // Progress is what a player would notice losing, so it is written with majority
+        // acknowledgement rather than fire-and-forget.
+        var durable = new MongoCollectionSettings
+        {
+            WriteConcern = WriteConcern.WMajority.With(journal: true),
+        };
+
+        _players = database.GetCollection<PlayerDocument>("players", durable);
+        _credentials = database.GetCollection<CredentialDocument>("credentials", durable);
+        _progress = database.GetCollection<ProgressDocument>("progress", durable);
+    }
+
+    /// <summary>Idempotent: creating an index that already exists is a no-op.</summary>
+    public async Task EnsureIndexesAsync(CancellationToken token = default)
+    {
+        await _credentials.Indexes.CreateOneAsync(
+            new CreateIndexModel<CredentialDocument>(
+                Builders<CredentialDocument>.IndexKeys.Ascending(c => c.PlayerId),
+                new CreateIndexOptions { Name = "credentials_by_player" }),
+            cancellationToken: token);
+
+        await _players.Indexes.CreateOneAsync(
+            new CreateIndexModel<PlayerDocument>(
+                Builders<PlayerDocument>.IndexKeys.Ascending(p => p.LastSeenAt),
+                new CreateIndexOptions { Name = "players_by_last_seen" }),
+            cancellationToken: token);
+
+        // Progress needs no secondary index: the composite id serves the per-player range
+        // scan off the primary key.
+    }
+
+    public async Task<PlayerDocument> CreateAnonymousPlayerAsync(
+        string playerId, CancellationToken token = default)
+    {
+        var now = DateTime.UtcNow;
+        var player = new PlayerDocument
+        {
+            Id = playerId,
+            CreatedAt = now,
+            LastSeenAt = now,
+            IsAnonymous = true,
+        };
+
+        await _players.InsertOneAsync(player, cancellationToken: token);
+        return player;
+    }
+
+    public Task<PlayerDocument?> FindPlayerAsync(string playerId, CancellationToken token = default) =>
+        _players.Find(p => p.Id == playerId).FirstOrDefaultAsync(token)!;
+
+    public Task TouchPlayerAsync(string playerId, CancellationToken token = default) =>
+        _players.UpdateOneAsync(
+            p => p.Id == playerId,
+            Builders<PlayerDocument>.Update.Set(p => p.LastSeenAt, DateTime.UtcNow),
+            cancellationToken: token);
+
+    /// <summary>
+    /// Records a completion, keeping the better result.
+    ///
+    /// <c>$min</c> does the comparison in the database, so a slower attempt arriving after a
+    /// faster one cannot overwrite it and two devices racing cannot lose either result.
+    /// </summary>
+    public Task RecordCompletionAsync(
+        string playerId, int level, LevelResult result, CancellationToken token = default)
+    {
+        var now = DateTime.UtcNow;
+
+        return _progress.UpdateOneAsync(
+            p => p.Id == ProgressDocument.KeyFor(playerId, level),
+            Builders<ProgressDocument>.Update
+                .SetOnInsert(p => p.PlayerId, playerId)
+                .SetOnInsert(p => p.Level, level)
+                .SetOnInsert(p => p.FirstCompletedAt, now)
+                .Min(p => p.BestMoves, result.Moves)
+                .Min(p => p.BestHints, result.Hints)
+                .Set(p => p.LastCompletedAt, now),
+            new UpdateOptions { IsUpsert = true },
+            token);
+    }
+
+    public async Task<PlayerProgress> LoadProgressAsync(
+        string playerId, CancellationToken token = default)
+    {
+        // Range scan over the composite id, served by the primary index alone.
+        var documents = await _progress
+            .Find(Builders<ProgressDocument>.Filter.And(
+                Builders<ProgressDocument>.Filter.Gte(p => p.Id, $"{playerId}#"),
+                Builders<ProgressDocument>.Filter.Lt(p => p.Id, $"{playerId}$")))
+            .ToListAsync(token);
+
+        var progress = PlayerProgress.Empty;
+        foreach (var document in documents)
+        {
+            progress = progress.With(document.Level, new LevelResult(document.BestMoves, document.BestHints));
+        }
+
+        return progress;
+    }
+
+    /// <summary>
+    /// Folds one player's progress into another, keeping the better result per level.
+    ///
+    /// Used when a device with local progress signs in to an existing account. Because every
+    /// write is a <c>$min</c>, running this twice is harmless.
+    /// </summary>
+    public async Task MergeProgressAsync(
+        string playerId, PlayerProgress incoming, CancellationToken token = default)
+    {
+        foreach (var (level, result) in incoming.Levels)
+        {
+            await RecordCompletionAsync(playerId, level, result, token);
+        }
+    }
+
+    public Task AddCredentialAsync(CredentialDocument credential, CancellationToken token = default) =>
+        _credentials.InsertOneAsync(credential, cancellationToken: token);
+
+    public Task<CredentialDocument?> FindCredentialAsync(
+        string credentialId, CancellationToken token = default) =>
+        _credentials.Find(c => c.Id == credentialId).FirstOrDefaultAsync(token)!;
+
+    public Task<List<CredentialDocument>> CredentialsForAsync(
+        string playerId, CancellationToken token = default) =>
+        _credentials.Find(c => c.PlayerId == playerId).ToListAsync(token);
+
+    public Task UpdateSignCountAsync(
+        string credentialId, uint signCount, CancellationToken token = default) =>
+        _credentials.UpdateOneAsync(
+            c => c.Id == credentialId,
+            Builders<CredentialDocument>.Update
+                .Set(c => c.SignCount, signCount)
+                .Set(c => c.LastUsedAt, DateTime.UtcNow),
+            cancellationToken: token);
+
+    public Task MarkEnrolledAsync(string playerId, CancellationToken token = default) =>
+        _players.UpdateOneAsync(
+            p => p.Id == playerId,
+            Builders<PlayerDocument>.Update.Set(p => p.IsAnonymous, false),
+            cancellationToken: token);
+}
