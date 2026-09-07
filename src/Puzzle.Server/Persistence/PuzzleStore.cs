@@ -28,7 +28,16 @@ public sealed class PuzzleStore
     {
         BsonRegistration.Register();
 
-        var database = new MongoClient(options.ConnectionString).GetDatabase(options.Database);
+        // Short timeouts on purpose. When the database is unreachable a request must fail
+        // in a moment rather than hanging on the driver's thirty-second default: the game
+        // stays playable without a database, and the client queues what it could not send.
+        // A request that hangs looks like the game is broken; one that fails fast does not.
+        var settings = MongoClientSettings.FromConnectionString(options.ConnectionString);
+        settings.ServerSelectionTimeout = TimeSpan.FromSeconds(2);
+        settings.ConnectTimeout = TimeSpan.FromSeconds(2);
+        settings.SocketTimeout = TimeSpan.FromSeconds(5);
+
+        var database = new MongoClient(settings).GetDatabase(options.Database);
 
         // Progress is what a player would notice losing, so it is written with majority
         // acknowledgement rather than fire-and-forget.

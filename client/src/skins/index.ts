@@ -45,23 +45,59 @@ export const PALETTE = [
 ] as const;
 
 /**
+ * The pale colours carry a stripe as well as a hue.
+ *
+ * Light blue, light green, yellow and white all sit at the top of the lightness range, so
+ * they arrive together in the late game and read as one washed-out group even though their
+ * measured separation is fine. A stripe gives them a second thing to differ by, and the
+ * angle differs per colour so the pattern itself distinguishes them rather than just marking
+ * them all as "pale".
+ *
+ * This is also the accessibility answer: with a pattern doing part of the work, the game
+ * stays readable for someone who cannot separate the hues at all.
+ */
+const STRIPE_ANGLE: Readonly<Record<number, number>> = {
+  4: 90, // yellow      — vertical
+  8: 45, // light blue  — leaning right
+  9: -45, // light green — leaning left
+  12: 0, // white       — horizontal
+};
+
+/**
  * A sphere, built from the flat colour: a specular highlight up and left, a bounce of
  * shading below, and a contact shadow. This is what separates "a coloured circle" from
  * something that looks like an object in a tube.
  */
 export function ballStyle(colour: number): React.CSSProperties {
   const fill = PALETTE[colour] ?? PALETTE[1];
+  const angle = STRIPE_ANGLE[colour];
+
+  const layers = [
+    'radial-gradient(circle at 33% 27%, rgba(255,255,255,0.34), rgba(255,255,255,0) 42%)',
+    'radial-gradient(circle at 50% 120%, rgba(0,0,0,0.30), rgba(0,0,0,0) 50%)',
+  ];
+
+  if (angle !== undefined) {
+    // Dark enough to read on a pale ball, light enough not to become a colour of its own.
+    layers.unshift(
+      `repeating-linear-gradient(${angle}deg,` +
+        ' rgba(0,0,0,0.19) 0px, rgba(0,0,0,0.19) 3px,' +
+        ' rgba(0,0,0,0) 3px, rgba(0,0,0,0) 7px)',
+    );
+  }
 
   return {
     borderRadius: '9999px',
     backgroundColor: fill,
-    backgroundImage: [
-      'radial-gradient(circle at 33% 27%, rgba(255,255,255,0.34), rgba(255,255,255,0) 42%)',
-      'radial-gradient(circle at 50% 120%, rgba(0,0,0,0.30), rgba(0,0,0,0) 50%)',
-    ].join(','),
+    backgroundImage: layers.join(','),
     boxShadow:
       'inset 0 -2px 5px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.22)',
   };
+}
+
+/** True when this colour is told apart by pattern as well as hue. */
+export function hasStripes(colour: number): boolean {
+  return colour in STRIPE_ANGLE;
 }
 
 /** The glass tube: a bright left edge, a dim body, a softer right edge. */

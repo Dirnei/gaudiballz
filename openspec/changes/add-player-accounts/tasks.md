@@ -6,53 +6,56 @@ and the merge rules get property tests rather than examples.
 
 ## 1. Persistence foundations
 
-- [ ] 1.1 Bring MongoDB out of the `data` profile so it starts with the game, and make the
-      server wait on its health check
-- [ ] 1.2 Add the Mongo client, explicit BSON class maps rather than auto-mapping, and a
+- [x] 1.1 Bring MongoDB out of the `data` profile so it starts with the game, and make the
+      server wait on its health check. Index creation moved to a retrying background service
+      rather than blocking startup, so a missing database degrades the game instead of
+      taking it down — and the Mongo client uses short timeouts so a request fails fast
+      instead of hanging on the driver's thirty-second default
+- [x] 1.2 Add the Mongo client, explicit BSON class maps rather than auto-mapping, and a
       startup step that creates indexes idempotently
-- [ ] 1.3 Write integration tests against a real MongoDB via Testcontainers, including that
+- [x] 1.3 Write integration tests against a real MongoDB via Testcontainers, including that
       index creation is safe to run twice
 
 ## 2. Player records
 
-- [ ] 2.1 Write tests for creating an anonymous player and reading it back
-- [ ] 2.2 Implement the player document and repository
-- [ ] 2.3 Write tests that progress writes use `$min` so a worse attempt cannot overwrite a
+- [x] 2.1 Write tests for creating an anonymous player and reading it back
+- [x] 2.2 Implement the player document and repository
+- [x] 2.3 Write tests that progress writes use `$min` so a worse attempt cannot overwrite a
       better one, and that repeating a write changes nothing
-- [ ] 2.4 Implement the progress document keyed by player and level
+- [x] 2.4 Implement the progress document keyed by player and level
 
 ## 3. Merge rules
 
-- [ ] 3.1 Property: merging is commutative — merging A into B gives the same result as B
+- [x] 3.1 Property: merging is commutative — merging A into B gives the same result as B
       into A
-- [ ] 3.2 Property: merging is idempotent — merging the same progress twice changes nothing
-- [ ] 3.3 Property: a merge never loses a completed level from either side, and never
+- [x] 3.2 Property: merging is idempotent — merging the same progress twice changes nothing
+- [x] 3.3 Property: a merge never loses a completed level from either side, and never
       raises a recorded best
-- [ ] 3.4 Implement the merge
+- [x] 3.4 Implement the merge
 
 ## 4. Session actor
 
-- [ ] 4.1 Write TestKit tests: commands for one player are handled one at a time, state
+- [x] 4.1 Write TestKit tests: commands for one player are handled one at a time, state
       reloads after a restart, and the actor passivates when idle
-- [ ] 4.2 Implement the per-player session actor and the registry that routes to it
-- [ ] 4.3 Write the test that two concurrent completions for one player produce one
+- [x] 4.2 Implement the per-player session actor and the registry that routes to it
+- [x] 4.3 Write the test that two concurrent completions for one player produce one
       consistent record rather than a lost update
 
 ## 5. Anonymous identity
 
-- [ ] 5.1 Write tests for the endpoint that mints an anonymous player and returns a token
-- [ ] 5.2 Implement it, and the token verification the other endpoints depend on
+- [x] 5.1 Write tests for the endpoint that mints an anonymous player and returns a token
+- [x] 5.2 Implement it, and the token verification the other endpoints depend on
 - [ ] 5.3 Client: obtain and keep an identity on first launch, with no interaction, and
       confirm a returning browser is the same player
 
 ## 6. Passkeys
 
-- [ ] 6.1 Add Fido2, configured for discoverable credentials so sign-in needs no username
+- [x] 6.1 Add Fido2, configured for discoverable credentials so sign-in needs no username
 - [ ] 6.2 Write tests for enrolment: the credential attaches to the existing player and the
       progress already made is untouched
 - [ ] 6.3 Write tests for sign-in: a known credential resolves to its account, an unknown
       one is refused and creates nothing
-- [ ] 6.4 Implement the enrolment and sign-in endpoints and the credential store
+- [x] 6.4 Implement the enrolment and sign-in endpoints and the credential store
 - [ ] 6.5 Client: enrolment and sign-in through the browser's WebAuthn API
 - [ ] 6.6 Detect when passkeys are unavailable — including plain HTTP over the LAN — and say
       so plainly rather than failing obscurely

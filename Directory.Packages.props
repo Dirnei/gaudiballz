@@ -27,6 +27,15 @@
   </ItemGroup>
 
   <!--
+    Passkeys. Fido2.AspNet is the maintained .NET WebAuthn implementation; configured for
+    discoverable credentials so signing in needs no username, which is what makes "no
+    password, no email, no recovery code" achievable rather than aspirational.
+  -->
+  <ItemGroup Label="Passkeys">
+    <PackageVersion Include="Fido2.AspNet" Version="4.0.1" />
+  </ItemGroup>
+
+  <!--
     xUnit v3 on Microsoft Testing Platform.
 
     MTP replaces VSTest: a test project is a self-hosting executable rather than a library

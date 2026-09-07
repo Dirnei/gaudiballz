@@ -20,6 +20,7 @@
     <PackageReference Include="MongoDB.Driver" />
     <PackageReference Include="Akka" />
     <PackageReference Include="Akka.Hosting" />
+    <PackageReference Include="Fido2.AspNet" />
   </ItemGroup>
 
   <ItemGroup>

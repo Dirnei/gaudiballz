@@ -1,46 +1,51 @@
 services:
 
-  # The game: one image, one process. Kestrel serves the API and the built client together,
-  # so there is no reverse proxy and nothing to keep in step between two containers.
+  # The game: Kestrel serves the API and the built client together, so there is no reverse
+  # proxy and nothing to keep in step between two web containers.
   #
-  #   docker compose up --build game
+  #   docker compose up -d --build game
   #
-  # Levels are computed from a seed rather than stored, so this needs no database and keeps
-  # no writable state.
+  # It now needs MongoDB. Levels are still pure computation, so the game stays playable when
+  # the database is unavailable — only recording progress fails, and the client queues that.
   game:
     build: .
     image: puzzle:local
     container_name: puzzle
     ports:
       - "8123:8080"
+    environment:
+      # The replica set advertises itself as `mongo:27017`, which is the name reachable from
+      # inside the compose network.
+      Mongo__ConnectionString: "mongodb://mongo:27017/?replicaSet=rs0"
+      Mongo__Database: "puzzle"
+      Passkeys__Domain: "localhost"
+      Passkeys__Origins: "http://localhost:8123,http://localhost:5175"
+    depends_on:
+      mongo:
+        condition: service_healthy
     restart: unless-stopped
 
   # A single-node replica set rather than a standalone mongod.
   #
-  # Standalone would be simpler, but it silently lacks behaviour the application depends
-  # on: TTL indexes, majority write concern, and change streams all require a replica set.
-  # Testing against standalone and deploying against a replica set means the integration
-  # suite validates a topology nobody runs.
-  #
-  # Nothing uses it yet - it is here for the persistence work - so it sits behind a profile
-  # and does not start with the game:
-  #
-  #   docker compose --profile data up -d mongo
+  # Standalone would be simpler, but it silently lacks behaviour this depends on: majority
+  # write concern and TTL indexes both need a replica set. Testing against standalone and
+  # deploying against a replica set means validating a topology nobody runs.
   mongo:
     image: mongo:8
     container_name: puzzle-mongo
-    profiles: [data]
     command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      # Initiates the set on first run and is a no-op afterwards, so `up` is idempotent.
+      # Initiates the set on first run and is a no-op afterwards, so `up` stays idempotent.
+      # The member host must be `mongo:27017` rather than localhost, or clients in other
+      # containers cannot follow the replica set topology back to it.
       test: >
         mongosh --quiet --eval "
           try { rs.status().ok }
-          catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}).ok }
+          catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }
         "
       interval: 5s
       timeout: 10s
