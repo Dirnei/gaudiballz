@@ -1,87 +1,156 @@
+import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Tube } from './Tube';
 import { useGame } from './useGame';
+import { haptics } from './haptics';
 
 /** A tube is finished when it is full and single-coloured; empty tubes are just empty. */
 function isComplete(tube: readonly number[], capacity: number): boolean {
   return tube.length === capacity && tube.every((colour) => colour === tube[0]);
 }
 
+function IconButton({
+  label,
+  onClick,
+  disabled,
+  children,
+  primary,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+  primary?: boolean;
+}) {
+  return (
+    <motion.button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      disabled={disabled}
+      whileTap={{ scale: 0.9 }}
+      transition={{ type: 'spring', stiffness: 700, damping: 26 }}
+      className={`flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-semibold shadow-lg transition-colors disabled:opacity-30 ${
+        primary
+          ? 'bg-sky-500 text-white shadow-sky-500/30'
+          : 'bg-white/8 text-slate-200 ring-1 ring-white/10 backdrop-blur-sm'
+      }`}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
 export function App() {
   const game = useGame();
+  const completedCount = useRef(0);
+
+  const board = game.state?.board;
+  const done = board ? board.tubes.filter((t) => isComplete(t, board.capacity)).length : 0;
+
+  // Physical confirmation, on the move that earned it.
+  useEffect(() => {
+    if (done > completedCount.current) {
+      haptics.complete();
+    }
+    completedCount.current = done;
+  }, [done]);
+
+  useEffect(() => {
+    if (game.solved) {
+      haptics.win();
+    }
+  }, [game.solved]);
+
+  const par = game.info?.parMoves ?? 0;
 
   return (
-    <main className="flex min-h-full flex-col items-center bg-slate-900 px-4 py-5 text-slate-100">
-      <header className="flex w-full max-w-2xl items-baseline justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">Sort Puzzle</h1>
-        <p className="text-xs tabular-nums text-slate-400">
-          Level {game.levelId} · {game.moveCount} moves
-          {game.info !== null && ` · par ${game.info.parMoves}`}
-        </p>
+    <div
+      className="relative flex h-full w-full flex-col overflow-hidden"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        background:
+          'radial-gradient(120% 80% at 50% -10%, #1e2b52 0%, #101833 42%, #070b16 100%)',
+      }}
+    >
+      {/* Soft colour bloom behind the board, so the background is not flat. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-1/4 h-64 opacity-45 blur-3xl"
+        style={{
+          background:
+            'radial-gradient(40% 60% at 25% 50%, rgba(56,189,248,0.35), transparent 70%),' +
+            'radial-gradient(40% 60% at 75% 50%, rgba(168,85,247,0.30), transparent 70%)',
+        }}
+      />
+
+      <header className="relative flex items-center justify-between px-5 pt-3">
+        <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm font-semibold ring-1 ring-white/10">
+          Level {game.levelId}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm tabular-nums ring-1 ring-white/10">
+            <span className="font-semibold">{game.moveCount}</span>
+            {par > 0 && <span className="text-slate-400"> / {par}</span>}
+          </div>
+        </div>
       </header>
 
-      <section className="flex flex-1 items-center justify-center py-8">
-        {game.load === 'loading' && <p className="text-sm text-slate-400">Loading…</p>}
+      <main className="relative flex flex-1 items-center justify-center px-2">
+        {game.load === 'loading' && (
+          <motion.div
+            animate={{ opacity: [0.35, 1, 0.35] }}
+            transition={{ duration: 1.4, repeat: Infinity }}
+            className="text-sm text-slate-400"
+          >
+            Loading level…
+          </motion.div>
+        )}
 
         {game.load === 'error' && (
-          <div className="max-w-sm text-center text-sm text-slate-400">
-            <p className="mb-1 text-slate-200">Could not reach the level server.</p>
-            <p>
+          <div className="max-w-xs text-center text-sm text-slate-400">
+            <p className="mb-1 font-medium text-slate-200">Can’t reach the level server</p>
+            <p className="text-xs leading-relaxed">
               Start it with{' '}
               <code className="text-slate-300">dotnet run --project src/Puzzle.Server</code>
             </p>
           </div>
         )}
 
-        {game.load === 'ready' && game.state !== null && (
-          <div className="flex max-w-2xl flex-wrap items-end justify-center gap-1 sm:gap-2">
-            {game.state.board.tubes.map((tube, index) => (
+        {game.load === 'ready' && board && (
+          <div className="flex max-w-xl flex-wrap items-end justify-center">
+            {board.tubes.map((tube, index) => (
               <Tube
                 key={index}
                 items={tube}
-                capacity={game.state!.board.capacity}
+                capacity={board.capacity}
                 selected={game.selected === index}
-                complete={isComplete(tube, game.state!.board.capacity)}
-                onTap={() => game.tapTube(index)}
+                complete={isComplete(tube, board.capacity)}
+                onTap={() => {
+                  haptics.move();
+                  game.tapTube(index);
+                }}
               />
             ))}
           </div>
         )}
-      </section>
+      </main>
 
-      <footer className="flex w-full max-w-2xl items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={game.undo}
-          disabled={!game.canUndo}
-          className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700 disabled:opacity-35"
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          onClick={game.restart}
-          className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-700"
-        >
-          Restart
-        </button>
-        <button
-          type="button"
-          onClick={() => game.goToLevel(game.levelId - 1)}
-          disabled={game.levelId <= 1}
-          aria-label="Previous level"
-          className="rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-slate-700 disabled:opacity-35"
-        >
-          ←
-        </button>
-        <button
-          type="button"
-          onClick={() => game.goToLevel(game.levelId + 1)}
-          aria-label="Next level"
-          className="rounded-lg bg-slate-800 px-3 py-2.5 text-sm text-slate-300 transition-colors hover:bg-slate-700"
-        >
-          →
-        </button>
+      <footer className="relative flex items-center justify-center gap-3 px-5 pb-5 pt-2">
+        <IconButton label="Previous level" onClick={() => game.goToLevel(game.levelId - 1)} disabled={game.levelId <= 1}>
+          ‹
+        </IconButton>
+        <IconButton label="Undo last move" onClick={game.undo} disabled={!game.canUndo}>
+          ↶
+        </IconButton>
+        <IconButton label="Restart level" onClick={game.restart}>
+          ↻
+        </IconButton>
+        <IconButton label="Next level" onClick={() => game.goToLevel(game.levelId + 1)}>
+          ›
+        </IconButton>
       </footer>
 
       <AnimatePresence>
@@ -90,32 +159,41 @@ export function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-sm"
+            className="absolute inset-0 z-10 flex items-center justify-center bg-slate-950/75 p-6 backdrop-blur-md"
           >
             <motion.div
-              initial={{ y: 24, scale: 0.94 }}
-              animate={{ y: 0, scale: 1 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-              className="w-full max-w-xs rounded-2xl bg-slate-800 p-6 text-center shadow-2xl"
+              initial={{ y: 30, scale: 0.9, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 26 }}
+              className="w-full max-w-[19rem] rounded-3xl bg-slate-800/95 p-7 text-center shadow-2xl ring-1 ring-white/10"
             >
-              <p className="text-xl font-semibold">Solved</p>
+              <motion.div
+                initial={{ scale: 0.4, rotate: -12 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 15, delay: 0.08 }}
+                className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-sky-500/15 text-3xl ring-1 ring-sky-400/40"
+              >
+                ✓
+              </motion.div>
+
+              <p className="text-2xl font-bold tracking-tight">Solved</p>
               <p className="mt-1 text-sm text-slate-400">
                 {game.moveCount} moves
-                {game.info !== null &&
-                  game.moveCount <= game.info.parMoves &&
-                  ' · at or under par'}
+                {par > 0 && game.moveCount <= par && ' · under par'}
               </p>
-              <button
+
+              <motion.button
                 type="button"
+                whileTap={{ scale: 0.96 }}
                 onClick={() => game.goToLevel(game.levelId + 1)}
-                className="mt-5 w-full rounded-lg bg-sky-500 px-4 py-2.5 font-medium text-white transition-colors hover:bg-sky-400"
+                className="mt-6 w-full rounded-2xl bg-sky-500 px-4 py-3.5 font-semibold text-white shadow-lg shadow-sky-500/30"
               >
                 Next level
-              </button>
+              </motion.button>
               <button
                 type="button"
                 onClick={game.restart}
-                className="mt-2 w-full rounded-lg px-4 py-2 text-sm text-slate-400 transition-colors hover:text-slate-200"
+                className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400"
               >
                 Play again
               </button>
@@ -123,6 +201,6 @@ export function App() {
           </motion.div>
         )}
       </AnimatePresence>
-    </main>
+    </div>
   );
 }

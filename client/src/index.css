@@ -1,16 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark light;
+  color-scheme: dark;
+  /* Ball size drives everything else; tuned so ten tubes still fit a narrow phone. */
+  --ball: clamp(1.55rem, 8.2vw, 2.25rem);
+  --gap: calc(var(--ball) * 0.16);
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
 }
 
 body {
   margin: 0;
-  /* The board is the interface; nothing should scroll or rubber-band under a tap. */
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Keeps the board still when the mobile URL bar shows and hides. */
+  height: 100dvh;
+  overflow: hidden;
+  background: #070b16;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Respect people who have asked for less motion, without removing feedback entirely. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

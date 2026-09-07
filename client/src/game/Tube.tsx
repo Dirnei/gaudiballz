@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { TUBE_STYLE, ballStyle } from '../skins';
 
@@ -13,12 +14,27 @@ interface TubeProps {
  * One tube, filled bottom-up.
  *
  * Balls animate in and out rather than travelling between tubes: the engine models a board
- * as colours in slots, not as identified objects, so there is no stable identity to animate
+ * as colours in slots, not as identified objects, so there is no stable identity to follow
  * along a path. A spring on entry reads as the ball dropping into place, which is the part
  * that actually makes a pour feel good.
  */
 export function Tube({ items, capacity, selected, complete, onTap }: TubeProps) {
   const slots = Array.from({ length: capacity }, (_, i) => items[i]);
+
+  // A one-shot celebration the moment a tube fills, rather than a permanent style. The
+  // reward should land on the move that earned it.
+  const wasComplete = useRef(complete);
+  const [justCompleted, setJustCompleted] = useState(false);
+
+  useEffect(() => {
+    if (complete && !wasComplete.current) {
+      setJustCompleted(true);
+      const timer = setTimeout(() => setJustCompleted(false), 620);
+      return () => clearTimeout(timer);
+    }
+    wasComplete.current = complete;
+    return undefined;
+  }, [complete]);
 
   return (
     <button
@@ -26,17 +42,19 @@ export function Tube({ items, capacity, selected, complete, onTap }: TubeProps) 
       onClick={onTap}
       aria-label={`Tube holding ${items.length} of ${capacity}${complete ? ', complete' : ''}`}
       aria-pressed={selected}
-      className="flex touch-manipulation flex-col items-center gap-1.5 rounded-2xl px-1 pb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+      className="flex flex-col items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-0"
+      style={{ padding: 'var(--gap)', borderRadius: '1rem' }}
     >
       {/* Reserved space so tubes never shift as the selection moves between them. */}
       <div className="flex h-3 items-center">
         <AnimatePresence>
           {selected && (
             <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 4 }}
-              className="h-1.5 w-7 rounded-full bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.9)]"
+              initial={{ opacity: 0, y: 5, scaleX: 0.4 }}
+              animate={{ opacity: 1, y: 0, scaleX: 1 }}
+              exit={{ opacity: 0, y: 5, scaleX: 0.4 }}
+              className="h-1.5 rounded-full bg-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.95)]"
+              style={{ width: 'calc(var(--ball) * 0.8)' }}
             />
           )}
         </AnimatePresence>
@@ -44,29 +62,35 @@ export function Tube({ items, capacity, selected, complete, onTap }: TubeProps) 
 
       <motion.div
         animate={{
-          y: selected ? -5 : 0,
-          // A finished tube dims slightly and stops competing for attention.
-          opacity: complete ? 0.62 : 1,
+          y: selected ? -6 : 0,
+          scale: justCompleted ? [1, 1.09, 1] : 1,
+          opacity: complete && !justCompleted ? 0.66 : 1,
         }}
-        transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-        className="flex flex-col-reverse items-center gap-1 p-1.5"
+        transition={
+          justCompleted
+            ? { duration: 0.45, times: [0, 0.35, 1], ease: 'easeOut' }
+            : { type: 'spring', stiffness: 500, damping: 32 }
+        }
+        className="flex flex-col-reverse items-center"
         style={{
           ...TUBE_STYLE,
+          gap: 'var(--gap)',
+          padding: 'calc(var(--gap) * 1.4)',
           ...(complete
-            ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 1px rgba(255,255,255,0.16)` }
+            ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 1px rgba(255,255,255,0.18)` }
             : null),
         }}
       >
         {slots.map((colour, slot) => (
-          <div key={slot} className="h-8 w-8 sm:h-9 sm:w-9">
+          <div key={slot} style={{ width: 'var(--ball)', height: 'var(--ball)' }}>
             <AnimatePresence initial={false}>
               {colour !== undefined && (
                 <motion.div
                   key={colour}
-                  initial={{ y: -16, scale: 0.8, opacity: 0 }}
+                  initial={{ y: -18, scale: 0.78, opacity: 0 }}
                   animate={{ y: 0, scale: 1, opacity: 1 }}
-                  exit={{ y: -12, scale: 0.8, opacity: 0 }}
-                  transition={{ type: 'spring', stiffness: 640, damping: 28 }}
+                  exit={{ y: -14, scale: 0.78, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 660, damping: 27 }}
                   className="h-full w-full"
                   style={ballStyle(colour)}
                 />
