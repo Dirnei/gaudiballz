@@ -32,7 +32,6 @@ export function AccountPanel({
   const [status, setStatus] = useState<Status>('idle');
   const [username, setUsername] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
-  const [confirmingLogOut, setConfirmingLogOut] = useState(false);
 
   // Register is a choice first and a form second: the name is only asked for once someone
   // has said they want an account.
@@ -197,37 +196,16 @@ export function AccountPanel({
             )}
 
             {/* Only where there is an account to leave: anonymous is the logged-out state. */}
+            {/* Only where there is an account to leave: anonymous is the logged-out state.
+                No confirmation — logging back in is one tap on a passkey. */}
             {loggedIn && (
-              <div className="mt-5 border-t border-white/10 pt-4">
-                {confirmingLogOut ? (
-                  <>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={onLogOut}
-                        className="flex-1 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-medium text-slate-100"
-                      >
-                        Log out
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setConfirmingLogOut(false)}
-                        className="flex-1 rounded-2xl px-4 py-2.5 text-sm text-slate-400"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingLogOut(true)}
-                    className="w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400"
-                  >
-                    Log out
-                  </button>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={onLogOut}
+                className="mt-5 w-full rounded-2xl border-t border-white/10 px-4 py-3 pt-4 text-sm text-slate-400"
+              >
+                Log out
+              </button>
             )}
 
             <button
