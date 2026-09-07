@@ -80,6 +80,11 @@ jobs:
           cache-dependency-path: client/package-lock.json
       # --filter-trait, not --filter: MTP silently ignores the VSTest-style flag, which
       # would run the whole suite while looking like a targeted gate.
+      #
+      # Both halves read committed files, so the order does not matter: the C# side checks
+      # the TypeScript engine's recorded answers, and the client side checks the fixtures
+      # generated from C#. Neither regenerates here — a behaviour change shows up as a
+      # failure rather than a quietly rewritten fixture.
       - run: dotnet test src/Puzzle.Rules.Tests -- --filter-trait "Category=Conformance"
       - run: npm ci
         working-directory: client

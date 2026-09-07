@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:conformance": "vitest run src/engine/conformance.test.ts"
+    "test:conformance": "vitest run src/engine/conformance.test.ts src/engine/replay.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

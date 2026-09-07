@@ -67,9 +67,15 @@ describe('conformance manifest', () => {
     expect(manifest.rulesVersion).toBe(1);
   });
 
-  it('lists every fixture file present on disk', () => {
+  it('lists every rule fixture present on disk', () => {
+    // The manifest inventories the rule fixtures, which are generated from the C# engine
+    // and hashed so drift is caught. The replay pair is a different kind of artifact: it
+    // runs the other direction, is produced by two different suites, and each half has its
+    // own freshness check, so hashing it here would only make the manifest unstable.
+    const replayArtifacts = new Set(['replay-inputs.json', 'ts-replay.json']);
+
     const onDisk = readdirSync(FIXTURE_DIR)
-      .filter((f) => f.endsWith('.json') && f !== 'MANIFEST.json')
+      .filter((f) => f.endsWith('.json') && f !== 'MANIFEST.json' && !replayArtifacts.has(f))
       .sort();
 
     expect(onDisk).toEqual(Object.keys(manifest.files).sort());
