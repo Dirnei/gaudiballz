@@ -78,11 +78,13 @@ export function ballStyle(colour: number): React.CSSProperties {
   ];
 
   if (angle !== undefined) {
-    // Dark enough to read on a pale ball, light enough not to become a colour of its own.
+    // Deliberately faint. The stripe is a second cue for telling two pale balls apart at a
+    // glance, not a decoration — once it is strong enough to notice on its own it starts
+    // competing with the colour it is meant to support.
     layers.unshift(
       `repeating-linear-gradient(${angle}deg,` +
-        ' rgba(0,0,0,0.19) 0px, rgba(0,0,0,0.19) 3px,' +
-        ' rgba(0,0,0,0) 3px, rgba(0,0,0,0) 7px)',
+        ' rgba(0,0,0,0.09) 0px, rgba(0,0,0,0.09) 2px,' +
+        ' rgba(0,0,0,0) 2px, rgba(0,0,0,0) 7px)',
     );
   }
 
