@@ -1,17 +1,29 @@
+using Puzzle.Server.Levels;
 using Puzzle.Server.PlayerIdentity;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Each slice registers itself. Adding a capability is a folder plus two lines here.
 PlayerIdentitySlice.AddServices(builder.Services);
+LevelsSlice.AddServices(builder.Services);
+
+builder.Services.AddOutputCache();
+
+// The client is served from a different origin in development.
+builder.Services.AddCors(options => options.AddDefaultPolicy(
+    policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+
+app.UseCors();
+app.UseOutputCache();
 
 // Liveness only. Readiness gains a MongoDB ping and an actor-system check once those
 // exist; probing dependencies before there are any would be theatre.
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 
 PlayerIdentitySlice.MapEndpoints(app);
+LevelsSlice.MapEndpoints(app);
 
 app.Run();
 
