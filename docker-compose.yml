@@ -1,14 +1,35 @@
 services:
 
+  # The game: one image, one process. Kestrel serves the API and the built client together,
+  # so there is no reverse proxy and nothing to keep in step between two containers.
+  #
+  #   docker compose up --build game
+  #
+  # Levels are computed from a seed rather than stored, so this needs no database and keeps
+  # no writable state.
+  game:
+    build: .
+    image: puzzle:local
+    container_name: puzzle
+    ports:
+      - "8123:8080"
+    restart: unless-stopped
+
   # A single-node replica set rather than a standalone mongod.
   #
   # Standalone would be simpler, but it silently lacks behaviour the application depends
-  # on: TTL indexes, majority write concern, and change streams all require a replica
-  # set. Testing against standalone and deploying against a replica set means the
-  # integration suite validates a topology nobody runs.
+  # on: TTL indexes, majority write concern, and change streams all require a replica set.
+  # Testing against standalone and deploying against a replica set means the integration
+  # suite validates a topology nobody runs.
+  #
+  # Nothing uses it yet - it is here for the persistence work - so it sits behind a profile
+  # and does not start with the game:
+  #
+  #   docker compose --profile data up -d mongo
   mongo:
     image: mongo:8
     container_name: puzzle-mongo
+    profiles: [data]
     command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"

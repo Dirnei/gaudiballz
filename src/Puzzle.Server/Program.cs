@@ -18,12 +18,21 @@ var app = builder.Build();
 app.UseCors();
 app.UseOutputCache();
 
+// Kestrel serves the built client itself - no reverse proxy in front. In development the
+// client runs on its own Vite server instead and wwwroot simply does not exist.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // Liveness only. Readiness gains a MongoDB ping and an actor-system check once those
 // exist; probing dependencies before there are any would be theatre.
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 
 PlayerIdentitySlice.MapEndpoints(app);
 LevelsSlice.MapEndpoints(app);
+
+// Anything that is not an API route or a real file is the SPA: the client owns its own
+// routing, so a deep link has to reach index.html rather than 404.
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

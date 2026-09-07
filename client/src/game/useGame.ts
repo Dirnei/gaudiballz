@@ -35,13 +35,16 @@ interface LevelResponse {
 }
 
 /**
- * Default to the host the page came from, on the API port. Hardcoding localhost would
- * work on this machine and fail on a phone opening the same dev server over the network,
- * which is exactly where the game needs testing.
+ * Where the API lives.
+ *
+ * In a container the server serves the client too, so the API is same-origin and the
+ * prefix is empty. In development the client runs on its own Vite port, so it needs the
+ * host the page came from plus the API port - the host rather than localhost, because the
+ * game is mostly tested from a phone on the same network.
  */
 const API =
   import.meta.env['VITE_API_URL'] ??
-  `${window.location.protocol}//${window.location.hostname}:5199`;
+  (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5199` : '');
 const LAST_LEVEL_KEY = 'puzzle.lastLevel';
 
 export type LoadState = 'loading' | 'ready' | 'error';
