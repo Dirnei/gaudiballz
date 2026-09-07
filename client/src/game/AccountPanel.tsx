@@ -9,6 +9,7 @@ interface AccountPanelProps {
   readonly onClose: () => void;
   readonly onSignedIn: (identity: Identity) => void;
   readonly onEnrolled: () => void;
+  readonly onSignOut: () => void;
 }
 
 type Status = 'idle' | 'working' | 'failed';
@@ -21,8 +22,17 @@ type Status = 'idle' | 'working' | 'failed';
  * advertising and nothing to sell, so pushing registration would buy nothing and interrupt
  * the thing people came for.
  */
-export function AccountPanel({ open, identity, onClose, onSignedIn, onEnrolled }: AccountPanelProps) {
+export function AccountPanel({
+  open,
+  identity,
+  onClose,
+  onSignedIn,
+  onEnrolled,
+  onSignOut,
+}: AccountPanelProps) {
   const [status, setStatus] = useState<Status>('idle');
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+
   const blocker = passkeyBlocker();
   const blocked = blockerMessage(blocker);
 
@@ -132,10 +142,51 @@ export function AccountPanel({ open, identity, onClose, onSignedIn, onEnrolled }
               </p>
             )}
 
+            {/* Only when there is an account to leave. Anonymous is the signed-out state, so
+                offering it there would be offering to sign out of nothing — and it was the
+                reason a destructive warning had to exist at all. */}
+            {identity !== null && !identity.isAnonymous && (
+              <div className="mt-5 border-t border-white/10 pt-4">
+                {confirmingSignOut ? (
+                  <>
+                    <p className="mb-3 text-xs leading-relaxed text-slate-400">
+                      Your progress stays on the account. Sign in with your passkey to pick
+                      it up again.
+                    </p>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={onSignOut}
+                        className="flex-1 rounded-2xl bg-white/10 px-4 py-2.5 text-sm font-medium text-slate-100"
+                      >
+                        Sign out
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingSignOut(false)}
+                        className="flex-1 rounded-2xl px-4 py-2.5 text-sm text-slate-400"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingSignOut(true)}
+                    className="w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400"
+                  >
+                    Sign out
+                  </button>
+                )}
+              </div>
+            )}
+
             <button
               type="button"
               onClick={onClose}
-              className="mt-4 w-full rounded-2xl px-4 py-2 text-sm text-slate-500"
+              className="mt-3 w-full rounded-2xl px-4 py-2 text-sm text-slate-500"
             >
               Close
             </button>

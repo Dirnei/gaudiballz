@@ -75,3 +75,13 @@ export async function forget(id: string): Promise<void> {
 export async function queueLength(): Promise<number> {
   return withStore<number>('readonly', (store) => store.count());
 }
+
+/**
+ * Empties the queue.
+ *
+ * Used when signing out. Anything still waiting belongs to the account being left, and
+ * carrying it over would record one player's work against another — worse than losing it.
+ */
+export async function clearQueue(): Promise<void> {
+  await withStore('readwrite', (store) => store.clear());
+}

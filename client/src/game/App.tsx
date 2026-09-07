@@ -213,6 +213,10 @@ export function App() {
           setAccountOpen(false);
           game.enrolled();
         }}
+        onSignOut={() => {
+          setAccountOpen(false);
+          void game.signOut();
+        }}
       />
 
       <AnimatePresence>

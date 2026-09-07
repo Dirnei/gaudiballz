@@ -108,3 +108,56 @@ The system SHALL NOT imply a recovery route it does not have.
 
 - **WHEN** a player is about to create a passkey
 - **THEN** they are told that losing it means losing access to the account
+
+### Requirement: Signing out
+
+Signing out SHALL be offered only to a player with a passkey attached. An anonymous player
+SHALL NOT be offered it: anonymous is the signed-out state, so there is no account to leave.
+
+Where it is offered, it SHALL be reachable in the same place as the other account controls.
+
+Signing out SHALL forget the identity on this device only. It SHALL NOT delete the account,
+so an account with a passkey can be signed back in to and finds its progress intact.
+
+After signing out the player SHALL be returned to a fresh anonymous identity and SHALL be
+able to keep playing immediately, with no interaction required.
+
+#### Scenario: Leaving an account on a shared device
+
+- **WHEN** a player with a passkey signs out
+- **THEN** the device no longer holds their identity
+- **AND** the game continues as a new anonymous player
+
+#### Scenario: The account is still there afterwards
+
+- **WHEN** a player signs out and then signs in again with the same passkey
+- **THEN** their progress is as they left it
+
+#### Scenario: Play continues without interaction
+
+- **WHEN** a player signs out
+- **THEN** they can immediately start a level
+- **AND** they are not asked to sign in or sign up
+
+#### Scenario: An anonymous player is not offered it
+
+- **WHEN** a player with no passkey opens the account controls
+- **THEN** no sign out is shown
+
+### Requirement: Work in hand is not stranded
+
+Completions still waiting to be sent SHALL be sent before the identity is forgotten.
+
+Any that cannot be sent SHALL be discarded rather than carried over, so that work belonging
+to one account is never recorded against another.
+
+#### Scenario: Queued completions go to the account they belong to
+
+- **WHEN** a player signs out with completions still queued
+- **THEN** those completions are sent before the identity is forgotten
+
+#### Scenario: Nothing is carried across
+
+- **WHEN** completions cannot be sent before signing out
+- **THEN** they are discarded
+- **AND** they are not recorded against the next account used on this device

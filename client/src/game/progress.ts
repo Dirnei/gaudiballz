@@ -3,7 +3,7 @@
  */
 
 import { API, authHeaders } from './identity';
-import { enqueue, forget, newId, pending, type PendingCompletion } from './completionQueue';
+import { clearQueue, enqueue, forget, newId, pending, type PendingCompletion } from './completionQueue';
 
 export interface ProgressEntry {
   readonly level: number;
@@ -102,5 +102,26 @@ export async function mergeIntoAccount(levels: readonly ProgressEntry[]): Promis
     return response.ok ? ((await response.json()) as Progress) : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Sends whatever is waiting, then empties the queue either way.
+ *
+ * Called on the way out. A best-effort flush means work already done reaches the account it
+ * belongs to; clearing regardless means nothing is left to be misattributed to whoever uses
+ * this device next.
+ */
+export async function flushAndClear(): Promise<void> {
+  try {
+    await drain();
+  } catch {
+    // Offline, or the account is already unreachable. Either way it must not carry over.
+  }
+
+  try {
+    await clearQueue();
+  } catch {
+    // Storage unavailable; there is nothing queued to worry about.
   }
 }

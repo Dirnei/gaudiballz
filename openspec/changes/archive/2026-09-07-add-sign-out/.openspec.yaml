@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-09-07
+goal: A player can leave an account on a shared device without silently
+  destroying an anonymous one

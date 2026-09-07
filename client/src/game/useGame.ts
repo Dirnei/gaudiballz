@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ensureIdentity, remember, type Identity } from './identity';
-import { drain, loadProgress, mergeIntoAccount, recordCompletion, type Progress } from './progress';
+import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
+import { drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion, type Progress } from './progress';
 import {
   AFTER_EACH_MOVE,
   ON_REQUEST,
@@ -317,6 +317,31 @@ export function useGame() {
     }
   }, [progress]);
 
+  /**
+   * Leaves the account on this device and continues as someone new.
+   *
+   * Queued work is sent first and cleared either way, so nothing belonging to the account
+   * being left can end up recorded against the next one. The account itself is untouched —
+   * with a passkey it can be signed back in to; without one it simply becomes unreachable,
+   * which is what the interface warns about beforehand.
+   */
+  const signOut = useCallback(async () => {
+    await flushAndClear();
+    forgetIdentity();
+
+    setProgress(null);
+    setIdentity(null);
+    setLevelId(1);
+    try {
+      localStorage.removeItem(LAST_LEVEL_KEY);
+    } catch {
+      // Nothing to clear.
+    }
+
+    // Straight back to playable, with nothing to dismiss.
+    setIdentity(await ensureIdentity());
+  }, []);
+
   const enrolled = useCallback(() => {
     setIdentity((current) => (current === null ? current : { ...current, isAnonymous: false }));
   }, []);
@@ -330,6 +355,7 @@ export function useGame() {
     identity,
     progress,
     signedIn,
+    signOut,
     enrolled,
     solved: state !== null && isSolved(state.board),
     // Only a proved verdict counts as lost; `unknown` must never surface as defeat.

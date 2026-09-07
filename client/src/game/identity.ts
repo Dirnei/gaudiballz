@@ -90,3 +90,20 @@ export async function ensureIdentity(): Promise<Identity | null> {
     return null;
   }
 }
+
+/**
+ * Forgets the identity held by this browser.
+ *
+ * The server has no session to end — a token is a bearer credential, so leaving is a matter
+ * of not presenting it any more. The account itself is untouched: one with a passkey can be
+ * signed back in to, and one without simply becomes unreachable, which is why the interface
+ * warns before doing this to an anonymous player.
+ */
+export function forgetIdentity(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(PLAYER_KEY);
+  } catch {
+    // Nothing to clear if storage was never available.
+  }
+}
