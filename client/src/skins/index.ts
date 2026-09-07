@@ -45,22 +45,25 @@ export const PALETTE = [
 ] as const;
 
 /**
- * The pale colours carry a stripe as well as a hue.
+ * The pale colours carry a swirl as well as a hue.
  *
  * Light blue, light green, yellow and white all sit at the top of the lightness range, so
  * they arrive together in the late game and read as one washed-out group even though their
- * measured separation is fine. A stripe gives them a second thing to differ by, and the
- * angle differs per colour so the pattern itself distinguishes them rather than just marking
- * them all as "pale".
+ * measured separation is fine. A pattern gives them a second thing to differ by.
  *
- * This is also the accessibility answer: with a pattern doing part of the work, the game
- * stays readable for someone who cannot separate the hues at all.
+ * The swirl is a conic gradient offset toward the specular highlight, which makes it curve
+ * with the sphere rather than sitting flat across it. The number of arms differs per colour,
+ * so the pattern itself distinguishes them rather than only marking them all as pale — and
+ * counting arms works even for someone who cannot separate the hues at all.
+ *
+ * Drawn in white rather than black: on an already pale ball a dark pattern reads as dirt,
+ * while a lighter one reads as sheen.
  */
-const STRIPE_ANGLE: Readonly<Record<number, number>> = {
-  4: 90, // yellow      — vertical
-  8: 45, // light blue  — leaning right
-  9: -45, // light green — leaning left
-  12: 0, // white       — horizontal
+const SWIRL: Readonly<Record<number, { arms: number; phase: number }>> = {
+  4: { arms: 6, phase: 0 }, // yellow
+  8: { arms: 4, phase: 22 }, // light blue
+  9: { arms: 7, phase: 12 }, // light green
+  12: { arms: 5, phase: 40 }, // white
 };
 
 /**
@@ -70,21 +73,24 @@ const STRIPE_ANGLE: Readonly<Record<number, number>> = {
  */
 export function ballStyle(colour: number): React.CSSProperties {
   const fill = PALETTE[colour] ?? PALETTE[1];
-  const angle = STRIPE_ANGLE[colour];
+  const swirl = SWIRL[colour];
 
   const layers = [
     'radial-gradient(circle at 33% 27%, rgba(255,255,255,0.34), rgba(255,255,255,0) 42%)',
     'radial-gradient(circle at 50% 120%, rgba(0,0,0,0.30), rgba(0,0,0,0) 50%)',
   ];
 
-  if (angle !== undefined) {
-    // Deliberately faint. The stripe is a second cue for telling two pale balls apart at a
-    // glance, not a decoration — once it is strong enough to notice on its own it starts
-    // competing with the colour it is meant to support.
-    layers.unshift(
-      `repeating-linear-gradient(${angle}deg,` +
-        ' rgba(0,0,0,0.09) 0px, rgba(0,0,0,0.09) 2px,' +
-        ' rgba(0,0,0,0) 2px, rgba(0,0,0,0) 7px)',
+  if (swirl !== undefined) {
+    const step = 360 / (swirl.arms * 2);
+
+    // Inserted beneath the specular highlight so the swirl looks like it is in the ball
+    // rather than painted on the front of it.
+    layers.splice(
+      1,
+      0,
+      `repeating-conic-gradient(from ${swirl.phase}deg at 38% 34%,` +
+        ` rgba(255,255,255,0.22) 0deg, rgba(255,255,255,0.22) ${step}deg,` +
+        ` rgba(255,255,255,0) ${step}deg, rgba(255,255,255,0) ${step * 2}deg)`,
     );
   }
 
@@ -98,8 +104,8 @@ export function ballStyle(colour: number): React.CSSProperties {
 }
 
 /** True when this colour is told apart by pattern as well as hue. */
-export function hasStripes(colour: number): boolean {
-  return colour in STRIPE_ANGLE;
+export function hasSwirl(colour: number): boolean {
+  return colour in SWIRL;
 }
 
 /** The glass tube: a bright left edge, a dim body, a softer right edge. */
