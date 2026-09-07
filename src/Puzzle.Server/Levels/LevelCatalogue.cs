@@ -55,33 +55,33 @@ public static class LevelCatalogue
             // add more work each and need longer to settle before the next step up.
             var colours = levelId switch
             {
-                <= 3 => 3,
-                <= 8 => 4,
-                <= 15 => 5,
-                <= 24 => 6,
-                <= 35 => 7,
-                _ => 8,
+                <= 5 => 3,
+                <= 14 => 4,
+                <= 25 => 5,
+                <= 38 => 6,
+                _ => 7,
             };
 
             return LevelParameters.ForColours(colours, capacity: 4, spareTubes: 2);
         }
 
-        // One spare tube from here, and the transition deliberately lands on the gentlest
-        // one-spare configuration there is. Measured, because it is counter-intuitive: with
-        // only one spare tube, MORE colours and deeper tubes both raise the number of
-        // options rather than lowering it. Nine colours at capacity 5 measures 68% tight
-        // against 80% for eight colours at capacity 5, so easing in means stepping the
-        // colour count up at the same moment, not down.
-        var lateColours = levelId switch
+        // One spare tube from here. The transition lands on the gentlest one-spare board
+        // there is, which is counter-intuitive and worth stating: with only one spare, extra
+        // colours and extra depth both ADD places to put things, so they loosen the board
+        // rather than tightening it. Measured share of positions with three or fewer moves:
+        //
+        //    8 colours, capacity 6 -> 62%   (level 50 lands here)
+        //    9 colours, capacity 5 -> 68%
+        //   10 colours, capacity 4 -> 80%
+        //
+        // So difficulty past 50 is driven by taking depth away, not by piling on colours,
+        // and the colour count keeps climbing gently for variety rather than for pressure.
+        var (lateColours, lateCapacity) = levelId switch
         {
-            <= 67 => 9,
-            <= 100 => 10,
-            _ => 11,
+            <= 70 => (8, 6),
+            <= 90 => (9, 5),
+            _ => (10, 4),
         };
-
-        // Depth comes back off later, which is what tightens the endgame: capacity 4 with a
-        // single spare is the most constrained board the generator makes.
-        var lateCapacity = levelId <= 85 ? 5 : 4;
 
         return LevelParameters.ForColours(lateColours, lateCapacity, spareTubes: 1);
     }
@@ -97,7 +97,7 @@ public static class LevelCatalogue
             return "One spare tube from here — but the tubes are deeper.";
         }
 
-        if (levelId == 86)
+        if (levelId == 91)
         {
             return "Shorter tubes. No more room to breathe.";
         }
