@@ -89,35 +89,6 @@ When a position is not winnable, no hint SHALL be offered.
 - **WHEN** the position cannot be won
 - **THEN** no hint is offered
 
-### Requirement: The player is told when a position is lost
-
-When the position can no longer be won, the game SHALL tell the player, rather than leaving
-them to discover it by exhausting the possibilities.
-
-The game SHALL offer the ways out — undoing the last move, and restarting the level — at
-the moment it reports the position lost.
-
-The game SHALL NOT prevent further moves, and SHALL NOT restart the level on the player's
-behalf.
-
-An undecided verdict SHALL NOT be shown as lost.
-
-#### Scenario: A dead position is reported
-
-- **WHEN** a move leaves the position unwinnable
-- **THEN** the player is told the position can no longer be won
-- **AND** undo and restart are offered
-
-#### Scenario: Undo clears the notice
-
-- **WHEN** the player undoes out of a dead position
-- **THEN** the notice is no longer shown
-
-#### Scenario: Play is not blocked
-
-- **WHEN** the position is reported lost
-- **THEN** the player may still make legal moves
-
 ### Requirement: Hints are free
 
 Hints SHALL NOT be limited by count, currency, waiting, or advertising.
@@ -134,3 +105,47 @@ told apart from one cleared without it.
 
 - **WHEN** a player uses hints and then clears the level
 - **THEN** the number of hints used in that attempt is available
+
+### Requirement: The player is told when they cannot continue
+
+The game SHALL inform the player when no legal move exists and the board is not solved.
+
+The solver's dead verdict — the position is unwinnable but legal moves still exist — SHALL
+NOT trigger a notice. Neither SHALL returning to a board already played this attempt: going
+round in a circle is something the player can see on the board, and pointing it out reads as
+the game watching over their shoulder. The solver continues to compute verdicts for hint
+availability; the notice is decoupled from it.
+
+The game SHALL offer the ways out — undoing the last move and restarting the level — at the
+moment it reports the condition, subject to the undo budget.
+
+The game SHALL NOT prevent further moves, and SHALL NOT restart the level on the player's
+behalf.
+
+#### Scenario: No legal moves triggers the notice
+
+- **WHEN** a move leaves the board with no legal moves and the board is not solved
+- **THEN** the player is told they are stuck
+- **AND** undo and restart are offered
+
+#### Scenario: A repeated position does not trigger the notice
+
+- **WHEN** a move produces a board the player has already reached in this attempt
+- **THEN** no notice is shown
+- **AND** the player may continue making moves
+
+#### Scenario: A dead position with legal moves does not trigger the notice
+
+- **WHEN** the solver reports the position as dead but legal moves still exist
+- **THEN** no notice is shown
+- **AND** the player may continue making moves
+
+#### Scenario: Undo clears the notice
+
+- **WHEN** the player undoes out of a no-moves state
+- **THEN** the notice is no longer shown
+
+#### Scenario: Play is not blocked
+
+- **WHEN** the notice is shown
+- **THEN** the player may still make legal moves if any exist

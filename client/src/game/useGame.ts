@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
+import {
+  canUndo as canUndoBudget,
+  spendReset,
+  spendUndo,
+  startLevel,
+  type Attempt,
+} from './attempt';
 import { drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion, type Progress } from './progress';
 import {
-  AFTER_EACH_MOVE,
   ON_REQUEST,
+  legalMoves,
   canUndo as canUndoState,
   createBoard,
   isLegal,
@@ -16,7 +23,6 @@ import {
   type Board,
   type GameState,
   type Move,
-  type Verdict,
 } from '../engine';
 
 /**
@@ -75,6 +81,7 @@ export function useGame() {
   const [load, setLoad] = useState<LoadState>('loading');
   const [selected, setSelected] = useState<number | null>(null);
   const [hintsUsed, setHintsUsed] = useState(0);
+  const [attempt, setAttempt] = useState<Attempt>(startLevel);
   const [hinted, setHinted] = useState<{ from: number; to: number } | null>(null);
 
   /**
@@ -131,6 +138,7 @@ export function useGame() {
     setSelected(null);
     setHintsUsed(0);
     setHinted(null);
+    setAttempt(startLevel());
     plan.current = [];
 
     fetch(`${API}/api/v1/levels/${levelId}`)
@@ -214,8 +222,18 @@ export function useGame() {
    * rather than being deferred. An undecided search reports `unknown`, which the interface
    * must never render as lost.
    */
-  const verdict: Verdict = useMemo(
-    () => (state === null ? 'unknown' : solve(state.board, AFTER_EACH_MOVE).verdict),
+  /**
+   * Whether the board offers anything at all.
+   *
+   * The only thing the player is told about. A proved-unwinnable position with moves still
+   * on it is deliberately left unannounced: saying so the moment it happens turns the puzzle
+   * into trial and error with perfect feedback, and makes the undo budget pointless because
+   * the move to undo is obvious. Nor is a repeated board pointed out — going round in a
+   * circle is there on the board to see, and remarking on it reads as the game watching over
+   * the player's shoulder.
+   */
+  const noMoves = useMemo(
+    () => state !== null && !isSolved(state.board) && legalMoves(state.board).length === 0,
     [state],
   );
 
@@ -256,18 +274,24 @@ export function useGame() {
   }, [state]);
 
   const undo = useCallback(() => {
+    if (!canUndoBudget(attempt)) {
+      return;
+    }
+
     setSelected(null);
     setHinted(null);
     plan.current = [];
+    setAttempt(spendUndo(attempt));
     setState((current) => (current === null ? current : undoState(current)));
-  }, []);
+  }, [attempt]);
 
   const restart = useCallback(() => {
     setSelected(null);
     setHinted(null);
     plan.current = [];
+    setAttempt(spendReset(attempt));
     setState((current) => (current === null ? current : restartState(current)));
-  }, []);
+  }, [attempt]);
 
   /**
    * Records a completion once per solved attempt.
@@ -359,12 +383,15 @@ export function useGame() {
     logOut: signOut,
     registered,
     solved: state !== null && isSolved(state.board),
-    // Only a proved verdict counts as lost; `unknown` must never surface as defeat.
-    stuck: verdict === 'dead',
+    // Only what the player could see for themselves.
+    stuck: noMoves,
+    undosRemaining: attempt.undosRemaining,
+    undosUsed: attempt.undosUsed,
+    resetsUsed: attempt.resetsUsed,
     hintsUsed,
     hinted,
     useHint,
-    canUndo: state !== null && canUndoState(state),
+    canUndo: state !== null && canUndoState(state) && canUndoBudget(attempt),
     moveCount: state?.moves.length ?? 0,
     tapTube,
     undo,

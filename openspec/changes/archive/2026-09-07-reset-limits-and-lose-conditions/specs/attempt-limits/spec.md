@@ -1,7 +1,10 @@
 ## Purpose
 
-Governs how many times a player may undo moves and restart a level within a single
-level, adding tactical cost to helpers that were previously unlimited.
+Governs how many times a player may undo within an attempt, so that a mistake costs
+something and a move is worth thinking about before it is made.
+
+Resetting is not limited: it already costs the progress made on the level, and it is the way
+a player earns a fresh set of undos.
 
 ## ADDED Requirements
 
@@ -33,37 +36,14 @@ Using a hint SHALL NOT consume an undo.
 - **WHEN** a level is in progress
 - **THEN** the remaining undo count is displayed near the undo control
 
-### Requirement: Reset budget
-
-Each level SHALL allow at most 2 resets. The reset count persists across attempts within
-the same level. The reset control SHALL be disabled once the budget is exhausted.
-Advancing to a new level SHALL restore the full reset budget.
-
-#### Scenario: Resets are available on a fresh level
-
-- **WHEN** the player starts a new level
-- **THEN** the player has 2 resets available
-
-#### Scenario: Each reset reduces the remaining count
-
-- **WHEN** the player has 2 resets remaining and resets the level
-- **THEN** the player has 1 reset remaining
-
-#### Scenario: Reset is disabled when exhausted
-
-- **WHEN** the player has 0 resets remaining
-- **THEN** the reset control is disabled and cannot be activated
-
-#### Scenario: Advancing to the next level restores the budget
-
-- **WHEN** the player completes a level and moves to the next
-- **THEN** the player has 2 resets available on the new level
-
 ### Requirement: Reset confirms before acting
 
 Activating the reset control SHALL present a confirmation prompt before resetting the
-level. The prompt SHALL state how many resets remain after this one. The player MUST
-explicitly confirm to proceed; dismissing the prompt SHALL leave the game unchanged.
+level. The player MUST explicitly confirm to proceed; dismissing the prompt SHALL leave the
+game unchanged.
+
+Resetting SHALL NOT be limited. Losing the progress made on the level is cost enough; a cap
+on top of that would only strand a player who wants to start the level again.
 
 #### Scenario: Confirmation is shown before reset
 
@@ -80,15 +60,18 @@ explicitly confirm to proceed; dismissing the prompt SHALL leave the game unchan
 - **WHEN** the player dismisses the reset prompt without confirming
 - **THEN** the board and all state remain unchanged
 
-#### Scenario: Prompt shows remaining resets
+#### Scenario: Resetting is always available
 
-- **WHEN** the player has 2 resets remaining and taps reset
-- **THEN** the prompt indicates that 1 reset will remain after confirming
+- **WHEN** the player has reset the level several times already
+- **THEN** the reset control is still available
 
 ### Requirement: Reset restores the undo budget
 
-Resetting a level SHALL set the undo count back to the full budget of 2, so the new
-attempt starts with full undo availability.
+Resetting a level SHALL set the undo count back to the full budget of 2, so the new attempt
+starts with full undo availability.
+
+This is what resetting is for: undos are the limited resource, and starting the level again
+is how a player earns more of them.
 
 #### Scenario: Undo budget is restored after reset
 
@@ -109,30 +92,6 @@ the existing hint count. Resets used SHALL also be visible.
 
 - **WHEN** a player solves a level without using any undos
 - **THEN** the win overlay does not show an undo count
-
-### Requirement: Loop detection
-
-The game SHALL track board states visited during the current attempt. When a move produces
-a board state the player has already visited in the same attempt, the game SHALL inform
-the player that they are in a loop.
-
-Resetting the level SHALL clear the visited-states history.
-
-#### Scenario: Revisiting a state triggers the loop notice
-
-- **WHEN** the player makes a sequence of moves that returns the board to a previously visited state
-- **THEN** the game informs the player that a loop has been detected
-
-#### Scenario: The notice clears when the loop is broken
-
-- **WHEN** the player undoes out of the repeated state
-- **THEN** the loop notice is no longer shown
-
-#### Scenario: Reset clears visited history
-
-- **WHEN** the player resets the level
-- **THEN** the visited-states history is empty
-- **AND** no loop notice is shown
 
 ### Requirement: No-moves notice
 

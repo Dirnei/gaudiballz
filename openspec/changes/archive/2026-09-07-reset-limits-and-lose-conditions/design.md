@@ -13,9 +13,9 @@ dialogs.
 ## Goals / Non-Goals
 
 **Goals:**
-- Add undo and reset budgets to the client-side game state
+- Add an undo budget to the client-side game state, refilled by restarting
 - Show a confirmation dialog before reset, following existing overlay patterns
-- Replace the solver-driven stuck banner with no-moves and loop-detection triggers
+- Replace the solver-driven stuck banner with a no-moves trigger
 - Display undo count on the win screen
 
 **Non-Goals:**
@@ -32,7 +32,7 @@ dialogs.
 
 ### 1. Budget state in `GameState` vs. `useGame` hook state
 
-**Decision**: Add `undosUsed`, `resetsUsed`, and `visitedStates` to the `useGame` hook as
+**Decision**: Add `undosRemaining`, `undosUsed` and `resetsUsed` to the `useGame` hook as
 React state, not to the engine's `GameState` interface.
 
 **Why**: `GameState` is the pure engine model (board + moves + history) shared with the
@@ -43,17 +43,19 @@ in the hook avoids coupling the engine to play-session concepts.
 client-only concepts into the engine, and the solver would have to carry budget fields it
 never uses.
 
-### 2. Loop detection via board hashing
+### 2. Resetting is unlimited, undos are not
 
-**Decision**: Maintain a `Set<string>` of canonical board representations visited in the
-current attempt. After each move, hash the resulting board and check membership. Use the
-same tube-order-invariant canonicalization the solver already uses for deduplication.
+**Decision**: Only undo carries a budget. Restarting the level is always available, and it
+sets the undo count back to full.
 
-**Why**: The solver already proves this canonicalization works (reordered tubes are the
-same position). Reusing it keeps the definition of "same state" consistent.
+**Why**: Restarting already costs the whole level's progress, which is a real price a
+player pays willingly; a cap on top of it only strands someone who wants another go.
+Undos are where the tension belongs — they let a player take back a mistake without paying
+for it — and making a restart the way to earn more of them keeps the two in one loop.
 
-**Alternative considered**: Comparing `Board` objects structurally on each move — rejected
-because it's O(n) per check against all visited states vs. O(1) set lookup.
+**Alternative considered**: A budget of 2 resets per level — rejected after playtesting: it
+punished the player twice for the same mistake and turned the restart button into another
+thing to ration.
 
 ### 3. Confirmation dialog as inline component
 
@@ -64,28 +66,24 @@ spring animation entry, backdrop click to dismiss.
 **Why**: Consistent with the existing visual language. No new dependencies needed.
 
 **Alternative considered**: `window.confirm()` — rejected because it breaks the visual
-style, can't show remaining-reset count styled consistently, and is blocked by some
-mobile browsers.
+style and is blocked by some mobile browsers.
 
 ### 4. Decoupling the stuck banner from the solver verdict
 
 **Decision**: The `stuck` flag in `useGame` switches from `verdict === 'dead'` to
-`noLegalMoves || loopDetected`. The solver still runs after each move (for hint
-availability), but its `dead` verdict no longer drives the stuck UI.
+`noLegalMoves`. The solver runs only when a hint is asked for; its `dead` verdict no longer
+drives the stuck UI.
 
-**Why**: The user wants "you lose" only for truly stuck situations (no moves) or detectable
-loops, not for positions where moves exist but none win.
+**Why**: The player is told only what they could see on the board for themselves. A
+position with moves left but none winning stays unannounced, and so does a repeated board:
+detecting the circle was tried and cut, because pointing it out reads as the game watching
+over the player's shoulder.
 
 **Risk**: Removing the dead-position banner means a player in an unwinnable position with
 legal moves gets no warning. This is the intended behavior — the game trusts the player
 to discover it or use hints.
 
 ## Risks / Trade-offs
-
-- **Visited-states memory**: The set grows with each move. For typical puzzles (under 200
-  moves before a reset), this is negligible. Worst case, a player making thousands of moves
-  without resetting accumulates a few hundred KB — acceptable for a browser game.
-  → Mitigation: Reset clears the set. No additional bounding needed for realistic play.
 
 - **No server enforcement**: A modified client could bypass budgets. This is acceptable
   because budgets are play aids, not competitive integrity measures — the server already

@@ -17,12 +17,15 @@ function IconButton({
   disabled,
   children,
   primary,
+  remaining,
 }: {
   label: string;
   onClick: () => void;
   disabled?: boolean;
   children: React.ReactNode;
   primary?: boolean;
+  /** Uses left, when the control is limited. Shown so the cost is visible before spending. */
+  remaining?: number;
 }) {
   return (
     <motion.button
@@ -32,13 +35,24 @@ function IconButton({
       disabled={disabled}
       whileTap={{ scale: 0.9 }}
       transition={{ type: 'spring', stiffness: 700, damping: 26 }}
-      className={`flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-semibold shadow-lg transition-colors disabled:opacity-30 ${
+      className={`relative flex h-14 w-14 items-center justify-center rounded-2xl text-xl font-semibold shadow-lg transition-colors disabled:opacity-30 ${
         primary
           ? 'bg-sky-500 text-white shadow-sky-500/30'
           : 'bg-white/8 text-slate-200 ring-1 ring-white/10 backdrop-blur-sm'
       }`}
     >
       {children}
+      {remaining !== undefined && (
+        <span
+          className={`absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[0.65rem] font-semibold tabular-nums ${
+            remaining === 0
+              ? 'bg-slate-700 text-slate-500'
+              : 'bg-slate-900 text-slate-200 ring-1 ring-white/15'
+          }`}
+        >
+          {remaining}
+        </span>
+      )}
     </motion.button>
   );
 }
@@ -72,6 +86,7 @@ export function App() {
 
   const par = game.info?.parMoves ?? 0;
   const [accountOpen, setAccountOpen] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
 
   // A level that changes the rules announces itself, so a step up in difficulty reads as
   // intended rather than as the game breaking. Shown once, briefly, on arrival.
@@ -194,7 +209,12 @@ export function App() {
         <IconButton label="Previous level" onClick={() => game.goToLevel(game.levelId - 1)} disabled={game.levelId <= 1}>
           ‹
         </IconButton>
-        <IconButton label="Undo last move" onClick={game.undo} disabled={!game.canUndo}>
+        <IconButton
+          label={`Undo last move, ${game.undosRemaining} left`}
+          onClick={game.undo}
+          disabled={!game.canUndo}
+          remaining={game.undosRemaining}
+        >
           ↶
         </IconButton>
         <IconButton
@@ -207,7 +227,10 @@ export function App() {
         >
           ?
         </IconButton>
-        <IconButton label="Restart level" onClick={game.restart}>
+        <IconButton
+          label="Restart level"
+          onClick={() => setConfirmingReset(true)}
+        >
           ↻
         </IconButton>
         <IconButton label="Next level" onClick={() => game.goToLevel(game.levelId + 1)}>
@@ -233,6 +256,49 @@ export function App() {
         }}
       />
 
+      {/* A restart throws away the progress on the level, so it is asked about first. */}
+      <AnimatePresence>
+        {confirmingReset && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setConfirmingReset(false)}
+            className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/75 p-6 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ y: 24, scale: 0.95, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 16, scale: 0.97, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-[19rem] rounded-3xl bg-slate-800/95 p-6 text-center shadow-2xl ring-1 ring-white/10"
+            >
+              <p className="text-lg font-semibold">Restart this level?</p>
+              <p className="mt-1 text-sm text-slate-400">You get your undos back.</p>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingReset(false);
+                  game.restart();
+                }}
+                className="mt-5 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25"
+              >
+                Restart
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmingReset(false)}
+                className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {game.stuck && !game.solved && (
           <motion.div
@@ -243,7 +309,7 @@ export function App() {
             className="absolute inset-x-0 bottom-24 z-20 flex justify-center px-5"
           >
             <div className="flex items-center gap-3 rounded-2xl bg-amber-500/12 px-4 py-3 text-sm ring-1 ring-amber-400/30 backdrop-blur">
-              <span className="text-amber-200">This one can’t be won any more.</span>
+              <span className="text-amber-200">No moves left.</span>
               <button
                 type="button"
                 onClick={game.undo}
@@ -254,7 +320,7 @@ export function App() {
               </button>
               <button
                 type="button"
-                onClick={game.restart}
+                onClick={() => setConfirmingReset(true)}
                 className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-100"
               >
                 Restart
@@ -309,6 +375,10 @@ export function App() {
                 {par > 0 && game.moveCount <= par && ' · under par'}
                 {game.hintsUsed > 0 &&
                   ` · ${game.hintsUsed} hint${game.hintsUsed === 1 ? '' : 's'}`}
+                {game.undosUsed > 0 &&
+                  ` · ${game.undosUsed} undo${game.undosUsed === 1 ? '' : 's'}`}
+                {game.resetsUsed > 0 &&
+                  ` · ${game.resetsUsed} reset${game.resetsUsed === 1 ? '' : 's'}`}
               </p>
 
               <motion.button
