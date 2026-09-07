@@ -62,6 +62,12 @@ export function App() {
     }
   }, [game.solved]);
 
+  useEffect(() => {
+    if (game.stuck) {
+      haptics.blocked();
+    }
+  }, [game.stuck]);
+
   const par = game.info?.parMoves ?? 0;
 
   // A level that changes the rules announces itself, so a step up in difficulty reads as
@@ -161,6 +167,16 @@ export function App() {
         <IconButton label="Undo last move" onClick={game.undo} disabled={!game.canUndo}>
           ↶
         </IconButton>
+        <IconButton
+          label="Show me a move"
+          onClick={() => {
+            haptics.move();
+            game.useHint();
+          }}
+          disabled={game.stuck || game.solved}
+        >
+          ?
+        </IconButton>
         <IconButton label="Restart level" onClick={game.restart}>
           ↻
         </IconButton>
@@ -168,6 +184,37 @@ export function App() {
           ›
         </IconButton>
       </footer>
+
+      <AnimatePresence>
+        {game.stuck && !game.solved && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+            className="absolute inset-x-0 bottom-24 z-20 flex justify-center px-5"
+          >
+            <div className="flex items-center gap-3 rounded-2xl bg-amber-500/12 px-4 py-3 text-sm ring-1 ring-amber-400/30 backdrop-blur">
+              <span className="text-amber-200">This one can’t be won any more.</span>
+              <button
+                type="button"
+                onClick={game.undo}
+                disabled={!game.canUndo}
+                className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-100 disabled:opacity-40"
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                onClick={game.restart}
+                className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-100"
+              >
+                Restart
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {showNote && note !== null && (
@@ -212,6 +259,8 @@ export function App() {
               <p className="mt-1 text-sm text-slate-400">
                 {game.moveCount} moves
                 {par > 0 && game.moveCount <= par && ' · under par'}
+                {game.hintsUsed > 0 &&
+                  ` · ${game.hintsUsed} hint${game.hintsUsed === 1 ? '' : 's'}`}
               </p>
 
               <motion.button

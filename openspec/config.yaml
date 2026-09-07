@@ -35,6 +35,17 @@ context: |
   Players get an anonymous id on first launch with no signup; linking an account later
   is optional and exists only to sync progress between phone and PC.
 
+  IDENTITY IS PASSWORDLESS. Account creation uses passkeys (WebAuthn) - no password field
+  anywhere in the product. OAuth providers may be added later as a convenience, but never a
+  password. Anything that would introduce one, including a "recovery password" or an
+  emailed temporary password, is out of scope by decision rather than by omission.
+
+  Creating an account is available at any time and is never prompted for. No nag on level
+  completion, no interstitial, no badge, no "secure your progress" banner. The option sits
+  where a player would look for it and waits to be found. This is a deliberate product
+  stance: the game has no advertising and no monetization, so there is nothing to gain by
+  pushing registration, and a puzzle interrupted by a signup pitch is a worse puzzle.
+
   TECH STACK
   Backend: C# / .NET 10, Akka.NET, MongoDB.
   Frontend: React + TypeScript + Vite, DOM/SVG rendering with Motion for animation,

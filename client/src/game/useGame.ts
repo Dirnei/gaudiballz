@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AFTER_EACH_MOVE,
+  ON_REQUEST,
   canUndo as canUndoState,
   createBoard,
   isSolved,
   play,
   restart as restartState,
+  solve,
   startGame,
   undo as undoState,
   type Board,
   type GameState,
+  type Verdict,
 } from '../engine';
 
 /**
@@ -64,11 +68,15 @@ export function useGame() {
   const [info, setInfo] = useState<LevelInfo | null>(null);
   const [load, setLoad] = useState<LoadState>('loading');
   const [selected, setSelected] = useState<number | null>(null);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [hinted, setHinted] = useState<{ from: number; to: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoad('loading');
     setSelected(null);
+    setHintsUsed(0);
+    setHinted(null);
 
     fetch(`${API}/api/v1/levels/${levelId}`)
       .then((response) => {
@@ -142,13 +150,51 @@ export function useGame() {
     [state, selected],
   );
 
+  /**
+   * Whether the position can still be won, recomputed after every move.
+   *
+   * Measured at well under a millisecond on every campaign board, so this runs inline
+   * rather than being deferred. An undecided search reports `unknown`, which the interface
+   * must never render as lost.
+   */
+  const verdict: Verdict = useMemo(
+    () => (state === null ? 'unknown' : solve(state.board, AFTER_EACH_MOVE).verdict),
+    [state],
+  );
+
+  /** Asks for the next move on a winning path and plays it. Free, and never rationed. */
+  const useHint = useCallback(() => {
+    if (state === null) {
+      return;
+    }
+
+    const suggestion = solve(state.board, ON_REQUEST).move;
+    if (suggestion === null) {
+      return;
+    }
+
+    setHinted(suggestion);
+    setSelected(null);
+    setHintsUsed((n) => n + 1);
+
+    const next = play(state, suggestion);
+    if (next !== state) {
+      setState(next);
+    }
+
+    // The highlight is a flourish, not state the game depends on.
+    setTimeout(() => setHinted(null), 700);
+  }, [state]);
+
   const undo = useCallback(() => {
     setSelected(null);
+    setHinted(null);
     setState((current) => (current === null ? current : undoState(current)));
   }, []);
 
   const restart = useCallback(() => {
     setSelected(null);
+    setHinted(null);
     setState((current) => (current === null ? current : restartState(current)));
   }, []);
 
@@ -163,6 +209,11 @@ export function useGame() {
     state,
     selected,
     solved: state !== null && isSolved(state.board),
+    // Only a proved verdict counts as lost; `unknown` must never surface as defeat.
+    stuck: verdict === 'dead',
+    hintsUsed,
+    hinted,
+    useHint,
     canUndo: state !== null && canUndoState(state),
     moveCount: state?.moves.length ?? 0,
     tapTube,

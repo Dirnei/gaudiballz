@@ -9,3 +9,4 @@
 export * from './board';
 export * from './rules';
 export * from './history';
+export * from './solver';
