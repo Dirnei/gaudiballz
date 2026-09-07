@@ -22,7 +22,7 @@ public static class LevelCatalogue
         return LevelGenerator.Generate(seed, parameters);
     }
 
-    internal static LevelParameters ParametersFor(int levelId)
+    public static LevelParameters ParametersFor(int levelId)
     {
         // Ease in: a few gentle boards before the colour count starts climbing.
         var colours = levelId switch
