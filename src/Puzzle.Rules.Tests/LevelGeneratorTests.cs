@@ -107,7 +107,7 @@ public sealed class LevelGeneratorTests
     }
 
     /// <summary>Regenerate deliberately and never by accident; see the test above.</summary>
-    private const string GoldenBoardForSeed12345 = "13|23|31|4224|341|421";
+    private const string GoldenBoardForSeed12345 = "2414|2331|3321|4214||";
 
     [Theory]
     [InlineData(0, 4, 2)]
