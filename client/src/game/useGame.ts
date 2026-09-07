@@ -7,6 +7,7 @@ import {
   startLevel,
   type Attempt,
 } from './attempt';
+import { ceilingFor, forgetUnlocked, readUnlocked, rememberUnlocked } from './ceiling';
 import { drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion, type Progress } from './progress';
 import {
   ON_REQUEST,
@@ -60,7 +61,6 @@ interface LevelResponse {
 import { API } from './identity';
 
 const LAST_LEVEL_KEY = 'puzzle.lastLevel';
-const UNLOCKED_LEVEL_KEY = 'puzzle.unlockedLevel';
 
 export type LoadState = 'loading' | 'ready' | 'error';
 
@@ -87,19 +87,9 @@ export function useGame() {
   const [attempt, setAttempt] = useState<Attempt>(startLevel);
   const [hinted, setHinted] = useState<{ from: number; to: number } | null>(null);
 
-  const [unlockedLevel, setUnlockedLevel] = useState(() => {
-    try {
-      const stored = localStorage.getItem(UNLOCKED_LEVEL_KEY);
-      return stored === null ? 0 : Math.max(0, Number(stored) || 0);
-    } catch {
-      return 0;
-    }
-  });
+  const [unlockedLevel, setUnlockedLevel] = useState(readUnlocked);
 
-  const levelCeiling = Math.max(
-    (progress?.highestCompleted ?? 0) + 1,
-    unlockedLevel,
-  );
+  const levelCeiling = ceilingFor(progress?.highestCompleted ?? null, unlockedLevel);
 
   /**
    * The remaining moves of a winning line, kept between hints.
@@ -138,6 +128,8 @@ export function useGame() {
       }
 
       setProgress(loaded);
+      // Remembered on the device, so a launch that cannot reach the server keeps the ceiling.
+      setUnlockedLevel(rememberUnlocked(loaded.highestCompleted + 1));
 
       // Resume where the account got to, when that is further than this browser.
       setLevelId((current) =>
@@ -335,6 +327,9 @@ export function useGame() {
       if (refreshed !== null) {
         setProgress(refreshed);
       }
+
+      // The level just solved is finished whether or not the server could be told about it.
+      setUnlockedLevel(rememberUnlocked(levelId + 1));
     })();
   }, [state, levelId, hintsUsed]);
 
@@ -380,10 +375,10 @@ export function useGame() {
     setLevelId(1);
     try {
       localStorage.removeItem(LAST_LEVEL_KEY);
-      localStorage.removeItem(UNLOCKED_LEVEL_KEY);
     } catch {
       // Nothing to clear.
     }
+    forgetUnlocked();
     setUnlockedLevel(0);
 
     // Straight back to playable, with nothing to dismiss.
@@ -401,19 +396,13 @@ export function useGame() {
         return null;
       }
       const result = (await response.json()) as { levelId: number };
-      const newUnlock = Math.max(unlockedLevel, result.levelId);
-      setUnlockedLevel(newUnlock);
-      try {
-        localStorage.setItem(UNLOCKED_LEVEL_KEY, String(newUnlock));
-      } catch {
-        // Best-effort persistence.
-      }
+      setUnlockedLevel(rememberUnlocked(result.levelId));
       setLevelId(result.levelId);
       return result;
     } catch {
       return null;
     }
-  }, [unlockedLevel]);
+  }, []);
 
   const registered = useCallback((username: string) => {
     setIdentity((current) =>
