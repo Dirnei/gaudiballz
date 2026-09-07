@@ -118,30 +118,14 @@ export function AccountPanel({
                 </h2>
               </>
             ) : (
-              <>
-                <p className="text-xs uppercase tracking-widest text-slate-500">Not logged in</p>
-                <h2 className="mt-1 text-lg font-semibold">
-                  Your progress is on this device only
-                </h2>
-              </>
+              <h2 className="text-lg font-semibold">Not logged in</h2>
             )}
 
             {blocked !== null ? (
               <p className="mt-3 text-sm leading-relaxed text-slate-400">{blocked}</p>
-            ) : loggedIn ? (
-              <p className="mt-3 text-sm leading-relaxed text-slate-400">
-                Your progress is saved to your account and will be here on any device you log
-                in to.
-              </p>
-            ) : (
+            ) : loggedIn ? null : (
               <>
-                <p className="mt-3 text-sm leading-relaxed text-slate-400">
-                  Register to keep your progress across devices. Pick a name — no password,
-                  no email.
-                </p>
-
                 <label className="mt-4 block">
-                  <span className="text-xs text-slate-500">Username</span>
                   <input
                     value={username}
                     onChange={(e) => {
@@ -151,14 +135,15 @@ export function AccountPanel({
                     autoComplete="username"
                     spellCheck={false}
                     maxLength={20}
-                    placeholder="3–20 characters"
-                    className="mt-1 w-full rounded-xl bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 outline-none ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-sky-400/60"
+                    placeholder="Username"
+                    className="w-full rounded-xl bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 outline-none ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-sky-400/60"
                   />
                 </label>
 
-                <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200/90 ring-1 ring-amber-400/20">
-                  Your device holds the key. If you lose every device that has it, the
-                  account goes with it — there’s no password or email to recover it from.
+                {/* Kept because there is genuinely no recovery route, and implying one would
+                    be a lie. One line is enough to say so. */}
+                <p className="mt-2 text-xs text-slate-500">
+                  Your device is the key. Lose them all and the account goes too.
                 </p>
 
                 <button
@@ -190,10 +175,6 @@ export function AccountPanel({
               <div className="mt-5 border-t border-white/10 pt-4">
                 {confirmingLogOut ? (
                   <>
-                    <p className="mb-3 text-xs leading-relaxed text-slate-400">
-                      Your progress stays on the account. Log in with your passkey to pick it
-                      up again.
-                    </p>
                     <div className="flex gap-2">
                       <button
                         type="button"
