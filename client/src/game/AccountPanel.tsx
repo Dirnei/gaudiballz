@@ -34,6 +34,10 @@ export function AccountPanel({
   const [problem, setProblem] = useState<string | null>(null);
   const [confirmingLogOut, setConfirmingLogOut] = useState(false);
 
+  // Register is a choice first and a form second: the name is only asked for once someone
+  // has said they want an account.
+  const [naming, setNaming] = useState(false);
+
   const blocked = blockerMessage(passkeyBlocker());
   const loggedIn = identity !== null && !identity.isAnonymous;
   const busy = status === 'working';
@@ -123,25 +127,23 @@ export function AccountPanel({
 
             {blocked !== null ? (
               <p className="mt-3 text-sm leading-relaxed text-slate-400">{blocked}</p>
-            ) : loggedIn ? null : (
+            ) : loggedIn ? null : naming ? (
               <>
-                <label className="mt-4 block">
-                  <input
-                    value={username}
-                    onChange={(e) => {
-                      setUsername(e.target.value);
-                      setProblem(null);
-                    }}
-                    autoComplete="username"
-                    spellCheck={false}
-                    maxLength={20}
-                    placeholder="Username"
-                    className="w-full rounded-xl bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 outline-none ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-sky-400/60"
-                  />
-                </label>
+                <input
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setProblem(null);
+                  }}
+                  autoComplete="username"
+                  spellCheck={false}
+                  maxLength={20}
+                  autoFocus
+                  placeholder="Username"
+                  className="mt-4 w-full rounded-xl bg-slate-900/70 px-3 py-2.5 text-sm text-slate-100 outline-none ring-1 ring-white/10 placeholder:text-slate-600 focus:ring-sky-400/60"
+                />
 
-                {/* Kept because there is genuinely no recovery route, and implying one would
-                    be a lie. One line is enough to say so. */}
+                {/* Kept because there is genuinely no recovery route. One line says it. */}
                 <p className="mt-2 text-xs text-slate-500">
                   Your device is the key. Lose them all and the account goes too.
                 </p>
@@ -152,18 +154,39 @@ export function AccountPanel({
                   disabled={busy || username.trim().length < 3}
                   className="mt-4 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25 disabled:opacity-40"
                 >
-                  {busy ? 'Waiting for your device…' : 'Register'}
+                  {busy ? 'Waiting for your device…' : 'Create account'}
                 </button>
 
                 <button
                   type="button"
-                  onClick={handleLogIn}
+                  onClick={() => {
+                    setNaming(false);
+                    setProblem(null);
+                  }}
                   disabled={busy}
                   className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 disabled:opacity-50"
                 >
-                  Log in
+                  Back
                 </button>
               </>
+            ) : (
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNaming(true)}
+                  className="flex-1 rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25"
+                >
+                  Register
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogIn}
+                  disabled={busy}
+                  className="flex-1 rounded-2xl bg-white/8 px-4 py-3 font-medium text-slate-200 ring-1 ring-white/10 disabled:opacity-50"
+                >
+                  {busy ? '…' : 'Log in'}
+                </button>
+              </div>
             )}
 
             {problem !== null && (
