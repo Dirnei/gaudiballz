@@ -5,8 +5,14 @@ context: |
   A free-to-play sort puzzle game in the ball-sort / nut-sort / water-sort genre,
   playable in the browser on mobile and desktop. Deliberately ad-free and with no
   monetization of any kind: helpers that competitors paywall (extra tube, hint) are
-  free and unlimited here. There is no premium tier, no currency, no energy system,
-  and no telemetry beyond what the player's own stats need.
+  never sold here. There is no premium tier, no currency, no energy system, and no
+  telemetry beyond what the player's own stats need.
+
+  Free does not mean unlimited. Undos are budgeted per attempt, and hints are budgeted
+  and gated by a cooldown, because help that costs nothing to ask for stops being help
+  and starts playing the game for the player. What is never true is that a limit can be
+  lifted by paying, waiting through advertising, or spending a currency: a restart is
+  what earns a fresh set, and restarting is unlimited.
 
   CORE MECHANIC
   A board is a set of tubes, each a stack holding up to a fixed capacity of coloured
