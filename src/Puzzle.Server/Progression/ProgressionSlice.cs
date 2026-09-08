@@ -73,8 +73,7 @@ public sealed class ProgressionSlice : ISlice
                 var before = await registry.Actor.Ask<ProgressSnapshot>(
                     new LoadProgress(playerId), AskTimeout);
                 var isReplay = before.Progress.Levels.TryGetValue(request.Level, out var prev) && prev.Stars > 0;
-                var previousPoints = before.Progress.Levels.TryGetValue(request.Level, out var prev)
-                    ? prev.Points : 0;
+                var previousPoints = prev.Points;
                 var starDelta = Math.Max(0, attemptPoints - previousPoints);
 
                 var snapshot = await registry.Actor.Ask<ProgressSnapshot>(

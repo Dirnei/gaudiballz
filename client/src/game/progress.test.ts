@@ -25,7 +25,7 @@ vi.mock('./identity', () => ({
   sessionId: 'test-session-abc',
 }));
 
-const { recordCompletion, drain } = await import('./progress');
+const { recordCompletion } = await import('./progress');
 
 describe('recordCompletion metadata', () => {
   afterEach(() => {

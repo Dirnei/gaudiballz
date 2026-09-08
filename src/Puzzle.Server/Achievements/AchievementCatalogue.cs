@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using Puzzle.Server.Levels;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.Progression;
 
@@ -136,7 +137,7 @@ public static class AchievementCatalogue
         "no-hint-10"  => CountLevelsWithZeroHints(ctx.Progress) >= 10,
         "no-hint-25"  => CountLevelsWithZeroHints(ctx.Progress) >= 25,
         "purist-40"   => CountPuristLevels(ctx.Progress) >= 40,
-        "speed-demon" => false,
+        "speed-demon" => CountBelowParLevels(ctx.Progress) >= 5,
 
         "streak-2"  => CurrentStreak(ctx.DailyPlay) >= 2,
         "streak-7"  => CurrentStreak(ctx.DailyPlay) >= 7,
@@ -178,6 +179,10 @@ public static class AchievementCatalogue
 
     internal static int CountPuristLevels(PlayerProgress progress) =>
         progress.Levels.Values.Count(r => r.Hints == 0);
+
+    internal static int CountBelowParLevels(PlayerProgress progress) =>
+        progress.Levels.Count(pair =>
+            pair.Value.Moves <= LevelCatalogue.Build(pair.Key).ConstructiveSolution.Count);
 
     internal static int CurrentStreak(IReadOnlyList<DailyPlayDocument> dailyPlay)
     {
@@ -249,6 +254,7 @@ public static class AchievementCatalogue
             progress.LevelsCompleted,
         "no-hint-10" or "no-hint-25" => CountLevelsWithZeroHints(progress),
         "purist-40" => CountPuristLevels(progress),
+        "speed-demon" => CountBelowParLevels(progress),
         "streak-2" or "streak-7" or "streak-14" or "streak-30" => CurrentStreak(dailyPlay),
         _ => 0,
     };
