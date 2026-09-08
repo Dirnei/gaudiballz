@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { blockerMessage, passkeyBlocker, register, signIn, usernameAvailable } from './passkeys';
 import { ballStyle, colourForName } from '../skins';
@@ -49,6 +49,7 @@ export function AccountPanel({
 
   // Register is a choice first and a form second.
   const [naming, setNaming] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   const blocked = blockerMessage(passkeyBlocker());
   const loggedIn = identity !== null && !identity.isAnonymous;
@@ -58,13 +59,72 @@ export function AccountPanel({
   // Previewed live while typing, so the account has a face before it exists.
   const previewName = naming ? username.trim() : name;
 
+  const controlActions = useMemo(() => {
+    if (blocked !== null) return [];
+    if (loggedIn) return [{ label: 'log-out', action: onLogOut }];
+    if (naming) return [
+      { label: 'create-account', action: () => { /* handled via Enter on button */ } },
+      { label: 'back', action: () => { setNaming(false); setProblem(null); } },
+    ];
+    return [
+      { label: 'log-in', action: () => void handleLogIn() },
+      { label: 'register', action: () => setNaming(true) },
+    ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocked, loggedIn, naming, onLogOut]);
+
+  const controlRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    setFocusedIndex(null);
+  }, [controlActions]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      const tag = (document.activeElement?.tagName ?? '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (controlActions.length === 0) return;
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setFocusedIndex((prev) => {
+          if (prev === null) return 0;
+          const dir = e.key === 'ArrowDown' ? 1 : -1;
+          return (prev + dir + controlActions.length) % controlActions.length;
+        });
+        return;
+      }
+
+      if ((e.key === 'Enter' || e.key === ' ') && focusedIndex !== null) {
+        e.preventDefault();
+        controlRefs.current[focusedIndex]?.click();
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [open, onClose, controlActions, focusedIndex]);
+
+  function handlePointerDown() {
+    setFocusedIndex(null);
+  }
+
   async function handleRegister() {
     setProblem(null);
     setStatus('working');
 
     const check = await usernameAvailable(username);
     if (!check.available) {
-      setProblem(check.reason ?? 'That name can’t be used.');
+      setProblem(check.reason ?? 'That name can't be used.');
       setStatus('idle');
       return;
     }
@@ -77,10 +137,10 @@ export function AccountPanel({
         return;
       }
       setProblem(
-        outcome === 'name-taken' ? 'Someone just took that name.' : 'That didn’t complete.',
+        outcome === 'name-taken' ? 'Someone just took that name.' : 'That didn't complete.',
       );
     } catch {
-      setProblem('That didn’t complete.');
+      setProblem('That didn't complete.');
     }
     setStatus('idle');
   }
@@ -91,14 +151,14 @@ export function AccountPanel({
     try {
       const who = await signIn();
       if (who === null) {
-        setProblem('That passkey isn’t linked to an account here.');
+        setProblem('That passkey isn't linked to an account here.');
       } else {
         setStatus('idle');
         onLoggedIn(who);
         return;
       }
     } catch {
-      setProblem('That didn’t complete.');
+      setProblem('That didn't complete.');
     }
     setStatus('idle');
   }
@@ -109,6 +169,10 @@ export function AccountPanel({
   const quiet =
     'w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 transition-colors ' +
     'hover:text-slate-200 disabled:opacity-45';
+
+  function fc(idx: number) {
+    return focusedIndex === idx ? ' kb-focus' : '';
+  }
 
   return (
     <AnimatePresence>
@@ -151,8 +215,6 @@ export function AccountPanel({
                       border: '2px dashed rgba(255,255,255,0.18)',
                     }
                   : ballStyle(
-                      // While naming, the ball follows what is being typed — there is no
-                      // account yet to have chosen one.
                       naming
                         ? colourForName(previewName)
                         : ballForAccount(identity?.ball ?? null, previewName),
@@ -167,7 +229,14 @@ export function AccountPanel({
             {blocked !== null ? (
               <p className="mt-2 text-sm leading-relaxed text-slate-400">{blocked}</p>
             ) : loggedIn ? (
-              <button type="button" onClick={onLogOut} className={`mt-6 ${quiet}`}>
+              <button
+                ref={(el) => { controlRefs.current[0] = el; }}
+                type="button"
+                onClick={onLogOut}
+                onPointerDown={handlePointerDown}
+                className={`mt-6 ${quiet}${fc(0)}`}
+                data-testid="panel-logout"
+              >
                 Log out
               </button>
             ) : naming ? (
@@ -189,25 +258,32 @@ export function AccountPanel({
                   autoFocus
                   placeholder="Username"
                   className="mt-5 w-full rounded-2xl bg-slate-950/50 px-4 py-3 text-center text-base text-slate-100 outline-none ring-1 ring-white/10 transition placeholder:text-slate-600 focus:ring-2 focus:ring-sky-400/70"
+                  data-testid="panel-username"
                 />
 
                 <button
+                  ref={(el) => { controlRefs.current[0] = el; }}
                   type="button"
                   onClick={handleRegister}
+                  onPointerDown={handlePointerDown}
                   disabled={busy || username.trim().length < 3}
-                  className={`mt-3 ${primary}`}
+                  className={`mt-3 ${primary}${fc(0)}`}
+                  data-testid="panel-create"
                 >
                   {busy ? 'Waiting for your device…' : 'Create account'}
                 </button>
 
                 <button
+                  ref={(el) => { controlRefs.current[1] = el; }}
                   type="button"
                   onClick={() => {
                     setNaming(false);
                     setProblem(null);
                   }}
+                  onPointerDown={handlePointerDown}
                   disabled={busy}
-                  className={`mt-1 ${quiet}`}
+                  className={`mt-1 ${quiet}${fc(1)}`}
+                  data-testid="panel-back"
                 >
                   Back
                 </button>
@@ -215,19 +291,25 @@ export function AccountPanel({
             ) : (
               <>
                 <button
+                  ref={(el) => { controlRefs.current[0] = el; }}
                   type="button"
                   onClick={handleLogIn}
+                  onPointerDown={handlePointerDown}
                   disabled={busy}
-                  className={`mt-6 ${primary}`}
+                  className={`mt-6 ${primary}${fc(0)}`}
+                  data-testid="panel-login"
                 >
                   {busy ? 'Waiting for your device…' : 'Log in'}
                 </button>
 
                 <button
+                  ref={(el) => { controlRefs.current[1] = el; }}
                   type="button"
                   onClick={() => setNaming(true)}
+                  onPointerDown={handlePointerDown}
                   disabled={busy}
-                  className={`mt-1 ${quiet}`}
+                  className={`mt-1 ${quiet}${fc(1)}`}
+                  data-testid="panel-register"
                 >
                   Register
                 </button>

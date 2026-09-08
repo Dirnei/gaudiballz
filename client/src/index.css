@@ -47,6 +47,11 @@ button {
   }
 }
 
+/* Keyboard focus indicator, matching the play-screen tube focus (yellow ring). */
+.kb-focus {
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.7);
+}
+
 /* Respect people who have asked for less motion, without removing feedback entirely. */
 @media (prefers-reduced-motion: reduce) {
   *,

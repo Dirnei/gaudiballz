@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 
 interface LevelSelectProps {
@@ -45,25 +45,94 @@ export function LevelSelect({
     tiles.push(i);
   }
 
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
   useEffect(() => {
+    function findVerticalNeighbour(current: number, dir: 'up' | 'down'): number {
+      const el = tileRefs.current[current];
+      if (!el) return current;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+
+      let bestIdx = current;
+      let bestDist = Infinity;
+
+      for (let i = 0; i < tiles.length; i++) {
+        if (i === current) continue;
+        const other = tileRefs.current[i];
+        if (!other) continue;
+        const r = other.getBoundingClientRect();
+        const ox = r.left + r.width / 2;
+        const oy = r.top + r.height / 2;
+
+        if (dir === 'down' && oy <= cy + 1) continue;
+        if (dir === 'up' && oy >= cy - 1) continue;
+
+        const dist = Math.hypot(ox - cx, oy - cy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIdx = i;
+        }
+      }
+      return bestIdx;
+    }
+
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
         onBack();
+        return;
+      }
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setFocusedIndex((prev) => {
+          if (prev === null) {
+            // First press: focus the current level
+            const idx = tiles.indexOf(levelId);
+            return idx >= 0 ? idx : 0;
+          }
+
+          if (e.key === 'ArrowRight') return (prev + 1) % tiles.length;
+          if (e.key === 'ArrowLeft') return (prev - 1 + tiles.length) % tiles.length;
+          if (e.key === 'ArrowDown') return findVerticalNeighbour(prev, 'down');
+          if (e.key === 'ArrowUp') return findVerticalNeighbour(prev, 'up');
+          return prev;
+        });
+        return;
+      }
+
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (focusedIndex === null) return;
+        e.preventDefault();
+        const level = tiles[focusedIndex];
+        const state = tileState(level, levelId, levelCeiling, progress);
+        if (state !== 'locked') {
+          onSelectLevel(level);
+        }
       }
     }
+
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onBack]);
+  }, [onBack, tiles, levelId, levelCeiling, progress, onSelectLevel, focusedIndex]);
+
+  useEffect(() => {
+    if (focusedIndex !== null) {
+      tileRefs.current[focusedIndex]?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [focusedIndex]);
+
+  function handlePointerDown() {
+    setFocusedIndex(null);
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      // min-h-0 for the same reason the screen wrapper in App has it: every flex item
-      // between here and the app's fixed height must be allowed to shrink, or the grid
-      // below is given room for all of its tiles and never scrolls. Both are needed —
-      // relaxing only one leaves the chain rigid.
       className="flex min-h-0 flex-1 flex-col"
     >
       {/* Header */}
@@ -91,20 +160,23 @@ export function LevelSelect({
       {/* Grid */}
       <div className="flex-1 overflow-y-auto px-5 pb-6 pt-4">
         <div className="mx-auto grid max-w-lg grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))] gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(4rem,1fr))]">
-          {tiles.map((level) => {
+          {tiles.map((level, i) => {
             const state = tileState(level, levelId, levelCeiling, progress);
             const entry = progress.get(level);
             const accessible = state !== 'locked';
 
             return (
               <motion.button
+                ref={(el) => { tileRefs.current[i] = el; }}
                 key={level}
                 type="button"
                 disabled={!accessible}
                 whileTap={accessible ? { scale: 0.92 } : undefined}
                 transition={{ type: 'spring', stiffness: 700, damping: 26 }}
                 onClick={() => accessible && onSelectLevel(level)}
-                className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl text-center transition-colors ${tileClasses(state)}`}
+                onPointerDown={handlePointerDown}
+                data-testid={`tile-${level}`}
+                className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl text-center transition-colors ${tileClasses(state)}${focusedIndex === i ? ' kb-focus' : ''}`}
               >
                 <span className={`text-base font-semibold tabular-nums ${state === 'locked' ? 'text-slate-600' : state === 'current' ? 'text-sky-100' : 'text-slate-200'}`}>
                   {level}

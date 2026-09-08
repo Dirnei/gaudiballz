@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 
 interface MainMenuProps {
@@ -26,6 +26,69 @@ export function MainMenu({
   const [levelCode, setLevelCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+
+  const openCodeEntry = useCallback(() => setEnteringCode(true), []);
+
+  const actions = useMemo(() => {
+    const items: (() => void)[] = [onPlay, onLevelSelect];
+    if (showAchievements) items.push(onAchievements);
+    items.push(openCodeEntry);
+    return items;
+  }, [onPlay, onLevelSelect, onAchievements, showAchievements, openCodeEntry]);
+
+  // The index of the "Enter a level code" button — always last.
+  const codeIndex = actions.length - 1;
+
+  useEffect(() => {
+    if (enteringCode) return undefined;
+
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement?.tagName ?? '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setFocusedIndex((prev) => {
+          if (prev === null) return 0;
+          const dir = e.key === 'ArrowDown' ? 1 : -1;
+          return (prev + dir + actions.length) % actions.length;
+        });
+        return;
+      }
+
+      if ((e.key === 'Enter' || e.key === ' ') && focusedIndex !== null) {
+        e.preventDefault();
+        actions[focusedIndex]();
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [actions, enteringCode, focusedIndex]);
+
+  useEffect(() => {
+    if (!enteringCode) return undefined;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setEnteringCode(false);
+        setCodeError(null);
+        setLevelCode('');
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [enteringCode]);
+
+  useEffect(() => {
+    setFocusedIndex(null);
+  }, [actions.length]);
+
+  function handlePointerDown() {
+    setFocusedIndex(null);
+  }
 
   async function handleCodeUnlock() {
     setCodeError(null);
@@ -46,6 +109,17 @@ export function MainMenu({
   const quiet =
     'w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 transition-colors ' +
     'hover:text-slate-200 disabled:opacity-45';
+
+  function fc(idx: number) {
+    return focusedIndex === idx ? ' kb-focus' : '';
+  }
+
+  // The indices assigned to each button below must match the `actions` array order.
+  // 0 = Play, 1 = Level Select, [2 = Achievements if shown], last = Enter code.
+  let nextIdx = 0;
+  const playIdx = nextIdx++;
+  const levelSelectIdx = nextIdx++;
+  const achievementsIdx = showAchievements ? nextIdx++ : -1;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6">
@@ -80,7 +154,9 @@ export function MainMenu({
             type="button"
             whileTap={{ scale: 0.97 }}
             onClick={onPlay}
-            className={primary}
+            onPointerDown={handlePointerDown}
+            className={`${primary}${fc(playIdx)}`}
+            data-testid="menu-play"
           >
             Play
           </motion.button>
@@ -89,7 +165,9 @@ export function MainMenu({
             type="button"
             whileTap={{ scale: 0.97 }}
             onClick={onLevelSelect}
-            className={`mt-3 ${quiet}`}
+            onPointerDown={handlePointerDown}
+            className={`mt-3 ${quiet}${fc(levelSelectIdx)}`}
+            data-testid="menu-level-select"
           >
             Level Select
           </motion.button>
@@ -99,7 +177,9 @@ export function MainMenu({
               type="button"
               whileTap={{ scale: 0.97 }}
               onClick={onAchievements}
-              className={`mt-1 ${quiet}`}
+              onPointerDown={handlePointerDown}
+              className={`mt-1 ${quiet}${fc(achievementsIdx)}`}
+              data-testid="menu-achievements"
             >
               Achievements
             </motion.button>
@@ -126,6 +206,7 @@ export function MainMenu({
                   autoFocus
                   placeholder="Enter level code"
                   className="w-full rounded-2xl bg-slate-950/50 px-4 py-3 text-center font-mono text-base uppercase tracking-widest text-slate-100 outline-none ring-1 ring-white/10 transition placeholder:text-slate-600 placeholder:tracking-normal placeholder:normal-case focus:ring-2 focus:ring-sky-400/70"
+                  data-testid="code-input"
                 />
                 <button
                   type="button"
@@ -162,8 +243,10 @@ export function MainMenu({
             ) : (
               <button
                 type="button"
-                onClick={() => setEnteringCode(true)}
-                className={quiet}
+                onClick={openCodeEntry}
+                onPointerDown={handlePointerDown}
+                className={`${quiet}${fc(codeIndex)}`}
+                data-testid="menu-enter-code"
               >
                 Enter a level code
               </button>

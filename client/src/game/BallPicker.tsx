@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ballStyle, colourName, lockedBallStyle } from '../skins';
 import { isEarned, type BallUnlock } from './profileBall';
 
@@ -9,6 +9,8 @@ interface BallPickerProps {
   /** Saves the choice. Null clears it. Returns whether it took. */
   readonly onChoose: (colour: number | null) => Promise<boolean>;
 }
+
+const COLUMNS = 7;
 
 /**
  * Choosing which ball represents the account.
@@ -26,6 +28,7 @@ interface BallPickerProps {
 export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: BallPickerProps) {
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   async function choose(colour: number | null) {
     setProblem(null);
@@ -33,19 +36,62 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
 
     const saved = await onChoose(colour);
     if (!saved) {
-      // The previous ball stays as it was. Nothing is queued: unlike a completion there is
-      // no work to lose, and a ball that applied itself later would be worse than one that
-      // plainly did not take.
-      setProblem('That didn’t save. Your ball is unchanged.');
+      setProblem('That didn't save. Your ball is unchanged.');
     }
 
     setSaving(false);
   }
 
+  useEffect(() => {
+    if (unlocks.length === 0) return undefined;
+
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement?.tagName ?? '').toUpperCase();
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setFocusedIndex((prev) => {
+          if (prev === null) return 0;
+          const count = unlocks.length;
+
+          if (e.key === 'ArrowRight') return (prev + 1) % count;
+          if (e.key === 'ArrowLeft') return (prev - 1 + count) % count;
+          if (e.key === 'ArrowDown') {
+            const next = prev + COLUMNS;
+            return next < count ? next : prev;
+          }
+          if (e.key === 'ArrowUp') {
+            const next = prev - COLUMNS;
+            return next >= 0 ? next : prev;
+          }
+          return prev;
+        });
+        return;
+      }
+
+      if (e.key === 'Enter' || e.key === ' ') {
+        if (focusedIndex === null || saving) return;
+        e.preventDefault();
+        const unlock = unlocks[focusedIndex];
+        if (isEarned(unlock, highestCompleted)) {
+          void choose(unlock.colour);
+        }
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [unlocks, focusedIndex, highestCompleted, saving]);
+
+  function handlePointerDown() {
+    setFocusedIndex(null);
+  }
+
   if (unlocks.length === 0) {
     return (
       <p className="text-sm text-slate-400">
-        Can’t reach the server, so there’s nothing to choose from right now.
+        Can't reach the server, so there's nothing to choose from right now.
       </p>
     );
   }
@@ -56,9 +102,9 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
   return (
     <div>
       <div className="grid grid-cols-7 gap-2.5" role="group" aria-label="Your ball">
-        {unlocks.map((unlock) => {
+        {unlocks.map((unlock, i) => {
           const open = isEarned(unlock, highestCompleted);
-          const name = colourName(unlock.colour);
+          const cname = colourName(unlock.colour);
 
           return (
             <button
@@ -69,13 +115,15 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
               aria-pressed={chosen === unlock.colour}
               data-testid={`ball-${unlock.colour}`}
               data-locked={open ? undefined : 'true'}
-              aria-label={open ? name : `${name} — unlocks at level ${unlock.unlocksAtLevel}`}
+              aria-label={open ? cname : `${cname} — unlocks at level ${unlock.unlocksAtLevel}`}
               onClick={() => open && void choose(unlock.colour)}
+              onPointerDown={handlePointerDown}
               className={
                 'relative flex aspect-square items-center justify-center rounded-full ' +
                 'transition-transform ' +
                 (open ? 'hover:scale-110 active:scale-95' : 'cursor-default') +
-                (chosen === unlock.colour ? ' ring-2 ring-sky-400 ring-offset-2 ring-offset-slate-900' : '')
+                (chosen === unlock.colour ? ' ring-2 ring-sky-400 ring-offset-2 ring-offset-slate-900' : '') +
+                (focusedIndex === i ? ' kb-focus' : '')
               }
             >
               <span

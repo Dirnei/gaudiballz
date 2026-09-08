@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'motion/react';
 import type { Achievement, AchievementState } from './achievements';
 import type { Identity } from './identity';
@@ -94,6 +95,17 @@ function OverallProgress({ state }: { state: AchievementState }) {
 
 export function AchievementsScreen({ identity, state, onBack }: AchievementsScreenProps) {
   const loggedIn = identity !== null && !identity.isAnonymous;
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onBack();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onBack]);
 
   return (
     <div className="flex flex-1 flex-col items-center">
