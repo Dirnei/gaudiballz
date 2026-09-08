@@ -36,7 +36,7 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
 
     const saved = await onChoose(colour);
     if (!saved) {
-      setProblem('That didn't save. Your ball is unchanged.');
+      setProblem("That didn't save. Your ball is unchanged.");
     }
 
     setSaving(false);

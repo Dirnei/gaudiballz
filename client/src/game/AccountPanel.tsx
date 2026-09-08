@@ -124,7 +124,7 @@ export function AccountPanel({
 
     const check = await usernameAvailable(username);
     if (!check.available) {
-      setProblem(check.reason ?? 'That name can't be used.');
+      setProblem(check.reason ?? "That name can't be used.");
       setStatus('idle');
       return;
     }
@@ -137,10 +137,10 @@ export function AccountPanel({
         return;
       }
       setProblem(
-        outcome === 'name-taken' ? 'Someone just took that name.' : 'That didn't complete.',
+        outcome === 'name-taken' ? 'Someone just took that name.' : "That didn't complete.",
       );
     } catch {
-      setProblem('That didn't complete.');
+      setProblem("That didn't complete.");
     }
     setStatus('idle');
   }
@@ -151,14 +151,14 @@ export function AccountPanel({
     try {
       const who = await signIn();
       if (who === null) {
-        setProblem('That passkey isn't linked to an account here.');
+        setProblem("That passkey isn't linked to an account here.");
       } else {
         setStatus('idle');
         onLoggedIn(who);
         return;
       }
     } catch {
-      setProblem('That didn't complete.');
+      setProblem("That didn't complete.");
     }
     setStatus('idle');
   }
