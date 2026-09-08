@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
 import { loadBallUnlocks, setProfileBall, type BallUnlock } from './profileBall';
 import {
+  HINT_COOLDOWN_MS,
+  canHint as canHintBudget,
   canUndo as canUndoBudget,
   restartLevel,
+  spendHint,
   spendUndo,
   startLevel,
   type Attempt,
@@ -106,6 +109,16 @@ export function useGame() {
   const [selected, setSelected] = useState<number | null>(null);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [attempt, setAttempt] = useState<Attempt>(startLevel);
+
+  /**
+   * When the current hint cooldown ends, as a Date.now() target, or null when no wait is
+   * running.
+   *
+   * A target rather than a countdown on purpose: browsers throttle timers in background
+   * tabs, so anything counting elapsed ticks would drift. A wall-clock target is still
+   * correct when the tab comes back, however badly the timer was starved.
+   */
+  const [cooldownEnd, setCooldownEnd] = useState<number | null>(null);
   const [hinted, setHinted] = useState<{ from: number; to: number } | null>(null);
 
   const [unlockedLevel, setUnlockedLevel] = useState(readUnlocked);
@@ -172,6 +185,8 @@ export function useGame() {
     setHintsUsed(0);
     setHinted(null);
     setAttempt(startLevel());
+    // A new board is the moment to look at it, so the first hint is not available yet.
+    setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
     plan.current = [];
 
     fetch(`${API}/api/v1/levels/${levelId}`)
@@ -277,6 +292,12 @@ export function useGame() {
       return;
     }
 
+    // Budget first: when it is gone the cooldown is irrelevant, and checking it first keeps
+    // the two limits from having to know about each other.
+    if (!canHintBudget(attempt) || cooldownEnd !== null) {
+      return;
+    }
+
     // Follow the existing plan while it still fits the board; only search again once the
     // player has moved somewhere it does not account for.
     let planned: Move | null = plan.current[0] ?? null;
@@ -297,6 +318,8 @@ export function useGame() {
     setHinted(suggestion);
     setSelected(null);
     setHintsUsed((n) => n + 1);
+    setAttempt(spendHint(attempt));
+    setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
 
     const next = play(state, suggestion);
     if (next !== state) {
@@ -305,7 +328,7 @@ export function useGame() {
 
     // The highlight is a flourish, not state the game depends on.
     setTimeout(() => setHinted(null), 700);
-  }, [state]);
+  }, [state, attempt, cooldownEnd]);
 
   const undo = useCallback(() => {
     if (!canUndoBudget(attempt)) {
@@ -319,13 +342,34 @@ export function useGame() {
     setState((current) => (current === null ? current : undoState(current)));
   }, [attempt]);
 
+  /**
+   * Clears the cooldown when its moment arrives.
+   *
+   * Re-armed whenever the target moves, and the remaining time is measured against the
+   * clock rather than assumed to be the full duration, so a target set in the past expires
+   * immediately instead of waiting all over again.
+   */
+  useEffect(() => {
+    if (cooldownEnd === null) {
+      return undefined;
+    }
+
+    // Never below zero, and never cleared synchronously: a target already in the past still
+    // goes through the timer, one tick later, rather than setting state during the effect.
+    const remaining = Math.max(0, cooldownEnd - Date.now());
+
+    const timer = setTimeout(() => setCooldownEnd(null), remaining);
+    return () => clearTimeout(timer);
+  }, [cooldownEnd]);
+
   const restart = useCallback(() => {
     setSelected(null);
     setHinted(null);
     plan.current = [];
-    // A new attempt: the board, the undo budget and the counts all start again.
+    // A new attempt: the board, both budgets and the counts all start again.
     setAttempt(restartLevel());
     setHintsUsed(0);
+    setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
     setState((current) => (current === null ? current : restartState(current)));
   }, []);
 
@@ -482,6 +526,11 @@ export function useGame() {
     solved: state !== null && isSolved(state.board),
     stuck: noMoves,
     undosRemaining: attempt.undosRemaining,
+    hintsRemaining: attempt.hintsRemaining,
+    hintCooldownEnd: cooldownEnd,
+    canHint:
+      state !== null && !noMoves && !isSolved(state.board) && canHintBudget(attempt)
+      && cooldownEnd === null,
     hintsUsed,
     hinted,
     useHint,

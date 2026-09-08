@@ -39,6 +39,9 @@ function playing(overrides: Record<string, unknown> = {}) {
     solved: false,
     stuck: false,
     undosRemaining: 5,
+    hintsRemaining: 3,
+    hintCooldownEnd: null,
+    canHint: true,
     hintsUsed: 0,
     hinted: null,
     useHint: vi.fn(),
@@ -145,6 +148,88 @@ describe('nothing announces an earned ball', () => {
  * the rule that produced them: every flex item between the scroll container and the
  * height-bounded root must be allowed to shrink.
  */
+/**
+ * The hint budget, as the player meets it. The numbers themselves are proven in
+ * attempt.test.ts; what matters here is that the control tells the truth about them.
+ */
+describe('the hint control shows its budget', () => {
+  const hintButton = () =>
+    screen.getByRole('button', { name: /show me a move|no hints left/i });
+
+  /**
+   * The button plus its overlay. The cooldown ring is a sibling of the button rather than a
+   * child, because a disabled button is drawn at 30% opacity and would take the ring down
+   * with it — exactly when the ring is the thing worth reading.
+   */
+  const hintControl = () => hintButton().parentElement!;
+
+  it('shows how many hints are left', async () => {
+    game.current = playing({ hintsRemaining: 3 });
+    render(<App />);
+    await goToPlay();
+
+    expect(hintButton().textContent).toContain('3');
+  });
+
+  it('names the remaining count so it is not colour or position alone', async () => {
+    game.current = playing({ hintsRemaining: 2 });
+    render(<App />);
+    await goToPlay();
+
+    expect(hintButton()).toHaveAttribute('aria-label', 'Show me a move, 2 left');
+  });
+
+  it('is disabled while the cooldown runs, and says so', async () => {
+    game.current = playing({ hintCooldownEnd: Date.now() + 30_000, canHint: false });
+    render(<App />);
+    await goToPlay();
+
+    expect(hintButton()).toBeDisabled();
+    expect(hintButton().getAttribute('aria-label')).toMatch(/available shortly/i);
+  });
+
+  it('is disabled once the budget is spent', async () => {
+    game.current = playing({ hintsRemaining: 0, canHint: false });
+    render(<App />);
+    await goToPlay();
+
+    expect(hintButton()).toBeDisabled();
+    expect(hintButton()).toHaveAttribute('aria-label', 'No hints left this attempt');
+  });
+
+  it('draws the wait while one is running', async () => {
+    game.current = playing({ hintCooldownEnd: Date.now() + 30_000, canHint: false });
+    render(<App />);
+    await goToPlay();
+
+    expect(hintControl().querySelector('svg')).not.toBeNull();
+  });
+
+  /** A wait that cannot end in a hint would promise something that is not coming. */
+  it('draws no wait once the budget is spent', async () => {
+    game.current = playing({
+      hintsRemaining: 0,
+      hintCooldownEnd: Date.now() + 30_000,
+      canHint: false,
+    });
+    render(<App />);
+    await goToPlay();
+
+    expect(hintControl().querySelector('svg')).toBeNull();
+  });
+
+  it('asks for a hint when it is available', async () => {
+    const useHint = vi.fn();
+    game.current = playing({ useHint });
+    render(<App />);
+    await goToPlay();
+
+    fireEvent.click(hintButton());
+
+    expect(useHint).toHaveBeenCalled();
+  });
+});
+
 describe('the level select can scroll', () => {
   it('lets every flex ancestor of the grid shrink below its content', async () => {
     game.current = playing({ levelCeiling: 120 });

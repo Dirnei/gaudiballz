@@ -30,6 +30,23 @@ button {
   touch-action: manipulation;
 }
 
+/*
+ * The hint cooldown ring, unwinding as the wait passes.
+ *
+ * A CSS animation rather than a per-frame React update: the sweep runs for thirty seconds,
+ * and driving it from state would re-render the control on every frame for the whole wait.
+ * The component sets a negative animation-delay so a ring that is already part-way through
+ * starts part-way through.
+ */
+@keyframes hint-cooldown {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: var(--cooldown-circumference);
+  }
+}
+
 /* Respect people who have asked for less motion, without removing feedback entirely. */
 @media (prefers-reduced-motion: reduce) {
   *,

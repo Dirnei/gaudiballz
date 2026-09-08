@@ -56,10 +56,19 @@ interaction.
 
 ### 3. Cooldown indicator as a radial sweep on the existing `IconButton`
 
-**Choice:** Render the 30-second cooldown as a circular SVG progress arc layered over
-the hint `IconButton`, similar to a radial timer. Animate it with `requestAnimationFrame`
-for smooth visual feedback. When the cooldown expires, the arc disappears and the button
-becomes active.
+**Choice:** Render the 30-second cooldown as a circular SVG progress arc, animated by CSS
+with a negative `animation-delay` so a ring mounted part-way through starts part-way through.
+When the cooldown expires, the arc disappears and the button becomes active.
+
+**Not `requestAnimationFrame`, as first planned:** a per-frame update would re-render the
+control roughly eighteen hundred times per wait. CSS costs nothing per frame and needs the
+clock only at mount and on re-focus, which is also where the "snap on re-focus" mitigation
+below is implemented — a `visibilitychange` listener re-reads the clock and remounts the arc.
+
+**The arc is a sibling of the button, not a child of it.** A disabled button renders at 30%
+opacity, and an arc inside it inherits that: measured at roughly a fifth of full alpha, which
+is not legible. The arc has to stay readable exactly while the control is disabled, since
+that is the state it explains.
 
 **Why:** The undo button already uses a badge for its remaining count. Adding a radial
 sweep to the hint button distinguishes the two types of limit visually — count (badge)
@@ -67,11 +76,17 @@ vs. time (sweep) — without introducing new UI components.
 
 ### 4. Constants are named exports, not config
 
-**Choice:** `HINTS_PER_ATTEMPT = 3` and `HINT_COOLDOWN_MS = 30_000` as exported constants
-in `attempt.ts` and `useGame.ts` respectively.
+**Choice:** `HINTS_PER_ATTEMPT = 3` and `HINT_COOLDOWN_MS = 30_000` as exported constants,
+both in `attempt.ts` alongside `UNDOS_PER_ATTEMPT = 5`.
 
-**Why:** The undo budget uses the same pattern (`UNDOS_PER_ATTEMPT = 5`). There is no
-runtime configuration system, and adding one for two numbers is not warranted.
+**Why:** The undo budget uses the same pattern. There is no runtime configuration system, and
+adding one for three numbers is not warranted.
+
+**Both in `attempt.ts`, not one in each:** the duration was originally planned for
+`useGame.ts` on the grounds that the cooldown is wall-clock state. The running countdown is;
+the number thirty thousand is not — it is a plain constant saying what an attempt costs, which
+is what this module is for. Splitting them also made the view import a constant from the hook
+module, which any test mocking that hook then has to know about.
 
 ## Risks / Trade-offs
 

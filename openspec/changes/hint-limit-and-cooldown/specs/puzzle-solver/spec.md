@@ -1,6 +1,6 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
-### Requirement: Hints are free
+### Requirement: Hints are budgeted
 
 Hints SHALL be limited to a per-attempt budget. Each attempt SHALL allow at most 3 hints.
 
@@ -23,6 +23,10 @@ budget or cooldown state.
 
 The number of hints used SHALL continue to be recorded per attempt, so a level cleared
 with help can be told apart from one cleared without it.
+
+What the budget is NOT is as much part of this as what it is. A hint SHALL NOT cost money,
+SHALL NOT require watching advertising, and SHALL NOT be purchasable by any means. The
+limit exists to make a hint worth asking for, and the game has nothing to sell.
 
 #### Scenario: Hint is gated by cooldown at level start
 
@@ -60,12 +64,24 @@ with help can be told apart from one cleared without it.
 - **WHEN** a player uses hints and then clears the level
 - **THEN** the number of hints used in that attempt is available
 
+#### Scenario: A hint is never sold
+
+- **WHEN** a player has no hints remaining
+- **THEN** no way to obtain more is offered
+- **AND** nothing is asked of them in exchange
+
 ## REMOVED Requirements
 
-### Requirement: Hints do not run out
+### Requirement: Hints are free
 
-**Reason**: Replaced by the budgeted hint system above. Hints are now limited to 3 per
-attempt with a 30-second cooldown.
+**Reason**: Unlimited, instant hints removed the reason to think before asking. The
+requirement forbade limiting hints by count or by waiting, and this change introduces both,
+so it is a reversal of the requirement rather than an adjustment to it.
 
-**Migration**: The hint count recording is preserved. The unlimited-hint behaviour is
-removed; the budget and cooldown take its place.
+The half of it that still holds — that a hint is never sold, never gated behind advertising,
+and never a currency — is carried into "Hints are budgeted" rather than dropped. What changes
+is that generosity stops being unlimited; it does not become a business model.
+
+**Migration**: Recording of hints used per attempt is unchanged, so existing progress and
+completion records keep their meaning. Players lose nothing already earned: the budget
+applies from the next attempt started after the change ships.

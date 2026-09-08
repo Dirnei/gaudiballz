@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Tube } from './Tube';
 import { useGame } from './useGame';
+import { HINT_COOLDOWN_MS } from './attempt';
 import { AccountBall } from './AccountBall';
 import { AccountPanel } from './AccountPanel';
 import { MainMenu } from './MainMenu';
@@ -15,6 +16,90 @@ function isComplete(tube: readonly number[], capacity: number): boolean {
   return tube.length === capacity && tube.every((colour) => colour === tube[0]);
 }
 
+/**
+ * What a hint control should be called, given what is standing in the way of using it.
+ *
+ * Deliberately not a live countdown: a label that changed every second would be read out
+ * again every second by a screen reader, which is worse than not knowing the exact number.
+ */
+function hintLabel(remaining: number, cooldownEnd: number | null): string {
+  if (remaining === 0) {
+    return 'No hints left this attempt';
+  }
+
+  if (cooldownEnd !== null) {
+    return `Show me a move, ${remaining} left — available shortly`;
+  }
+
+  return `Show me a move, ${remaining} left`;
+}
+
+/**
+ * The wait before the next hint, drawn as an arc unwinding around the button.
+ *
+ * Handed to CSS rather than driven from React. A thirty-second sweep updated per frame would
+ * re-render this control something like eighteen hundred times per wait, and — measurably —
+ * starve the frame budget that the screen transitions animate on. The negative
+ * animation-delay is what lets a purely declarative animation start part-way through: the
+ * component reads the clock once, on mount and on re-focus, and CSS does the rest.
+ *
+ * Only the drawing lives here. Whether the wait is over is decided by a wall-clock target in
+ * the hook, so a throttled or backgrounded tab cannot make the button unlock late.
+ */
+function CooldownSweep({ end, duration }: { end: number; duration: number }) {
+  /**
+   * When this ring was last lined up with the clock.
+   *
+   * Read in a lazy initialiser and then only from an event — never during a render — so the
+   * component stays pure and a re-render cannot silently shift the animation. A new cooldown
+   * remounts this component (the caller keys it on the target), so the initialiser covers
+   * that case and the listener below covers a tab coming back from the background.
+   */
+  const [readAt, setReadAt] = useState(() => Date.now());
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        setReadAt(Date.now());
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  const radius = 25;
+  const circumference = 2 * Math.PI * radius;
+  const elapsed = Math.min(duration, Math.max(0, duration - (end - readAt)));
+
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 56 56"
+      className="pointer-events-none absolute inset-0 z-10 h-full w-full -rotate-90"
+    >
+      <circle
+        // A fresh key restarts the animation; without it the browser keeps running the old
+        // one when the ring is realigned after a spell in the background.
+        key={readAt}
+        cx="28"
+        cy="28"
+        r={radius}
+        fill="none"
+        stroke="rgba(56,189,248,0.65)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        style={{
+          ['--cooldown-circumference' as string]: `${circumference}`,
+          animation: `hint-cooldown ${duration}ms linear forwards`,
+          animationDelay: `-${elapsed}ms`,
+        }}
+      />
+    </svg>
+  );
+}
+
 function IconButton({
   label,
   onClick,
@@ -22,6 +107,7 @@ function IconButton({
   children,
   primary,
   remaining,
+  cooldownEnd,
 }: {
   label: string;
   onClick: () => void;
@@ -30,9 +116,19 @@ function IconButton({
   primary?: boolean;
   /** Uses left, when the control is limited. Shown so the cost is visible before spending. */
   remaining?: number;
+  /** When the wait before this control becomes usable ends, if one is running. */
+  cooldownEnd?: number | null;
 }) {
   return (
-    <motion.button
+    // The wrapper exists so the cooldown ring can sit outside the button. A disabled button
+    // is drawn at 30% opacity, and a ring inside it would inherit that — measured at about a
+    // fifth of full alpha, which is not an indicator, it is a rumour. The ring has to stay
+    // legible precisely while the control is disabled, since that is what it is explaining.
+    <span className="relative inline-flex">
+      {cooldownEnd !== undefined && cooldownEnd !== null && remaining !== 0 && (
+        <CooldownSweep key={cooldownEnd} end={cooldownEnd} duration={HINT_COOLDOWN_MS} />
+      )}
+      <motion.button
       type="button"
       aria-label={label}
       onClick={onClick}
@@ -57,7 +153,8 @@ function IconButton({
           {remaining}
         </span>
       )}
-    </motion.button>
+      </motion.button>
+    </span>
   );
 }
 
@@ -330,12 +427,14 @@ export function App() {
                 &#x21B6;
               </IconButton>
               <IconButton
-                label="Show me a move"
+                label={hintLabel(game.hintsRemaining, game.hintCooldownEnd)}
                 onClick={() => {
                   haptics.move();
                   game.useHint();
                 }}
-                disabled={game.stuck || game.solved}
+                disabled={!game.canHint}
+                remaining={game.hintsRemaining}
+                cooldownEnd={game.hintCooldownEnd}
               >
                 ?
               </IconButton>
