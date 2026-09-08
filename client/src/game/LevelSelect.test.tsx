@@ -6,7 +6,8 @@ function setup(overrides: Partial<Parameters<typeof LevelSelect>[0]> = {}) {
   const props = {
     levelId: 5,
     levelCeiling: 10,
-    progress: new Map([[1, { moves: 6, hints: 0 }], [2, { moves: 8, hints: 1 }], [3, { moves: 10, hints: 0 }], [4, { moves: 7, hints: 0 }]]),
+    totalPoints: 0,
+    progress: new Map([[1, { moves: 6, hints: 0, stars: 0, points: 0 }], [2, { moves: 8, hints: 1, stars: 0, points: 0 }], [3, { moves: 10, hints: 0, stars: 0, points: 0 }], [4, { moves: 7, hints: 0, stars: 0, points: 0 }]]),
     onSelectLevel: vi.fn(),
     onBack: vi.fn(),
     ...overrides,

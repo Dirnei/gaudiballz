@@ -8,6 +8,7 @@ function setup(overrides: Partial<Parameters<typeof MainMenu>[0]> = {}) {
     onLevelSelect: vi.fn(),
     onAchievements: vi.fn(),
     showAchievements: false,
+    totalPoints: 0,
     onUnlockWithCode: vi.fn().mockResolvedValue(null),
     ...overrides,
   };
@@ -21,7 +22,7 @@ function press(key: string) {
 
 describe('MainMenu keyboard navigation', () => {
   it('ArrowDown focuses the first item, then cycles', () => {
-    const props = setup();
+    setup();
     // First press focuses Play (index 0)
     press('ArrowDown');
     expect(screen.getByTestId('menu-play')).toHaveClass('kb-focus');
