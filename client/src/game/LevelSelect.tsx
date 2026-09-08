@@ -46,7 +46,11 @@ export function LevelSelect({
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="flex flex-1 flex-col"
+      // min-h-0 for the same reason the screen wrapper in App has it: every flex item
+      // between here and the app's fixed height must be allowed to shrink, or the grid
+      // below is given room for all of its tiles and never scrolls. Both are needed —
+      // relaxing only one leaves the chain rigid.
+      className="flex min-h-0 flex-1 flex-col"
     >
       {/* Header */}
       <header className="relative flex items-center gap-3 px-5 pt-3">

@@ -209,7 +209,10 @@ export function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="relative flex flex-1 flex-col"
+            // min-h-0 because the level grid scrolls. A column flex item defaults to
+            // min-height:auto and so refuses to shrink below its content, which would hand
+            // the grid its full height and leave it nothing to scroll.
+            className="relative flex min-h-0 flex-1 flex-col"
           >
             <LevelSelect
               levelId={game.levelId}
