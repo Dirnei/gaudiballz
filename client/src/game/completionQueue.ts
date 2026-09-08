@@ -20,6 +20,7 @@ export interface PendingCompletion {
   readonly moves: number;
   readonly hints: number;
   readonly recordedAt: number;
+  readonly elapsedTimeMs?: number;
   readonly undoCount?: number;
   readonly restarted?: boolean;
   readonly sessionId?: string;

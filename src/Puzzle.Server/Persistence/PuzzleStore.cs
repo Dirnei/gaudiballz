@@ -144,6 +144,8 @@ public sealed class PuzzleStore
                 .SetOnInsert(p => p.FirstCompletedAt, now)
                 .Min(p => p.BestMoves, result.Moves)
                 .Min(p => p.BestHints, result.Hints)
+                .Max(p => p.BestStars, result.Stars)
+                .Max(p => p.BestPoints, result.Points)
                 .Set(p => p.LastCompletedAt, now),
             new UpdateOptions { IsUpsert = true },
             token);
@@ -162,10 +164,59 @@ public sealed class PuzzleStore
         var progress = PlayerProgress.Empty;
         foreach (var document in documents)
         {
-            progress = progress.With(document.Level, new LevelResult(document.BestMoves, document.BestHints));
+            progress = progress.With(document.Level, new LevelResult(
+                document.BestMoves, document.BestHints, document.BestStars, document.BestPoints,
+                document.BestTimeMs, document.BonusPoints));
         }
 
         return progress;
+    }
+
+    public async Task<(int ReplayBonus, int TimeBonus)> RecordCompletionBonusAsync(
+        string playerId, int level, int? elapsedTimeMs, bool isReplay, CancellationToken token = default)
+    {
+        var key = ProgressDocument.KeyFor(playerId, level);
+        var replayBonus = isReplay ? 10 : 0;
+        var timeBonus = 0;
+
+        if (elapsedTimeMs is > 0)
+        {
+            var doc = await _progress.Find(p => p.Id == key).FirstOrDefaultAsync(token);
+            var currentBest = doc?.BestTimeMs ?? 0;
+
+            if (currentBest > 0 && elapsedTimeMs.Value < currentBest)
+            {
+                timeBonus = 40;
+            }
+
+            var update = Builders<ProgressDocument>.Update.Combine();
+
+            if (currentBest == 0 || elapsedTimeMs.Value < currentBest)
+            {
+                update = Builders<ProgressDocument>.Update.Set(p => p.BestTimeMs, elapsedTimeMs.Value);
+            }
+
+            var totalBonus = replayBonus + timeBonus;
+            if (totalBonus > 0)
+            {
+                update = Builders<ProgressDocument>.Update.Combine(
+                    update, Builders<ProgressDocument>.Update.Inc(p => p.BonusPoints, totalBonus));
+            }
+
+            if (totalBonus > 0 || currentBest == 0 || elapsedTimeMs.Value < currentBest)
+            {
+                await _progress.UpdateOneAsync(p => p.Id == key, update, cancellationToken: token);
+            }
+        }
+        else if (replayBonus > 0)
+        {
+            await _progress.UpdateOneAsync(
+                p => p.Id == key,
+                Builders<ProgressDocument>.Update.Inc(p => p.BonusPoints, replayBonus),
+                cancellationToken: token);
+        }
+
+        return (replayBonus, timeBonus);
     }
 
     /// <summary>

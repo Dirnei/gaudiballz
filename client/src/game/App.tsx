@@ -10,6 +10,7 @@ import { LevelSelect } from './LevelSelect';
 import { haptics } from './haptics';
 import { AchievementToast } from './AchievementToast';
 import { AchievementsScreen } from './AchievementsScreen';
+import { LiveTimer, formatTime } from './LiveTimer';
 
 type Screen = 'menu' | 'levels' | 'play' | 'achievements';
 
@@ -237,6 +238,15 @@ export function App() {
   const par = game.info?.parMoves ?? 0;
   const [accountOpen, setAccountOpen] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
+
+  useEffect(() => {
+    if (confirmingReset) {
+      game.elapsed.pause();
+    } else {
+      game.elapsed.resume();
+    }
+  }, [confirmingReset, game.elapsed]);
+
   const [focusedTube, setFocusedTube] = useState<number | null>(null);
   const tubeRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -490,6 +500,7 @@ export function App() {
             <MainMenu
               onPlay={() => setScreen('play')}
               onLevelSelect={() => setScreen('levels')}
+              totalPoints={game.progress?.totalPoints ?? 0}
               onAchievements={() => {
                 setScreen('achievements');
                 void game.ensureAchievements();
@@ -521,6 +532,7 @@ export function App() {
             <LevelSelect
               levelId={game.levelId}
               levelCeiling={game.levelCeiling}
+              totalPoints={game.progress?.totalPoints ?? 0}
               progress={game.levelProgress}
               onSelectLevel={(level) => {
                 game.goToLevel(level);
@@ -564,9 +576,17 @@ export function App() {
                 </svg>
               </IconButton>
               <LevelBadge levelId={game.levelId} code={game.levelCode} />
-              <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm tabular-nums ring-1 ring-white/10">
-                <span className="font-semibold">{game.moveCount}</span>
-                {par > 0 && <span className="text-slate-400"> / {par}</span>}
+              <div className="flex flex-col items-end gap-0.5 rounded-2xl bg-white/8 px-3 py-1.5 text-xs tabular-nums ring-1 ring-white/10">
+                <div>
+                  <span className="font-semibold text-sm">{game.moveCount}</span>
+                  {par > 0 && <span className="text-slate-400"> / {par}</span>}
+                </div>
+                <LiveTimer
+                  elapsedMs={game.elapsed.elapsedMs}
+                  running={(game.selected !== null || game.moveCount > 0) && !game.solved}
+                  timeTargetMs={game.info?.timeTargetMs}
+                  className="text-slate-300"
+                />
               </div>
             </header>
 
@@ -797,11 +817,56 @@ export function App() {
               </motion.div>
 
               <p className="text-2xl font-bold tracking-tight">Solved</p>
+
+              {game.attemptStars > 0 && (() => {
+                const totalEarned = game.starDelta + game.replayBonus + game.timeBonus;
+                const best = game.levelProgress.get(game.levelId);
+                const bestStars = best?.stars ?? 0;
+
+                return (
+                  <>
+                    <div className="mt-2 flex items-center justify-center gap-1">
+                      {[1, 2, 3].map((i) => (
+                        <span
+                          key={i}
+                          className={`text-2xl ${i <= game.attemptStars ? 'text-amber-400' : 'text-slate-600'}`}
+                        >
+                          ★
+                        </span>
+                      ))}
+                      {totalEarned > 0 && (
+                        <span className="ml-2 text-sm font-medium text-amber-400">
+                          +{totalEarned} pts
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
+                      {game.starDelta > 0 && <span className="text-amber-400/80">+{game.starDelta} star upgrade</span>}
+                      {game.timeBonus > 0 && <span className="text-amber-400/80">+{game.timeBonus} best time</span>}
+                      {game.replayBonus > 0 && <span>+{game.replayBonus} replay</span>}
+                    </div>
+
+                    {bestStars > 0 && bestStars > game.attemptStars && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Best: {'★'.repeat(bestStars)}{'☆'.repeat(3 - bestStars)}
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
+
               <p className="mt-1 text-sm text-slate-400">
                 {game.moveCount} moves
                 {par > 0 && game.moveCount <= par && ' · under par'}
                 {game.hintsUsed > 0 &&
                   ` · ${game.hintsUsed} hint${game.hintsUsed === 1 ? '' : 's'}`}
+              </p>
+              <p className="mt-0.5 text-sm tabular-nums text-slate-400">
+                {formatTime(game.elapsed.elapsedMs())}s
+                {game.info?.timeTargetMs != null && (
+                  <span className="text-slate-500"> / {formatTime(game.info.timeTargetMs)}s</span>
+                )}
               </p>
 
               <motion.button

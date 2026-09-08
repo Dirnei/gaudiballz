@@ -1,6 +1,8 @@
 using Akka.Actor;
 using Microsoft.Extensions.DependencyInjection;
+using Puzzle.Rules;
 using Puzzle.Server.Achievements;
+using Puzzle.Server.Levels;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.PlayerIdentity;
 
@@ -60,9 +62,27 @@ public sealed class ProgressionSlice : ISlice
                     return Results.BadRequest(new { error = "A completion needs a level and a move count." });
                 }
 
+                var level = LevelCatalogue.Build(request.Level);
+                var par = level.ConstructiveSolution.Count;
+                var timeTargetMs = LevelCatalogue.TimeTargetMs(request.Level);
+                var (attemptStars, attemptPoints) = Scoring.Calculate(
+                    request.Moves, request.Hints, request.ElapsedTimeMs, par, timeTargetMs);
+
+                var levelResult = new LevelResult(request.Moves, request.Hints, attemptStars, attemptPoints);
+
+                var before = await registry.Actor.Ask<ProgressSnapshot>(
+                    new LoadProgress(playerId), AskTimeout);
+                var isReplay = before.Progress.Levels.TryGetValue(request.Level, out var prev) && prev.Stars > 0;
+                var previousPoints = before.Progress.Levels.TryGetValue(request.Level, out var prev)
+                    ? prev.Points : 0;
+                var starDelta = Math.Max(0, attemptPoints - previousPoints);
+
                 var snapshot = await registry.Actor.Ask<ProgressSnapshot>(
-                    new RecordCompletion(playerId, request.Level, new LevelResult(request.Moves, request.Hints)),
+                    new RecordCompletion(playerId, request.Level, levelResult),
                     AskTimeout);
+
+                var (replayBonus, timeBonus) = await store.RecordCompletionBonusAsync(
+                    playerId, request.Level, request.ElapsedTimeMs, isReplay);
 
                 var newAchievements = Array.Empty<object>();
 
@@ -80,7 +100,7 @@ public sealed class ProgressionSlice : ISlice
                     {
                         var result = await achievements.Actor.Ask<AchievementResult>(
                             new CompletionEvent(playerId, request.Level,
-                                new LevelResult(request.Moves, request.Hints),
+                                levelResult,
                                 metadata, false),
                             AchievementAskTimeout);
 
@@ -94,7 +114,8 @@ public sealed class ProgressionSlice : ISlice
                     }
                 }
 
-                return Results.Ok(ShapeWithAchievements(snapshot, newAchievements));
+                return Results.Ok(ShapeCompletion(
+                    snapshot, attemptStars, attemptPoints, starDelta, replayBonus, timeBonus, newAchievements));
             });
 
         // Used once, when a device with local progress signs in to an existing account.
@@ -112,7 +133,7 @@ public sealed class ProgressionSlice : ISlice
                 {
                     if (entry.Level >= 1 && entry.Moves >= 1 && entry.Hints >= 0)
                     {
-                        incoming = incoming.With(entry.Level, new LevelResult(entry.Moves, entry.Hints));
+                        incoming = incoming.With(entry.Level, new LevelResult(entry.Moves, entry.Hints, entry.Stars, entry.Points));
                     }
                 }
 
@@ -127,20 +148,43 @@ public sealed class ProgressionSlice : ISlice
     {
         levelsCompleted = snapshot.Progress.LevelsCompleted,
         highestCompleted = snapshot.Progress.HighestCompleted,
+        totalPoints = snapshot.Progress.TotalPoints,
         levels = snapshot.Progress.Levels
             .OrderBy(pair => pair.Key)
-            .Select(pair => new { level = pair.Key, moves = pair.Value.Moves, hints = pair.Value.Hints })
+            .Select(pair => new
+            {
+                level = pair.Key,
+                moves = pair.Value.Moves,
+                hints = pair.Value.Hints,
+                stars = pair.Value.Stars,
+                points = pair.Value.Points,
+            })
             .ToArray(),
     };
 
-    private static object ShapeWithAchievements(ProgressSnapshot snapshot, object[] newAchievements) => new
+    private static object ShapeCompletion(
+        ProgressSnapshot snapshot, int attemptStars, int attemptPoints,
+        int starDelta, int replayBonus, int timeBonus, object[] newAchievements) => new
     {
         levelsCompleted = snapshot.Progress.LevelsCompleted,
         highestCompleted = snapshot.Progress.HighestCompleted,
+        totalPoints = snapshot.Progress.TotalPoints + replayBonus + timeBonus,
         levels = snapshot.Progress.Levels
             .OrderBy(pair => pair.Key)
-            .Select(pair => new { level = pair.Key, moves = pair.Value.Moves, hints = pair.Value.Hints })
+            .Select(pair => new
+            {
+                level = pair.Key,
+                moves = pair.Value.Moves,
+                hints = pair.Value.Hints,
+                stars = pair.Value.Stars,
+                points = pair.Value.Points,
+            })
             .ToArray(),
+        attemptStars,
+        attemptPoints,
+        starDelta,
+        replayBonus,
+        timeBonus,
         newAchievements,
     };
 
@@ -154,13 +198,14 @@ public sealed class ProgressionSlice : ISlice
 
     public sealed record CompletionRequest(
         int Level, int Moves, int Hints,
+        int? ElapsedTimeMs = null,
         int? UndoCount = null,
         bool? Restarted = null,
         string? SessionId = null,
         int? ColourCount = null,
         int? ParMoves = null);
 
-    public sealed record MergeEntry(int Level, int Moves, int Hints);
+    public sealed record MergeEntry(int Level, int Moves, int Hints, int Stars = 0, int Points = 0);
 
     public sealed record MergeRequest(IReadOnlyList<MergeEntry> Levels);
 }

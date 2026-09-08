@@ -2,17 +2,20 @@ using System.Collections.Immutable;
 
 namespace Puzzle.Server.Progression;
 
-/// <summary>How a level went. Lower is better on both counts.</summary>
-public readonly record struct LevelResult(int Moves, int Hints)
+/// <summary>How a level went. Moves/Hints: lower is better. Stars/Points: higher is better.</summary>
+public readonly record struct LevelResult(
+    int Moves, int Hints, int Stars = 0, int Points = 0,
+    int BestTimeMs = 0, int BonusPoints = 0)
 {
-    /// <summary>
-    /// The better of two attempts, taken per measure rather than picking one attempt whole.
-    ///
-    /// A run that used fewer moves and a run that used fewer hints are both worth keeping,
-    /// and choosing between them would throw away something the player earned.
-    /// </summary>
     public LevelResult Best(LevelResult other) =>
-        new(Math.Min(Moves, other.Moves), Math.Min(Hints, other.Hints));
+        new(Math.Min(Moves, other.Moves),
+            Math.Min(Hints, other.Hints),
+            Math.Max(Stars, other.Stars),
+            Math.Max(Points, other.Points),
+            BestTimeMs == 0 ? other.BestTimeMs
+                : other.BestTimeMs == 0 ? BestTimeMs
+                : Math.Min(BestTimeMs, other.BestTimeMs),
+            Math.Max(BonusPoints, other.BonusPoints));
 }
 
 /// <summary>
@@ -31,6 +34,8 @@ public sealed record PlayerProgress(ImmutableDictionary<int, LevelResult> Levels
 
     /// <summary>The furthest level reached, or 0 when nothing is completed.</summary>
     public int HighestCompleted => Levels.Count == 0 ? 0 : Levels.Keys.Max();
+
+    public int TotalPoints => Levels.Values.Sum(r => r.Points + r.BonusPoints);
 
     /// <summary>
     /// Records a completion, keeping the better result when the level was already done.

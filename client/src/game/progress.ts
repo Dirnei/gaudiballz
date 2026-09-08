@@ -9,22 +9,35 @@ export interface ProgressEntry {
   readonly level: number;
   readonly moves: number;
   readonly hints: number;
+  readonly stars: number;
+  readonly points: number;
 }
 
 export interface Progress {
   readonly levelsCompleted: number;
   readonly highestCompleted: number;
+  readonly totalPoints: number;
   readonly levels: readonly ProgressEntry[];
 }
 
-export const NO_PROGRESS: Progress = { levelsCompleted: 0, highestCompleted: 0, levels: [] };
+export const NO_PROGRESS: Progress = { levelsCompleted: 0, highestCompleted: 0, totalPoints: 0, levels: [] };
 
 export interface NewAchievement {
   readonly id: string;
   readonly name: string;
 }
 
+export interface CompletionResult {
+  readonly newAchievements: NewAchievement[];
+  readonly attemptStars: number;
+  readonly attemptPoints: number;
+  readonly starDelta: number;
+  readonly replayBonus: number;
+  readonly timeBonus: number;
+}
+
 export interface CompletionMetadata {
+  readonly elapsedTimeMs?: number;
   readonly undoCount: number;
   readonly restarted: boolean;
   readonly colourCount: number;
@@ -56,13 +69,14 @@ export async function recordCompletion(
   moves: number,
   hints: number,
   metadata?: CompletionMetadata,
-): Promise<NewAchievement[]> {
+): Promise<CompletionResult> {
   await enqueue({
     id: newId(),
     level,
     moves,
     hints,
     recordedAt: Date.now(),
+    elapsedTimeMs: metadata?.elapsedTimeMs,
     undoCount: metadata?.undoCount,
     restarted: metadata?.restarted,
     sessionId: clientSessionId,
@@ -78,15 +92,17 @@ export async function recordCompletion(
  *
  * Returns any newly earned achievements from the last successful response.
  */
-export async function drain(): Promise<NewAchievement[]> {
+const EMPTY_RESULT: CompletionResult = { newAchievements: [], attemptStars: 0, attemptPoints: 0, starDelta: 0, replayBonus: 0, timeBonus: 0 };
+
+export async function drain(): Promise<CompletionResult> {
   let waiting: PendingCompletion[];
   try {
     waiting = await pending();
   } catch {
-    return [];
+    return EMPTY_RESULT;
   }
 
-  let lastAchievements: NewAchievement[] = [];
+  let lastResult: CompletionResult = EMPTY_RESULT;
 
   for (const item of waiting) {
     try {
@@ -97,6 +113,7 @@ export async function drain(): Promise<NewAchievement[]> {
           level: item.level,
           moves: item.moves,
           hints: item.hints,
+          elapsedTimeMs: item.elapsedTimeMs,
           undoCount: item.undoCount,
           restarted: item.restarted,
           sessionId: item.sessionId,
@@ -107,10 +124,24 @@ export async function drain(): Promise<NewAchievement[]> {
 
       if (response.ok) {
         try {
-          const body = (await response.json()) as { newAchievements?: NewAchievement[] };
-          lastAchievements = body.newAchievements ?? [];
+          const body = (await response.json()) as {
+            newAchievements?: NewAchievement[];
+            attemptStars?: number;
+            attemptPoints?: number;
+            starDelta?: number;
+            replayBonus?: number;
+            timeBonus?: number;
+          };
+          lastResult = {
+            newAchievements: body.newAchievements ?? [],
+            attemptStars: body.attemptStars ?? 0,
+            attemptPoints: body.attemptPoints ?? 0,
+            starDelta: body.starDelta ?? 0,
+            replayBonus: body.replayBonus ?? 0,
+            timeBonus: body.timeBonus ?? 0,
+          };
         } catch {
-          lastAchievements = [];
+          lastResult = EMPTY_RESULT;
         }
         await forget(item.id);
         continue;
@@ -121,13 +152,13 @@ export async function drain(): Promise<NewAchievement[]> {
         continue;
       }
 
-      return lastAchievements;
+      return lastResult;
     } catch {
-      return lastAchievements;
+      return lastResult;
     }
   }
 
-  return lastAchievements;
+  return lastResult;
 }
 
 /**

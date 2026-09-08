@@ -70,7 +70,8 @@ public sealed class PlayerProgressTests
         foreach (var (level, mine) in a.Levels)
         {
             var after = merged.Levels[level];
-            if (after.Moves > mine.Moves || after.Hints > mine.Hints)
+            if (after.Moves > mine.Moves || after.Hints > mine.Hints
+                || after.Stars < mine.Stars || after.Points < mine.Points)
             {
                 return false;
             }
@@ -122,6 +123,59 @@ public sealed class PlayerProgressTests
             .With(7, new LevelResult(45, 0));
 
         Assert.Equal(new LevelResult(31, 0), progress.Levels[7]);
+    }
+
+    [Fact]
+    public void Best_keeps_max_stars_and_max_points()
+    {
+        var progress = PlayerProgress.Empty
+            .With(7, new LevelResult(31, 6, Stars: 2, Points: 250))
+            .With(7, new LevelResult(45, 0, Stars: 3, Points: 500));
+
+        var result = progress.Levels[7];
+        Assert.Equal(31, result.Moves);
+        Assert.Equal(0, result.Hints);
+        Assert.Equal(3, result.Stars);
+        Assert.Equal(500, result.Points);
+    }
+
+    [Fact]
+    public void Worse_stars_do_not_replace()
+    {
+        var progress = PlayerProgress.Empty
+            .With(7, new LevelResult(12, 0, Stars: 3, Points: 500))
+            .With(7, new LevelResult(10, 1, Stars: 1, Points: 100));
+
+        var result = progress.Levels[7];
+        Assert.Equal(10, result.Moves);
+        Assert.Equal(0, result.Hints);
+        Assert.Equal(3, result.Stars);
+        Assert.Equal(500, result.Points);
+    }
+
+    [Fact]
+    public void Total_points_sums_best_per_level()
+    {
+        var progress = PlayerProgress.Empty
+            .With(1, new LevelResult(10, 0, Stars: 3, Points: 500))
+            .With(2, new LevelResult(15, 0, Stars: 2, Points: 250))
+            .With(3, new LevelResult(20, 1, Stars: 1, Points: 100));
+
+        Assert.Equal(850, progress.TotalPoints);
+    }
+
+    [Fact]
+    public void Total_points_is_zero_for_empty_progress()
+    {
+        Assert.Equal(0, PlayerProgress.Empty.TotalPoints);
+    }
+
+    [Fact]
+    public void Default_stars_are_zero()
+    {
+        var result = new LevelResult(10, 0);
+        Assert.Equal(0, result.Stars);
+        Assert.Equal(0, result.Points);
     }
 
     [Fact]

@@ -4,7 +4,8 @@ import { motion } from 'motion/react';
 interface LevelSelectProps {
   readonly levelId: number;
   readonly levelCeiling: number;
-  readonly progress: Map<number, { moves: number; hints: number }>;
+  readonly totalPoints: number;
+  readonly progress: Map<number, { moves: number; hints: number; stars: number; points: number }>;
   readonly onSelectLevel: (level: number) => void;
   readonly onBack: () => void;
 }
@@ -15,7 +16,7 @@ function tileState(
   level: number,
   currentLevel: number,
   ceiling: number,
-  progress: Map<number, { moves: number; hints: number }>,
+  progress: Map<number, { moves: number; hints: number; stars: number; points: number }>,
 ): TileState {
   if (progress.has(level)) return 'completed';
   if (level === currentLevel) return 'current';
@@ -30,6 +31,7 @@ function tileState(
 export function LevelSelect({
   levelId,
   levelCeiling,
+  totalPoints,
   progress,
   onSelectLevel,
   onBack,
@@ -79,6 +81,11 @@ export function LevelSelect({
           </svg>
         </motion.button>
         <h1 className="text-lg font-semibold">Level Select</h1>
+        {totalPoints > 0 && (
+          <span className="ml-auto text-sm font-medium tabular-nums text-amber-400">
+            ★ {totalPoints.toLocaleString()}
+          </span>
+        )}
       </header>
 
       {/* Grid */}
@@ -102,9 +109,11 @@ export function LevelSelect({
                 <span className={`text-base font-semibold tabular-nums ${state === 'locked' ? 'text-slate-600' : state === 'current' ? 'text-sky-100' : 'text-slate-200'}`}>
                   {level}
                 </span>
-                {state === 'completed' && entry && (
-                  <span className="mt-0.5 text-[0.6rem] tabular-nums text-slate-400">
-                    {entry.moves} moves
+                {state === 'completed' && entry && entry.stars > 0 && (
+                  <span className="mt-0.5 flex gap-px text-[0.55rem]">
+                    {[1, 2, 3].map((i) => (
+                      <span key={i} className={i <= entry.stars ? 'text-amber-400' : 'text-slate-600'}>★</span>
+                    ))}
                   </span>
                 )}
               </motion.button>

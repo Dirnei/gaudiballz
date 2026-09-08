@@ -238,4 +238,12 @@ public static class LevelCatalogue
 
         return null;
     }
+
+    public static int TimeTargetMs(int levelId)
+    {
+        var level = Build(levelId);
+        var par = level.ConstructiveSolution.Count;
+        var secondsPerMove = levelId < OneSpareTubeFrom ? 3 : 4;
+        return par * secondsPerMove * 1000;
+    }
 }

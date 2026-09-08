@@ -85,6 +85,10 @@ public sealed class ProgressDocument
     public int Level { get; set; }
     public int BestMoves { get; set; }
     public int BestHints { get; set; }
+    public int BestStars { get; set; }
+    public int BestPoints { get; set; }
+    public int BestTimeMs { get; set; }
+    public int BonusPoints { get; set; }
     public DateTime FirstCompletedAt { get; set; }
     public DateTime LastCompletedAt { get; set; }
 

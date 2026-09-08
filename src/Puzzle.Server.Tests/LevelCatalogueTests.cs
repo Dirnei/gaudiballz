@@ -183,4 +183,47 @@ public sealed class LevelCatalogueTests
             ],
             flat);
     }
+
+    [Fact]
+    public void Two_spare_regime_uses_par_times_3_seconds()
+    {
+        var level = LevelCatalogue.Build(1);
+        var par = level.ConstructiveSolution.Count;
+        var expected = par * 3 * 1000;
+
+        Assert.Equal(expected, LevelCatalogue.TimeTargetMs(1));
+    }
+
+    [Fact]
+    public void One_spare_regime_uses_par_times_4_seconds()
+    {
+        var level = LevelCatalogue.Build(LevelCatalogue.OneSpareTubeFrom);
+        var par = level.ConstructiveSolution.Count;
+        var expected = par * 4 * 1000;
+
+        Assert.Equal(expected, LevelCatalogue.TimeTargetMs(LevelCatalogue.OneSpareTubeFrom));
+    }
+
+    [Fact]
+    public void Time_target_boundary_at_level_49_vs_50()
+    {
+        var level49 = LevelCatalogue.Build(49);
+        var level50 = LevelCatalogue.Build(50);
+
+        var target49 = LevelCatalogue.TimeTargetMs(49);
+        var target50 = LevelCatalogue.TimeTargetMs(50);
+
+        Assert.Equal(level49.ConstructiveSolution.Count * 3 * 1000, target49);
+        Assert.Equal(level50.ConstructiveSolution.Count * 4 * 1000, target50);
+    }
+
+    [Fact]
+    public void Easy_levels_have_lower_time_targets_than_hard_levels()
+    {
+        var target1 = LevelCatalogue.TimeTargetMs(1);
+        var target100 = LevelCatalogue.TimeTargetMs(100);
+
+        Assert.True(target1 < target100,
+            $"Level 1 target ({target1}ms) should be lower than level 100 ({target100}ms).");
+    }
 }

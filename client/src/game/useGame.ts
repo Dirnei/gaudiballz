@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useElapsedTime } from './useElapsedTime';
 import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
 import { loadAchievements, type AchievementState } from './achievements';
 import { loadBallUnlocks, setProfileBall, type BallUnlock } from './profileBall';
@@ -42,6 +43,7 @@ import {
 export interface LevelInfo {
   readonly levelId: number;
   readonly parMoves: number;
+  readonly timeTargetMs: number;
   readonly spareTubes: number;
   /** Set only when this level changes the rules of engagement. */
   readonly chapterNote: string | null;
@@ -53,6 +55,7 @@ interface LevelResponse {
   capacity: number;
   colourCount: number;
   parMoves: number;
+  timeTargetMs: number;
   spareTubes: number;
   chapterNote: string | null;
   code: string;
@@ -75,13 +78,13 @@ export type LoadState = 'loading' | 'ready' | 'error';
 /** Converts the server's flat levels array into a Map for O(1) lookup per level. */
 export function buildLevelProgress(
   progress: Progress | null,
-): Map<number, { moves: number; hints: number }> {
-  const map = new Map<number, { moves: number; hints: number }>();
+): Map<number, { moves: number; hints: number; stars: number; points: number }> {
+  const map = new Map<number, { moves: number; hints: number; stars: number; points: number }>();
   if (progress === null) {
     return map;
   }
   for (const entry of progress.levels) {
-    map.set(entry.level, { moves: entry.moves, hints: entry.hints });
+    map.set(entry.level, { moves: entry.moves, hints: entry.hints, stars: entry.stars, points: entry.points });
   }
   return map;
 }
@@ -147,6 +150,12 @@ export function useGame() {
   const undosUsed = useRef(0);
   const [colourCount, setColourCount] = useState(0);
   const [newAchievements, setNewAchievements] = useState<NewAchievement[]>([]);
+  const [attemptStars, setAttemptStars] = useState(0);
+  const [attemptPoints, setAttemptPoints] = useState(0);
+  const [starDelta, setStarDelta] = useState(0);
+  const [replayBonus, setReplayBonus] = useState(0);
+  const [timeBonus, setTimeBonus] = useState(0);
+  const elapsed = useElapsedTime();
 
   /**
    * Identity and progress on launch. Silent: no form, no prompt, nothing to dismiss. If the
@@ -199,6 +208,12 @@ export function useGame() {
     plan.current = [];
     undosUsed.current = 0;
     restartedLevels.current.delete(levelId);
+    elapsed.reset();
+    setAttemptStars(0);
+    setAttemptPoints(0);
+    setStarDelta(0);
+    setReplayBonus(0);
+    setTimeBonus(0);
 
     fetch(`${API}/api/v1/levels/${levelId}`)
       .then((response) => {
@@ -217,6 +232,7 @@ export function useGame() {
         setInfo({
           levelId: level.levelId,
           parMoves: level.parMoves,
+          timeTargetMs: level.timeTargetMs,
           spareTubes: level.spareTubes,
           chapterNote: level.chapterNote,
         });
@@ -297,6 +313,17 @@ export function useGame() {
     () => state !== null && !isSolved(state.board) && legalMoves(state.board).length === 0,
     [state],
   );
+
+  useEffect(() => {
+    if (state === null) {
+      return;
+    }
+    if (isSolved(state.board)) {
+      elapsed.stop();
+    } else if (selected !== null || state.moves.length > 0) {
+      elapsed.start();
+    }
+  }, [state, selected, elapsed]);
 
   /** Asks for the next move on a winning line and plays it. Free, and never rationed. */
   const useHint = useCallback(() => {
@@ -384,6 +411,12 @@ export function useGame() {
     undosUsed.current = 0;
     restartedLevels.current.add(levelId);
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
+    elapsed.reset();
+    setAttemptStars(0);
+    setAttemptPoints(0);
+    setStarDelta(0);
+    setReplayBonus(0);
+    setTimeBonus(0);
     setState((current) => (current === null ? current : restartState(current)));
   }, [levelId]);
 
@@ -406,15 +439,21 @@ export function useGame() {
     recorded.current = attempt;
 
     void (async () => {
-      const awarded = await recordCompletion(levelId, state.moves.length, hintsUsed, {
+      const result = await recordCompletion(levelId, state.moves.length, hintsUsed, {
+        elapsedTimeMs: elapsed.elapsedMs(),
         undoCount: undosUsed.current,
         restarted: restartedLevels.current.has(levelId),
         colourCount,
         parMoves: info?.parMoves ?? 0,
       });
-      if (awarded.length > 0) {
-        setNewAchievements(awarded);
+      if (result.newAchievements.length > 0) {
+        setNewAchievements(result.newAchievements);
       }
+      setAttemptStars(result.attemptStars);
+      setAttemptPoints(result.attemptPoints);
+      setStarDelta(result.starDelta);
+      setReplayBonus(result.replayBonus);
+      setTimeBonus(result.timeBonus);
       const refreshed = await loadProgress();
       if (refreshed !== null) {
         setProgress(refreshed);
@@ -566,8 +605,14 @@ export function useGame() {
     useHint,
     canUndo: state !== null && canUndoState(state) && canUndoBudget(attempt),
     moveCount: state?.moves.length ?? 0,
+    attemptStars,
+    attemptPoints,
+    starDelta,
+    replayBonus,
+    timeBonus,
     newAchievements,
     clearNewAchievements,
+    elapsed,
     tapTube,
     undo,
     restart,

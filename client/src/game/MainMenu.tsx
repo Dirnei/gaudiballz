@@ -6,6 +6,7 @@ interface MainMenuProps {
   readonly onLevelSelect: () => void;
   readonly onAchievements: () => void;
   readonly showAchievements: boolean;
+  readonly totalPoints: number;
   readonly onUnlockWithCode: (code: string) => Promise<{ levelId: number } | null>;
 }
 
@@ -18,6 +19,7 @@ export function MainMenu({
   onLevelSelect,
   onAchievements,
   showAchievements,
+  totalPoints,
   onUnlockWithCode,
 }: MainMenuProps) {
   const [enteringCode, setEnteringCode] = useState(false);
@@ -56,6 +58,11 @@ export function MainMenu({
         {/* Title area */}
         <h1 className="text-4xl font-bold tracking-tight text-white">Sort Puzzle</h1>
         <p className="mt-2 text-sm text-slate-400">Sort the colours. Clear the board.</p>
+        {totalPoints > 0 && (
+          <p className="mt-3 text-sm font-medium tabular-nums text-amber-400">
+            ★ {totalPoints.toLocaleString()} pts
+          </p>
+        )}
 
         {/* Main action panel */}
         <div

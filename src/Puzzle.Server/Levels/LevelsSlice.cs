@@ -43,6 +43,7 @@ public sealed class LevelsSlice : ISlice
                 rulesVersion = level.RulesVersion,
                 generatorVersion = level.GeneratorVersion,
                 parMoves = level.ConstructiveSolution.Count,
+                timeTargetMs = LevelCatalogue.TimeTargetMs(levelId),
                 spareTubes = level.Parameters.SpareTubes,
                 chapterNote = LevelCatalogue.ChapterNote(levelId),
                 code = codes.CodeFor(levelId),
