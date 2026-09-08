@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Tube } from './Tube';
 import { useGame } from './useGame';
@@ -235,6 +235,184 @@ export function App() {
   const par = game.info?.parMoves ?? 0;
   const [accountOpen, setAccountOpen] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [focusedTube, setFocusedTube] = useState<number | null>(null);
+  const tubeRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    setFocusedTube(null);
+  }, [game.levelId, screen]);
+
+  const handleTubeTap = useCallback(
+    (index: number) => {
+      haptics.move();
+      game.tapTube(index);
+      setFocusedTube(index);
+    },
+    [game],
+  );
+
+  function findVerticalNeighbour(from: number, direction: 'up' | 'down'): number | null {
+    const refs = tubeRefs.current;
+    const origin = refs[from]?.getBoundingClientRect();
+    if (!origin) return null;
+
+    let best: number | null = null;
+    let bestDist = Infinity;
+
+    for (let i = 0; i < refs.length; i++) {
+      if (i === from) continue;
+      const rect = refs[i]?.getBoundingClientRect();
+      if (!rect) continue;
+
+      const above = direction === 'up' && rect.top < origin.top - 1;
+      const below = direction === 'down' && rect.top > origin.top + 1;
+      if (!above && !below) continue;
+
+      const dx = rect.left + rect.width / 2 - (origin.left + origin.width / 2);
+      const dy = rect.top + rect.height / 2 - (origin.top + origin.height / 2);
+      const dist = dx * dx + dy * dy;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  useEffect(() => {
+    if (screen !== 'play') return undefined;
+
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      const inTextInput = tag === 'INPUT' || tag === 'TEXTAREA';
+
+      if (confirmingReset) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          setConfirmingReset(false);
+          game.restart();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setConfirmingReset(false);
+        }
+        return;
+      }
+
+      if (game.solved) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          game.goToLevel(game.levelId + 1);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          game.goToLevel(game.levelId);
+        }
+        return;
+      }
+
+      const tubeCount = board?.tubes.length ?? 0;
+
+      switch (e.key) {
+        case 'ArrowLeft': {
+          e.preventDefault();
+          if (tubeCount === 0) return;
+          setFocusedTube((prev) => {
+            const next = prev === null ? 0 : (prev - 1 + tubeCount) % tubeCount;
+            tubeRefs.current[next]?.scrollIntoView({ block: 'nearest' });
+            return next;
+          });
+          return;
+        }
+        case 'ArrowRight': {
+          e.preventDefault();
+          if (tubeCount === 0) return;
+          setFocusedTube((prev) => {
+            const next = prev === null ? 0 : (prev + 1) % tubeCount;
+            tubeRefs.current[next]?.scrollIntoView({ block: 'nearest' });
+            return next;
+          });
+          return;
+        }
+        case 'ArrowUp':
+        case 'ArrowDown': {
+          e.preventDefault();
+          if (tubeCount === 0) return;
+          setFocusedTube((prev) => {
+            if (prev === null) return 0;
+            const neighbour = findVerticalNeighbour(prev, e.key === 'ArrowUp' ? 'up' : 'down');
+            if (neighbour === null) return prev;
+            tubeRefs.current[neighbour]?.scrollIntoView({ block: 'nearest' });
+            return neighbour;
+          });
+          return;
+        }
+        case 'Enter':
+        case ' ': {
+          if (focusedTube === null) return;
+          e.preventDefault();
+          haptics.move();
+          game.tapTube(focusedTube);
+          return;
+        }
+        case 'Escape': {
+          e.preventDefault();
+          if (game.selected !== null) {
+            game.tapTube(game.selected);
+          } else {
+            setScreen('menu');
+          }
+          return;
+        }
+      }
+
+      if (inTextInput || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+
+      if (e.key >= '1' && e.key <= '9') {
+        const index = Number(e.key) - 1;
+        if (index < tubeCount) {
+          e.preventDefault();
+          haptics.move();
+          game.tapTube(index);
+          setFocusedTube(index);
+        }
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case 'u':
+          if (game.canUndo) {
+            e.preventDefault();
+            game.undo();
+          }
+          return;
+        case 'h':
+          if (game.canHint) {
+            e.preventDefault();
+            haptics.move();
+            game.useHint();
+          }
+          return;
+        case 'r':
+          e.preventDefault();
+          setConfirmingReset(true);
+          return;
+        case 'n':
+          if (game.levelId < game.levelCeiling) {
+            e.preventDefault();
+            game.goToLevel(game.levelId + 1);
+          }
+          return;
+        case 'p':
+          if (game.levelId > 1) {
+            e.preventDefault();
+            game.goToLevel(game.levelId - 1);
+          }
+          return;
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [screen, board, focusedTube, confirmingReset, game]);
 
   // A level that changes the rules announces itself, so a step up in difficulty reads as
   // intended rather than as the game breaking. Shown once, briefly, on arrival.
@@ -396,18 +574,27 @@ export function App() {
               )}
 
               {game.load === 'ready' && board && (
-                <div className="flex max-w-xl flex-wrap items-end justify-center">
+                <div
+                  className="grid items-end justify-items-center"
+                  style={{
+                    gridTemplateColumns: `repeat(${
+                      board.tubes.length <= 8
+                        ? board.tubes.length
+                        : Math.ceil(board.tubes.length / 2)
+                    }, max-content)`,
+                    justifyContent: 'center',
+                  }}
+                >
                   {board.tubes.map((tube, index) => (
                     <Tube
                       key={index}
+                      ref={(el) => { tubeRefs.current[index] = el; }}
                       items={tube}
                       capacity={board.capacity}
                       selected={game.selected === index}
+                      focused={focusedTube === index}
                       complete={isComplete(tube, board.capacity)}
-                      onTap={() => {
-                        haptics.move();
-                        game.tapTube(index);
-                      }}
+                      onTap={() => handleTubeTap(index)}
                     />
                   ))}
                 </div>

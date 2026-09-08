@@ -39,6 +39,10 @@ The Left and Right arrow keys SHALL move focus to the previous or next tube in b
 order. Navigation SHALL wrap: pressing Right on the last tube SHALL move focus to the
 first tube, and pressing Left on the first tube SHALL move focus to the last tube.
 
+The Up and Down arrow keys SHALL move focus to the nearest tube in the row above or
+below, based on the tubes' on-screen positions. When the board has only one row, or
+there is no tube in the target direction, focus SHALL remain unchanged.
+
 #### Scenario: Right arrow advances focus
 
 - **WHEN** tube 2 is focused on a board with 7 tubes
@@ -62,6 +66,24 @@ first tube, and pressing Left on the first tube SHALL move focus to the last tub
 - **WHEN** tube 0 is focused on a board with 7 tubes
 - **AND** the player presses the Left arrow key
 - **THEN** tube 6 is focused
+
+#### Scenario: Down arrow moves to the row below
+
+- **WHEN** tubes wrap to two rows and tube 0 is focused in the top row
+- **AND** the player presses the Down arrow key
+- **THEN** the nearest tube in the bottom row is focused
+
+#### Scenario: Up arrow moves to the row above
+
+- **WHEN** tubes wrap to two rows and a tube in the bottom row is focused
+- **AND** the player presses the Up arrow key
+- **THEN** the nearest tube in the top row is focused
+
+#### Scenario: Down arrow on a single row does nothing
+
+- **WHEN** all tubes fit in one row and a tube is focused
+- **AND** the player presses the Down arrow key
+- **THEN** focus does not change
 
 ### Requirement: Tube selection by keyboard
 

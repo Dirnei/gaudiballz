@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'motion/react';
 
 interface LevelSelectProps {
@@ -41,6 +42,17 @@ export function LevelSelect({
   for (let i = 1; i <= totalTiles; i++) {
     tiles.push(i);
   }
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onBack();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onBack]);
 
   return (
     <motion.div
