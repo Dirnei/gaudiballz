@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 function formatTime(ms: number): string {
   const seconds = ms / 1000;
-  return seconds.toFixed(3);
+  return seconds.toFixed(1);
 }
 
 interface LiveTimerProps {
@@ -14,25 +14,24 @@ interface LiveTimerProps {
 
 export function LiveTimer({ elapsedMs, running, className, timeTargetMs }: LiveTimerProps) {
   const spanRef = useRef<HTMLSpanElement>(null);
-  const rafRef = useRef(0);
+
+  const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
   useEffect(() => {
-    function tick() {
+    function update() {
       if (spanRef.current) {
         spanRef.current.textContent = formatTime(elapsedMs());
       }
-      if (running) {
-        rafRef.current = requestAnimationFrame(tick);
-      }
     }
+
+    clearInterval(intervalRef.current);
+    update();
 
     if (running) {
-      rafRef.current = requestAnimationFrame(tick);
-    } else if (spanRef.current) {
-      spanRef.current.textContent = formatTime(elapsedMs());
+      intervalRef.current = setInterval(update, 100);
     }
 
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => clearInterval(intervalRef.current);
   }, [elapsedMs, running]);
 
   return (

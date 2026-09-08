@@ -412,7 +412,7 @@ export function GameScreen() {
         </div>
       </header>
 
-      <div className="relative z-10 flex justify-center pt-1">
+      <div className="relative z-10 hidden sm:flex justify-center pt-1">
         <span
           className="font-bold tracking-wide text-white/30"
           style={{ fontFamily: "'Fredoka', system-ui, sans-serif", fontSize: '4rem', lineHeight: 1 }}
@@ -445,14 +445,15 @@ export function GameScreen() {
         {game.load === 'ready' && board && (
           <>
             <div
-              className="grid items-end justify-items-center"
+              className="grid max-w-full items-end justify-items-center"
               style={{
                 gridTemplateColumns: `repeat(${
                   board.tubes.length <= 7
                     ? board.tubes.length
                     : Math.ceil(board.tubes.length / 2)
-                }, max-content)`,
+                }, min-content)`,
                 justifyContent: 'center',
+                contain: 'layout style',
               }}
             >
               {board.tubes.map((tube, index) => (
