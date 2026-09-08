@@ -2,7 +2,6 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.Progression;
-using Testcontainers.MongoDb;
 
 namespace Puzzle.Server.Tests;
 
@@ -11,36 +10,20 @@ namespace Puzzle.Server.Tests;
 /// operators rather than in our code. A fake would happily agree with whatever we assumed
 /// <c>$min</c> does.
 /// </summary>
-public sealed class PuzzleStoreTests : IAsyncLifetime
+[Collection(SharedMongo.Name)]
+public sealed class PuzzleStoreTests
 {
-    private readonly MongoDbContainer _container = new MongoDbBuilder("mongo:8")
-        .WithReplicaSet()
-        .Build();
-
-    private PuzzleStore _store = null!;
+    private readonly PuzzleStore _store;
 
     /// <summary>The raw players collection, for the few assertions that are about the
     /// stored shape rather than what the store reads back.</summary>
-    private IMongoCollection<BsonDocument> _rawPlayers = null!;
+    private readonly IMongoCollection<BsonDocument> _rawPlayers;
 
-    public async ValueTask InitializeAsync()
+    public PuzzleStoreTests(MongoFixture mongo)
     {
-        await _container.StartAsync();
-
-        var database = $"puzzle_test_{Guid.NewGuid():N}";
-        _store = new PuzzleStore(new MongoOptions
-        {
-            ConnectionString = _container.GetConnectionString(),
-            Database = database,
-        });
-        await _store.EnsureIndexesAsync();
-
-        _rawPlayers = new MongoClient(_container.GetConnectionString())
-            .GetDatabase(database)
-            .GetCollection<BsonDocument>("players");
+        _store = mongo.Store;
+        _rawPlayers = mongo.Database.GetCollection<BsonDocument>("players");
     }
-
-    public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 

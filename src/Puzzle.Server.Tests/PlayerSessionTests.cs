@@ -2,7 +2,6 @@ using Akka.Actor;
 using Akka.TestKit.Xunit;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.Progression;
-using Testcontainers.MongoDb;
 
 namespace Puzzle.Server.Tests;
 
@@ -13,29 +12,16 @@ namespace Puzzle.Server.Tests;
 /// Against a real store rather than a fake, because the guarantee is a joint one — the
 /// actor serialises, and the update operators make each write safe on its own.
 /// </summary>
-public sealed class PlayerSessionTests : TestKit, IAsyncLifetime
+[Collection(SharedMongo.Name)]
+public sealed class PlayerSessionTests : TestKit
 {
-    private readonly MongoDbContainer _container = new MongoDbBuilder("mongo:8")
-        .WithReplicaSet()
-        .Build();
+    private readonly PuzzleStore _store;
 
-    private PuzzleStore _store = null!;
-
-    public async ValueTask InitializeAsync()
+    // The actor system stays per test — a fresh one is what keeps the probes clean — while
+    // the database behind it is shared, because building that was the expensive half.
+    public PlayerSessionTests(MongoFixture mongo)
     {
-        await _container.StartAsync();
-        _store = new PuzzleStore(new MongoOptions
-        {
-            ConnectionString = _container.GetConnectionString(),
-            Database = $"puzzle_actor_{Guid.NewGuid():N}",
-        });
-        await _store.EnsureIndexesAsync();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _container.DisposeAsync();
-        Dispose();
+        _store = mongo.Store;
     }
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;

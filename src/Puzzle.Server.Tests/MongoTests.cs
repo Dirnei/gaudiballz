@@ -1,6 +1,5 @@
 using MongoDB.Bson;
 using MongoDB.Driver;
-using Testcontainers.MongoDb;
 
 namespace Puzzle.Server.Tests;
 
@@ -13,23 +12,14 @@ namespace Puzzle.Server.Tests;
 /// the application relies on and a standalone mongod does not provide. Testing against a
 /// topology nobody deploys would make this suite worse than useless.
 /// </summary>
-public sealed class MongoHarnessSmokeTests : IAsyncLifetime
+[Collection(SharedMongo.Name)]
+public sealed class MongoHarnessSmokeTests
 {
-    private readonly MongoDbContainer _container = new MongoDbBuilder("mongo:8")
-        .WithReplicaSet()
-        .Build();
+    private readonly IMongoDatabase _database;
 
-    private IMongoDatabase _database = null!;
-
-    public async ValueTask InitializeAsync()
+    public MongoHarnessSmokeTests(MongoFixture mongo)
     {
-        await _container.StartAsync();
-        _database = new MongoClient(_container.GetConnectionString()).GetDatabase("puzzle_test");
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _container.DisposeAsync();
+        _database = mongo.Database;
     }
 
     [Fact]
