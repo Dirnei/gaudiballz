@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using Puzzle.Server.Achievements;
+using Puzzle.Server.Levels;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.Progression;
 
@@ -134,6 +135,44 @@ public sealed class AchievementCatalogueTests
         var ctx = MakeContext(progress: ProgressWith(40, hints: 0));
         var awards = AchievementCatalogue.Evaluate(ctx);
         Assert.Contains("purist-40", awards);
+    }
+
+    private static PlayerProgress ProgressWithBelowParLevels(int count)
+    {
+        var progress = PlayerProgress.Empty;
+        for (var i = 1; i <= count; i++)
+        {
+            var par = LevelCatalogue.Build(i).ConstructiveSolution.Count;
+            progress = progress.With(i, new LevelResult(par, 0));
+        }
+
+        return progress;
+    }
+
+    [Fact]
+    public void Speed_demon_awarded_when_5_levels_at_or_below_par()
+    {
+        var progress = ProgressWithBelowParLevels(5);
+        var ctx = MakeContext(progress: progress);
+        var awards = AchievementCatalogue.Evaluate(ctx);
+        Assert.Contains("speed-demon", awards);
+    }
+
+    [Fact]
+    public void Speed_demon_not_awarded_below_threshold()
+    {
+        var progress = ProgressWithBelowParLevels(4);
+        var ctx = MakeContext(progress: progress);
+        var awards = AchievementCatalogue.Evaluate(ctx);
+        Assert.DoesNotContain("speed-demon", awards);
+    }
+
+    [Fact]
+    public void Speed_demon_progress_reports_count()
+    {
+        var progress = ProgressWithBelowParLevels(3);
+        var count = AchievementCatalogue.ProgressFor("speed-demon", progress, []);
+        Assert.Equal(3, count);
     }
 
     [Fact]

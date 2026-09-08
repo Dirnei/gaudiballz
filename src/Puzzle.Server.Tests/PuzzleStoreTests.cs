@@ -325,4 +325,66 @@ public sealed class PuzzleStoreTests
         var player = await _store.FindPlayerAsync(id, Token);
         Assert.Null(player!.ProfileBall);
     }
+
+    // ---- achievements --------------------------------------------------------
+
+    [Fact]
+    public async Task Awarding_an_achievement_twice_is_idempotent()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        await _store.AwardAchievementAsync(id, "milestone-1", Token);
+
+        var before = (await _store.LoadAchievementsAsync(id, Token))
+            .Single(a => a.AchievementId == "milestone-1").AwardedAt;
+
+        await Task.Delay(50, Token);
+        await _store.AwardAchievementAsync(id, "milestone-1", Token);
+
+        var after = await _store.LoadAchievementsAsync(id, Token);
+        Assert.Single(after);
+        Assert.Equal(before, after[0].AwardedAt);
+    }
+
+    [Fact]
+    public async Task Daily_play_upserts_and_increments()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var day = new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc);
+
+        await _store.RecordDailyPlayAsync(id, day, Token);
+        await _store.RecordDailyPlayAsync(id, day, Token);
+
+        var docs = await _store.LoadDailyPlayAsync(id, Token);
+        var doc = Assert.Single(docs);
+        Assert.Equal(2, doc.CompletionCount);
+    }
+
+    [Fact]
+    public async Task Achievements_load_only_for_the_requested_player()
+    {
+        var mine = Guid.NewGuid().ToString("N");
+        var theirs = Guid.NewGuid().ToString("N");
+
+        await _store.AwardAchievementAsync(mine, "milestone-1", Token);
+        await _store.AwardAchievementAsync(theirs, "milestone-5", Token);
+
+        var loaded = await _store.LoadAchievementsAsync(mine, Token);
+        Assert.Single(loaded);
+        Assert.Equal("milestone-1", loaded[0].AchievementId);
+    }
+
+    [Fact]
+    public async Task Daily_play_loads_only_for_the_requested_player()
+    {
+        var mine = Guid.NewGuid().ToString("N");
+        var theirs = Guid.NewGuid().ToString("N");
+        var day = new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc);
+
+        await _store.RecordDailyPlayAsync(mine, day, Token);
+        await _store.RecordDailyPlayAsync(theirs, day, Token);
+
+        var loaded = await _store.LoadDailyPlayAsync(mine, Token);
+        Assert.Single(loaded);
+        Assert.Equal(mine, loaded[0].PlayerId);
+    }
 }
