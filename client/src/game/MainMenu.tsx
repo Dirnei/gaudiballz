@@ -1,33 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
+import { FlaskLogo } from './FlaskLogo';
+import { useGameContext } from './GameContext';
 
-interface MainMenuProps {
-  readonly onPlay: () => void;
-  readonly onLevelSelect: () => void;
-  readonly onAchievements: () => void;
-  readonly showAchievements: boolean;
-  readonly totalPoints: number;
-  readonly onUnlockWithCode: (code: string) => Promise<{ levelId: number } | null>;
-}
+export function MainMenu() {
+  const game = useGameContext();
+  const navigate = useNavigate();
+  const totalPoints = game.progress?.totalPoints ?? 0;
+  const showAchievements = game.identity !== null && !game.identity.isAnonymous;
 
-/**
- * The game's front door. Shows on launch and provides navigation to gameplay,
- * level selection, and level-code entry.
- */
-export function MainMenu({
-  onPlay,
-  onLevelSelect,
-  onAchievements,
-  showAchievements,
-  totalPoints,
-  onUnlockWithCode,
-}: MainMenuProps) {
   const [enteringCode, setEnteringCode] = useState(false);
   const [levelCode, setLevelCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
+  const onPlay = useCallback(() => navigate('/play'), [navigate]);
+  const onLevelSelect = useCallback(() => navigate('/levels'), [navigate]);
+  const onAchievements = useCallback(() => {
+    navigate('/achievements');
+    void game.ensureAchievements();
+  }, [navigate, game]);
   const openCodeEntry = useCallback(() => setEnteringCode(true), []);
 
   const actions = useMemo(() => {
@@ -37,7 +31,6 @@ export function MainMenu({
     return items;
   }, [onPlay, onLevelSelect, onAchievements, showAchievements, openCodeEntry]);
 
-  // The index of the "Enter a level code" button — always last.
   const codeIndex = actions.length - 1;
 
   useEffect(() => {
@@ -93,13 +86,14 @@ export function MainMenu({
   async function handleCodeUnlock() {
     setCodeError(null);
     setBusy(true);
-    const result = await onUnlockWithCode(levelCode);
+    const result = await game.unlockWithCode(levelCode);
     setBusy(false);
     if (result === null) {
       setCodeError('Invalid code.');
     } else {
       setEnteringCode(false);
       setLevelCode('');
+      navigate('/play');
     }
   }
 
@@ -114,8 +108,6 @@ export function MainMenu({
     return focusedIndex === idx ? ' kb-focus' : '';
   }
 
-  // The indices assigned to each button below must match the `actions` array order.
-  // 0 = Play, 1 = Level Select, [2 = Achievements if shown], last = Enter code.
   let nextIdx = 0;
   const playIdx = nextIdx++;
   const levelSelectIdx = nextIdx++;
@@ -129,8 +121,16 @@ export function MainMenu({
         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
         className="w-full max-w-[20rem] text-center"
       >
-        {/* Title area */}
-        <h1 className="text-4xl font-bold tracking-tight text-white">Sort Puzzle</h1>
+        {/* Branding */}
+        <div className="mb-2 flex justify-center">
+          <FlaskLogo className="h-16 w-auto text-slate-200" />
+        </div>
+        <h1
+          className="text-4xl font-bold tracking-tight text-white"
+          style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
+        >
+          GUADI BALLZ
+        </h1>
         <p className="mt-2 text-sm text-slate-400">Sort the colours. Clear the board.</p>
         {totalPoints > 0 && (
           <p className="mt-3 text-sm font-medium tabular-nums text-amber-400">

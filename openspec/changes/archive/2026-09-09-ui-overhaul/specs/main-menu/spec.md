@@ -1,20 +1,22 @@
 ## MODIFIED Requirements
 
-### Requirement: Main menu is the landing page
+### Requirement: Main menu is the launch screen
 
 The main menu SHALL serve as both the game's launch screen and the public landing page at the root URL path (`/`). It SHALL display the game's logo (Erlenmeyer flask mark), the game name in the display typeface, and the tagline "Sort the colours. Clear the board." above the play action. The existing functional behaviour (play, level select, code entry, achievements, account access) SHALL remain unchanged.
 
-#### Scenario: Fresh launch shows branded landing page
+#### Scenario: Fresh launch shows the menu
 
 - **WHEN** a player opens the game
 - **THEN** the main menu is displayed at the root path
 - **AND** the game logo, name, and tagline are visible above the play button
 
-#### Scenario: Landing page seen by a desktop visitor
+#### Scenario: Desktop visitor sees branded landing page
 
 - **WHEN** a visitor navigates to the site root on a desktop browser
 - **THEN** the branded landing page is displayed with the play button prominently visible
 - **AND** the layout adapts to the wider viewport without appearing stretched or off-centre
+
+## ADDED Requirements
 
 ### Requirement: Main menu navigates via URL routing
 

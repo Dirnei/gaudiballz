@@ -1,13 +1,9 @@
 import { useEffect } from 'react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import type { Achievement, AchievementState } from './achievements';
-import type { Identity } from './identity';
-
-interface AchievementsScreenProps {
-  readonly identity: Identity | null;
-  readonly state: AchievementState | null;
-  readonly onBack: () => void;
-}
+import { useGameContext } from './GameContext';
+import { PageLayout } from './PageLayout';
 
 const CATEGORY_ORDER = ['milestone', 'perfection', 'streak', 'calendar', 'exploration'];
 
@@ -93,104 +89,78 @@ function OverallProgress({ state }: { state: AchievementState }) {
   );
 }
 
-export function AchievementsScreen({ identity, state, onBack }: AchievementsScreenProps) {
+export function AchievementsScreen() {
+  const game = useGameContext();
+  const navigate = useNavigate();
+  const { identity, achievements: state } = game;
   const loggedIn = identity !== null && !identity.isAnonymous;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onBack();
+        navigate('/');
       }
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onBack]);
+  }, [navigate]);
 
   return (
-    <div className="flex flex-1 flex-col items-center">
-      <div className="flex w-full max-w-2xl flex-1 flex-col">
-        <header className="flex items-center gap-3 px-5 pt-3">
-          <motion.button
-            type="button"
-            aria-label="Back to menu"
-            whileTap={{ scale: 0.9 }}
-            transition={{ type: 'spring', stiffness: 700, damping: 26 }}
-            onClick={onBack}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/8 text-slate-200 ring-1 ring-white/10"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="h-5 w-5"
-            >
-              <path
-                fillRule="evenodd"
-                d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </motion.button>
-          <h1 className="text-lg font-semibold tracking-tight text-white">Achievements</h1>
-        </header>
-
-        <div className="flex-1 overflow-y-auto px-5 pb-6 pt-4">
-          {!loggedIn ? (
-            <div className="flex flex-1 flex-col items-center justify-center py-20 text-center">
-              <span className="text-4xl">🏆</span>
-              <p className="mt-4 text-base font-semibold text-slate-300">
-                Achievements are for registered players
-              </p>
-              <p className="mt-1.5 max-w-[16rem] text-sm leading-relaxed text-slate-500">
-                Create an account to start earning achievements and track your progress.
-              </p>
-            </div>
-          ) : state === null ? (
-            <div className="flex items-center justify-center py-20">
-              <motion.div
-                animate={{ opacity: [0.35, 1, 0.35] }}
-                transition={{ duration: 1.4, repeat: Infinity }}
-                className="text-sm text-slate-400"
-              >
-                Loading achievements...
-              </motion.div>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <OverallProgress state={state} />
-
-              {CATEGORY_ORDER.map((cat) => {
-                const items = state.achievements.filter((a) => a.category === cat);
-                if (items.length === 0) {
-                  return null;
-                }
-
-                const categoryEarned = items.filter((a) => a.earned).length;
-
-                return (
-                  <section key={cat}>
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="text-sm">{CATEGORY_ICONS[cat]}</span>
-                      <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                        {CATEGORY_LABELS[cat] ?? cat}
-                      </h2>
-                      <span className="text-[0.65rem] tabular-nums text-slate-600">
-                        {categoryEarned}/{items.length}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {items.map((a) => (
-                        <AchievementCard key={a.id} achievement={a} />
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
-            </div>
-          )}
+    <PageLayout title="Achievements">
+      {!loggedIn ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <span className="text-4xl">🏆</span>
+          <p className="mt-4 text-base font-semibold text-slate-300">
+            Achievements are for registered players
+          </p>
+          <p className="mt-1.5 max-w-[16rem] text-sm leading-relaxed text-slate-500">
+            Create an account to start earning achievements and track your progress.
+          </p>
         </div>
-      </div>
-    </div>
+      ) : state === null ? (
+        <div className="flex items-center justify-center py-20">
+          <motion.div
+            animate={{ opacity: [0.35, 1, 0.35] }}
+            transition={{ duration: 1.4, repeat: Infinity }}
+            className="text-sm text-slate-400"
+          >
+            Loading achievements...
+          </motion.div>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <OverallProgress state={state} />
+
+          {CATEGORY_ORDER.map((cat) => {
+            const items = state.achievements.filter((a) => a.category === cat);
+            if (items.length === 0) {
+              return null;
+            }
+
+            const categoryEarned = items.filter((a) => a.earned).length;
+
+            return (
+              <section key={cat}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-sm">{CATEGORY_ICONS[cat]}</span>
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    {CATEGORY_LABELS[cat] ?? cat}
+                  </h2>
+                  <span className="text-[0.65rem] tabular-nums text-slate-600">
+                    {categoryEarned}/{items.length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {items.map((a) => (
+                    <AchievementCard key={a.id} achievement={a} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </PageLayout>
   );
 }

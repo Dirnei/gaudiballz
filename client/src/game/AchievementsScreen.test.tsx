@@ -1,10 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { AchievementsScreen } from './AchievementsScreen';
+import { MemoryRouter } from 'react-router-dom';
 import type { Achievement, AchievementState } from './achievements';
-import type { Identity } from './identity';
 
-const REGISTERED: Identity = {
+const mockGame = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+vi.mock('./GameContext', () => ({
+  useGameContext: () => mockGame.current,
+}));
+
+const { AchievementsScreen } = await import('./AchievementsScreen');
+
+const REGISTERED = {
   playerId: 'p1',
   token: 't',
   isAnonymous: false,
@@ -12,7 +18,7 @@ const REGISTERED: Identity = {
   ball: null,
 };
 
-const ANONYMOUS: Identity = {
+const ANONYMOUS = {
   playerId: 'p2',
   token: 't',
   isAnonymous: true,
@@ -38,32 +44,37 @@ function stateWith(...achievements: Achievement[]): AchievementState {
   return { achievements };
 }
 
+function setup(overrides: Record<string, unknown> = {}) {
+  mockGame.current = {
+    identity: REGISTERED,
+    achievements: null,
+    ensureAchievements: vi.fn(),
+    ...overrides,
+  };
+  render(
+    <MemoryRouter>
+      <AchievementsScreen />
+    </MemoryRouter>,
+  );
+}
+
 describe('AchievementsScreen', () => {
   it('shows a register prompt for anonymous players', () => {
-    render(
-      <AchievementsScreen identity={ANONYMOUS} state={null} onBack={vi.fn()} />,
-    );
-
+    setup({ identity: ANONYMOUS });
     expect(
       screen.getByText('Achievements are for registered players'),
     ).toBeInTheDocument();
   });
 
   it('shows a register prompt when identity is null', () => {
-    render(
-      <AchievementsScreen identity={null} state={null} onBack={vi.fn()} />,
-    );
-
+    setup({ identity: null });
     expect(
       screen.getByText('Achievements are for registered players'),
     ).toBeInTheDocument();
   });
 
   it('shows loading when state is null for a registered player', () => {
-    render(
-      <AchievementsScreen identity={REGISTERED} state={null} onBack={vi.fn()} />,
-    );
-
+    setup({ identity: REGISTERED, achievements: null });
     expect(screen.getByText('Loading achievements...')).toBeInTheDocument();
   });
 
@@ -72,10 +83,7 @@ describe('AchievementsScreen', () => {
       achievement({ id: 'a1', name: 'Earned One', earned: true, awardedAt: '2026-09-01' }),
       achievement({ id: 'a2', name: 'Locked One', earned: false }),
     );
-
-    render(
-      <AchievementsScreen identity={REGISTERED} state={state} onBack={vi.fn()} />,
-    );
+    setup({ identity: REGISTERED, achievements: state });
 
     expect(screen.getByText('Earned One')).toBeInTheDocument();
     expect(screen.getByText('Locked One')).toBeInTheDocument();
@@ -97,11 +105,7 @@ describe('AchievementsScreen', () => {
         progress: 7,
       }),
     );
-
-    render(
-      <AchievementsScreen identity={REGISTERED} state={state} onBack={vi.fn()} />,
-    );
-
+    setup({ identity: REGISTERED, achievements: state });
     expect(screen.getByText('7/10')).toBeInTheDocument();
   });
 
@@ -110,10 +114,7 @@ describe('AchievementsScreen', () => {
       achievement({ id: 'm1', name: 'Milestone A', category: 'milestone' }),
       achievement({ id: 's1', name: 'Streak A', category: 'streak' }),
     );
-
-    render(
-      <AchievementsScreen identity={REGISTERED} state={state} onBack={vi.fn()} />,
-    );
+    setup({ identity: REGISTERED, achievements: state });
 
     expect(screen.getByText('Milestones')).toBeInTheDocument();
     expect(screen.getByText('Streaks')).toBeInTheDocument();
@@ -125,23 +126,12 @@ describe('AchievementsScreen', () => {
       achievement({ id: 'a2', earned: false }),
       achievement({ id: 'a3', earned: true }),
     );
-
-    render(
-      <AchievementsScreen identity={REGISTERED} state={state} onBack={vi.fn()} />,
-    );
-
+    setup({ identity: REGISTERED, achievements: state });
     expect(screen.getByText('2 / 3')).toBeInTheDocument();
   });
 
   it('has a back button', () => {
-    render(
-      <AchievementsScreen
-        identity={REGISTERED}
-        state={stateWith()}
-        onBack={vi.fn()}
-      />,
-    );
-
+    setup({ identity: REGISTERED, achievements: stateWith() });
     expect(screen.getByRole('button', { name: 'Back to menu' })).toBeInTheDocument();
   });
 });

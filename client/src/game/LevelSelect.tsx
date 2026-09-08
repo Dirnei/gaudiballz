@@ -1,14 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-
-interface LevelSelectProps {
-  readonly levelId: number;
-  readonly levelCeiling: number;
-  readonly totalPoints: number;
-  readonly progress: Map<number, { moves: number; hints: number; stars: number; points: number }>;
-  readonly onSelectLevel: (level: number) => void;
-  readonly onBack: () => void;
-}
+import { useNavigate } from 'react-router-dom';
+import { useGameContext } from './GameContext';
+import { PageLayout } from './PageLayout';
 
 type TileState = 'completed' | 'current' | 'unlocked' | 'locked';
 
@@ -24,19 +18,12 @@ function tileState(
   return 'locked';
 }
 
-/**
- * A scrollable grid of level tiles showing the player's progress at a glance.
- * Each tile reflects one of four states: completed, current, unlocked, or locked.
- */
-export function LevelSelect({
-  levelId,
-  levelCeiling,
-  totalPoints,
-  progress,
-  onSelectLevel,
-  onBack,
-}: LevelSelectProps) {
-  // Show levels up to ceiling + a small locked preview, rounded up to the next multiple of 5.
+export function LevelSelect() {
+  const game = useGameContext();
+  const navigate = useNavigate();
+  const { levelId, levelCeiling, levelProgress: progress } = game;
+  const totalPoints = game.progress?.totalPoints ?? 0;
+
   const previewEnd = Math.ceil((levelCeiling + 5) / 5) * 5;
   const totalTiles = Math.max(previewEnd, levelCeiling + 5);
 
@@ -47,6 +34,15 @@ export function LevelSelect({
 
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const tileRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function onBack() {
+    navigate('/');
+  }
+
+  function onSelectLevel(level: number) {
+    game.goToLevel(level);
+    navigate('/play');
+  }
 
   useEffect(() => {
     function findVerticalNeighbour(current: number, dir: 'up' | 'down'): number {
@@ -90,7 +86,6 @@ export function LevelSelect({
         e.preventDefault();
         setFocusedIndex((prev) => {
           if (prev === null) {
-            // First press: focus the current level
             const idx = tiles.indexOf(levelId);
             return idx >= 0 ? idx : 0;
           }
@@ -117,7 +112,7 @@ export function LevelSelect({
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onBack, tiles, levelId, levelCeiling, progress, onSelectLevel, focusedIndex]);
+  }, [tiles, levelId, levelCeiling, progress, focusedIndex]);
 
   useEffect(() => {
     if (focusedIndex !== null) {
@@ -130,70 +125,48 @@ export function LevelSelect({
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="flex min-h-0 flex-1 flex-col"
+    <PageLayout
+      title="Level Select"
+      trailing={totalPoints > 0 ? (
+        <span className="text-sm font-medium tabular-nums text-amber-400">
+          ★ {totalPoints.toLocaleString()}
+        </span>
+      ) : undefined}
     >
-      {/* Header */}
-      <header className="relative flex items-center gap-3 px-5 pt-3">
-        <motion.button
-          type="button"
-          aria-label="Back to menu"
-          whileTap={{ scale: 0.9 }}
-          transition={{ type: 'spring', stiffness: 700, damping: 26 }}
-          onClick={onBack}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/8 text-slate-200 ring-1 ring-white/10 backdrop-blur-sm"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-            <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
-          </svg>
-        </motion.button>
-        <h1 className="text-lg font-semibold">Level Select</h1>
-        {totalPoints > 0 && (
-          <span className="ml-auto text-sm font-medium tabular-nums text-amber-400">
-            ★ {totalPoints.toLocaleString()}
-          </span>
-        )}
-      </header>
+      <div className="grid max-w-lg mx-auto grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))] gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(4rem,1fr))]">
+        {tiles.map((level, i) => {
+          const state = tileState(level, levelId, levelCeiling, progress);
+          const entry = progress.get(level);
+          const accessible = state !== 'locked';
 
-      {/* Grid */}
-      <div className="flex-1 overflow-y-auto px-5 pb-6 pt-4">
-        <div className="mx-auto grid max-w-lg grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))] gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(4rem,1fr))]">
-          {tiles.map((level, i) => {
-            const state = tileState(level, levelId, levelCeiling, progress);
-            const entry = progress.get(level);
-            const accessible = state !== 'locked';
-
-            return (
-              <motion.button
-                ref={(el) => { tileRefs.current[i] = el; }}
-                key={level}
-                type="button"
-                disabled={!accessible}
-                whileTap={accessible ? { scale: 0.92 } : undefined}
-                transition={{ type: 'spring', stiffness: 700, damping: 26 }}
-                onClick={() => accessible && onSelectLevel(level)}
-                onPointerDown={handlePointerDown}
-                data-testid={`tile-${level}`}
-                className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl text-center transition-colors ${tileClasses(state)}${focusedIndex === i ? ' kb-focus' : ''}`}
-              >
-                <span className={`text-base font-semibold tabular-nums ${state === 'locked' ? 'text-slate-600' : state === 'current' ? 'text-sky-100' : 'text-slate-200'}`}>
-                  {level}
+          return (
+            <motion.button
+              ref={(el) => { tileRefs.current[i] = el; }}
+              key={level}
+              type="button"
+              disabled={!accessible}
+              whileTap={accessible ? { scale: 0.92 } : undefined}
+              transition={{ type: 'spring', stiffness: 700, damping: 26 }}
+              onClick={() => accessible && onSelectLevel(level)}
+              onPointerDown={handlePointerDown}
+              data-testid={`tile-${level}`}
+              className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl text-center transition-colors ${tileClasses(state)}${focusedIndex === i ? ' kb-focus' : ''}`}
+            >
+              <span className={`text-base font-semibold tabular-nums ${state === 'locked' ? 'text-slate-600' : state === 'current' ? 'text-sky-100' : 'text-slate-200'}`}>
+                {level}
+              </span>
+              {state === 'completed' && entry && entry.stars > 0 && (
+                <span className="mt-0.5 flex gap-px text-[0.55rem]">
+                  {[1, 2, 3].map((i) => (
+                    <span key={i} className={i <= entry.stars ? 'text-amber-400' : 'text-slate-600'}>★</span>
+                  ))}
                 </span>
-                {state === 'completed' && entry && entry.stars > 0 && (
-                  <span className="mt-0.5 flex gap-px text-[0.55rem]">
-                    {[1, 2, 3].map((i) => (
-                      <span key={i} className={i <= entry.stars ? 'text-amber-400' : 'text-slate-600'}>★</span>
-                    ))}
-                  </span>
-                )}
-              </motion.button>
-            );
-          })}
-        </div>
+              )}
+            </motion.button>
+          );
+        })}
       </div>
-    </motion.div>
+    </PageLayout>
   );
 }
 

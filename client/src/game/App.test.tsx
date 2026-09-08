@@ -1,16 +1,14 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
 const game = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
 
 vi.mock('./useGame', () => ({ useGame: () => game.current }));
 
-const { App } = await import('./App');
+const { routes } = await import('./App');
+const { GameProvider } = await import('./GameContext');
 
-/**
- * A game in whatever state the test needs. Only the fields App reads matter; the board is
- * left empty because none of these tests are about the board.
- */
 function playing(overrides: Record<string, unknown> = {}) {
   return {
     levelId: 26,
@@ -65,18 +63,22 @@ function playing(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function renderApp(initialRoute = '/') {
+  const router = createMemoryRouter(routes, { initialEntries: [initialRoute] });
+  return render(
+    <GameProvider>
+      <RouterProvider router={router} />
+    </GameProvider>,
+  );
+}
+
 beforeEach(() => {
   game.current = playing();
 });
 
-/**
- * The app opens on the main menu, so anything about another screen has to walk there first.
- * The screens cross-fade through AnimatePresence, so the arrival has to be awaited rather
- * than assumed.
- */
 async function goToPlay() {
   fireEvent.click(screen.getByRole('button', { name: 'Play' }));
-  return screen.findByRole('button', { name: /logged in as dirnei/i });
+  return screen.findByRole('button', { name: /back to menu/i });
 }
 
 async function goToLevelSelect() {
@@ -84,16 +86,11 @@ async function goToLevelSelect() {
   return screen.findByRole('heading', { name: 'Level Select' });
 }
 
-/**
- * The product stance: the game has nothing to sell, so it never interrupts a player. Earning
- * a ball is something to find, not something to be handed.
- */
 describe('nothing announces an earned ball', () => {
   it('says nothing about balls on the win screen', async () => {
-    // Level 26 is where a new colour joins, so this completion earns one.
     game.current = playing({ solved: true });
 
-    render(<App />);
+    renderApp();
     await goToPlay();
 
     expect(screen.getByText('Solved')).toBeInTheDocument();
@@ -105,10 +102,9 @@ describe('nothing announces an earned ball', () => {
   it('offers only the next level and another go when a level is finished', async () => {
     game.current = playing({ solved: true });
 
-    render(<App />);
+    renderApp();
     await goToPlay();
 
-    // Scoped to the win card, since the footer carries its own next-level control.
     const card = screen.getByText('Solved').closest('div')!;
     const offered = within(card)
       .getAllByRole('button')
@@ -122,60 +118,36 @@ describe('nothing announces an earned ball', () => {
       game.current = playing({
         progress: { levelsCompleted: highestCompleted, highestCompleted, levels: [] },
       });
-      const { unmount } = render(<App />);
-      const button = await goToPlay();
+      const { unmount } = renderApp();
+      await goToPlay();
+      const button = screen.getByRole('button', { name: /logged in as dirnei/i });
       const html = button.outerHTML;
       unmount();
       return html;
     };
 
-    // One player has earned three colours, the other all thirteen. The control that opens
-    // the panel must not differ: no dot, no badge, no count.
     expect(await label(1)).toBe(await label(200));
   });
 
   it('carries no badge on the account control', async () => {
-    render(<App />);
+    renderApp();
 
-    const button = await goToPlay();
+    const button = await screen.findByRole('button', { name: /logged in as dirnei/i });
 
     expect(button.textContent).not.toMatch(/new|!|•/i);
     expect(button.textContent).toContain('dirnei');
   });
 });
 
-/**
- * A column flex item defaults to `min-height: auto`, which means it refuses to shrink below
- * its own content. A scroll container nested inside such items is handed the full height of
- * its content, so it never has anything to scroll — it just overflows until some ancestor
- * clips it.
- *
- * Measured in a real browser at a 430x932 viewport with 125 tiles: the grid was 1430px tall
- * inside a 932px app, `scrollHeight === clientHeight`, and nothing moved. Making only one of
- * the two flex ancestors shrinkable changed nothing; both had to be.
- *
- * jsdom performs no layout, so the heights cannot be asserted here. What can be asserted is
- * the rule that produced them: every flex item between the scroll container and the
- * height-bounded root must be allowed to shrink.
- */
-/**
- * The hint budget, as the player meets it. The numbers themselves are proven in
- * attempt.test.ts; what matters here is that the control tells the truth about them.
- */
 describe('the hint control shows its budget', () => {
   const hintButton = () =>
     screen.getByRole('button', { name: /show me a move|no hints left/i });
 
-  /**
-   * The button plus its overlay. The cooldown ring is a sibling of the button rather than a
-   * child, because a disabled button is drawn at 30% opacity and would take the ring down
-   * with it — exactly when the ring is the thing worth reading.
-   */
   const hintControl = () => hintButton().parentElement!;
 
   it('shows how many hints are left', async () => {
     game.current = playing({ hintsRemaining: 3 });
-    render(<App />);
+    renderApp();
     await goToPlay();
 
     expect(hintButton().textContent).toContain('3');
@@ -183,7 +155,7 @@ describe('the hint control shows its budget', () => {
 
   it('names the remaining count so it is not colour or position alone', async () => {
     game.current = playing({ hintsRemaining: 2 });
-    render(<App />);
+    renderApp();
     await goToPlay();
 
     expect(hintButton()).toHaveAttribute('aria-label', 'Show me a move, 2 left');
@@ -191,7 +163,7 @@ describe('the hint control shows its budget', () => {
 
   it('is disabled while the cooldown runs, and says so', async () => {
     game.current = playing({ hintCooldownEnd: Date.now() + 30_000, canHint: false });
-    render(<App />);
+    renderApp();
     await goToPlay();
 
     expect(hintButton()).toBeDisabled();
@@ -200,7 +172,7 @@ describe('the hint control shows its budget', () => {
 
   it('is disabled once the budget is spent', async () => {
     game.current = playing({ hintsRemaining: 0, canHint: false });
-    render(<App />);
+    renderApp();
     await goToPlay();
 
     expect(hintButton()).toBeDisabled();
@@ -209,29 +181,28 @@ describe('the hint control shows its budget', () => {
 
   it('draws the wait while one is running', async () => {
     game.current = playing({ hintCooldownEnd: Date.now() + 30_000, canHint: false });
-    render(<App />);
+    renderApp();
     await goToPlay();
 
-    expect(hintControl().querySelector('svg')).not.toBeNull();
+    expect(hintControl().querySelector('svg[viewBox="0 0 56 56"]')).not.toBeNull();
   });
 
-  /** A wait that cannot end in a hint would promise something that is not coming. */
   it('draws no wait once the budget is spent', async () => {
     game.current = playing({
       hintsRemaining: 0,
       hintCooldownEnd: Date.now() + 30_000,
       canHint: false,
     });
-    render(<App />);
+    renderApp();
     await goToPlay();
 
-    expect(hintControl().querySelector('svg')).toBeNull();
+    expect(hintControl().querySelector('svg[viewBox="0 0 56 56"]')).toBeNull();
   });
 
   it('asks for a hint when it is available', async () => {
     const useHint = vi.fn();
     game.current = playing({ useHint });
-    render(<App />);
+    renderApp();
     await goToPlay();
 
     fireEvent.click(hintButton());
@@ -243,13 +214,12 @@ describe('the hint control shows its budget', () => {
 describe('the level select can scroll', () => {
   it('lets every flex ancestor of the grid shrink below its content', async () => {
     game.current = playing({ levelCeiling: 120 });
-    render(<App />);
+    renderApp();
     await goToLevelSelect();
 
     const scroller = document.querySelector('.overflow-y-auto');
     expect(scroller).not.toBeNull();
 
-    // Up to the element that fixes the app's height; that one is bounded already.
     const rigid: string[] = [];
     for (
       let el = scroller!.parentElement;
@@ -267,7 +237,7 @@ describe('the level select can scroll', () => {
 
   it('gives the grid a scroll container in the first place', async () => {
     game.current = playing({ levelCeiling: 120 });
-    render(<App />);
+    renderApp();
     await goToLevelSelect();
 
     const scroller = document.querySelector('.overflow-y-auto');
