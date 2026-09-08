@@ -61,6 +61,10 @@ public sealed class PlayerIdentitySlice : ISlice
                 playerId = player.Id,
                 isAnonymous = player.IsAnonymous,
                 username = player.Username,
+
+                // Null when the player never chose one, which is what tells the client to
+                // fall back to the colour derived from the username.
+                ball = player.ProfileBall,
             });
         });
 
@@ -261,6 +265,10 @@ public sealed class PlayerIdentitySlice : ISlice
                     token = tokens.Issue(credential.PlayerId),
                     isAnonymous = false,
                     username = account?.Username,
+
+                    // Signing in on a second device is exactly where the chosen ball has to
+                    // arrive with the account rather than being derived again locally.
+                    ball = account?.ProfileBall,
                 });
             });
     }

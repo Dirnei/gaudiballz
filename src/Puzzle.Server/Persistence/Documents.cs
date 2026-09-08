@@ -29,6 +29,18 @@ public sealed class PlayerDocument
     /// them. Stored rather than computed so the index can enforce it.
     /// </summary>
     public string? UsernameKey { get; set; }
+
+    /// <summary>
+    /// Which of the game's colours the player chose to represent their account, or null when
+    /// they never chose one.
+    ///
+    /// Null is what makes this deployable without a migration: every account that existed
+    /// before the picker did has no field here, which reads as null, which means the colour
+    /// keeps being derived from the username exactly as it was. Clearing a choice removes
+    /// the field again rather than writing the derived value, so an account that goes back
+    /// to the derived ball keeps following its username afterwards.
+    /// </summary>
+    public int? ProfileBall { get; set; }
 }
 
 /// <summary>
@@ -111,6 +123,11 @@ public static class BsonRegistration
                 // the sparse index behave the way it reads.
                 map.GetMemberMap(p => p.Username).SetIgnoreIfNull(true);
                 map.GetMemberMap(p => p.UsernameKey).SetIgnoreIfNull(true);
+
+                // Same treatment, different reason: nothing indexes this, but an account
+                // that never chose a ball should look on disk exactly like one from before
+                // the picker existed.
+                map.GetMemberMap(p => p.ProfileBall).SetIgnoreIfNull(true);
             });
 
             BsonClassMap.RegisterClassMap<CredentialDocument>(map =>

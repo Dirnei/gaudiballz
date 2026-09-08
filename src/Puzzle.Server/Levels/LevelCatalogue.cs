@@ -150,6 +150,70 @@ public static class LevelCatalogue
     }
 
     /// <summary>
+    /// The earliest level whose board contains this colour.
+    ///
+    /// Colours are 1-based and match the palette the client draws, which is ordered by when
+    /// the campaign introduces each one.
+    /// </summary>
+    public readonly record struct ColourUnlock(int Colour, int UnlocksAtLevel);
+
+    /// <summary>
+    /// How far the walk below is allowed to go. The curve flattens long before this, so the
+    /// cap never bites in practice — it is here so that editing the curve can never turn
+    /// startup into a hang.
+    /// </summary>
+    private const int UnlockWalkCap = 1000;
+
+    /// <summary>
+    /// Every colour the campaign uses, with the level that first shows it.
+    ///
+    /// This is <see cref="ParametersFor"/> read backwards. A level with N colours contains
+    /// exactly colours 1..N — that is a property of the generator, which fills from the front
+    /// of the palette — so the first level to reach N is the level that introduces colour N.
+    ///
+    /// It exists because the client needs to say "unlocks at level 26" next to a ball, and
+    /// the only alternative is a second copy of this curve written in TypeScript. The curve
+    /// is a campaign decision rather than a rule, so it has no conformance fixtures behind
+    /// it and a second copy would drift silently.
+    ///
+    /// Computed once: the curve is a switch over the level id and cannot change at runtime.
+    /// </summary>
+    public static readonly IReadOnlyList<ColourUnlock> ColourUnlocks =
+        BuildColourUnlocks(levelId => ParametersFor(levelId).Colours, UnlockWalkCap);
+
+    /// <summary>The highest colour the campaign ever puts on a board.</summary>
+    public static int MaxColour => ColourUnlocks.Count;
+
+    /// <summary>
+    /// Walks levels upward, recording where each new colour first appears.
+    ///
+    /// Takes the curve as an argument rather than reading it directly so the walk's own
+    /// termination can be tested against a curve that never stops growing.
+    /// </summary>
+    internal static IReadOnlyList<ColourUnlock> BuildColourUnlocks(Func<int, int> coloursAt, int cap)
+    {
+        var unlocks = new List<ColourUnlock>();
+        var highest = 0;
+
+        for (var levelId = 1; levelId <= cap; levelId++)
+        {
+            var colours = coloursAt(levelId);
+
+            for (var colour = highest + 1; colour <= colours; colour++)
+            {
+                unlocks.Add(new ColourUnlock(colour, levelId));
+            }
+
+            if (colours > highest)
+            {
+                highest = colours;
+            }
+        }
+
+        return unlocks;
+    }
+
+    /// <summary>
     /// A short note when a level changes the rules of engagement, so a step up reads as
     /// intended rather than as the game breaking. Null on ordinary levels.
     /// </summary>

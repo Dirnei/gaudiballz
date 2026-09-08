@@ -1,3 +1,4 @@
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.Progression;
@@ -18,15 +19,25 @@ public sealed class PuzzleStoreTests : IAsyncLifetime
 
     private PuzzleStore _store = null!;
 
+    /// <summary>The raw players collection, for the few assertions that are about the
+    /// stored shape rather than what the store reads back.</summary>
+    private IMongoCollection<BsonDocument> _rawPlayers = null!;
+
     public async ValueTask InitializeAsync()
     {
         await _container.StartAsync();
+
+        var database = $"puzzle_test_{Guid.NewGuid():N}";
         _store = new PuzzleStore(new MongoOptions
         {
             ConnectionString = _container.GetConnectionString(),
-            Database = $"puzzle_test_{Guid.NewGuid():N}",
+            Database = database,
         });
         await _store.EnsureIndexesAsync();
+
+        _rawPlayers = new MongoClient(_container.GetConnectionString())
+            .GetDatabase(database)
+            .GetCollection<BsonDocument>("players");
     }
 
     public async ValueTask DisposeAsync() => await _container.DisposeAsync();
@@ -260,5 +271,75 @@ public sealed class PuzzleStoreTests : IAsyncLifetime
 
         var player = await _store.FindPlayerAsync(id, Token);
         Assert.False(player!.IsAnonymous);
+    }
+
+    /// <summary>
+    /// A player who has never chosen a ball must be indistinguishable from one who existed
+    /// before the feature did. Writing an explicit null instead of omitting the field would
+    /// still read back as "no choice", so the assertion is on the stored document rather
+    /// than on what comes back.
+    /// </summary>
+    [Fact]
+    public async Task A_player_who_never_chose_a_ball_stores_no_field_for_it()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        await _store.CreateAnonymousPlayerAsync(id, Token);
+
+        var stored = await _rawPlayers
+            .Find(Builders<BsonDocument>.Filter.Eq("_id", id))
+            .FirstAsync(Token);
+
+        Assert.False(stored.Contains("ProfileBall"));
+
+        var player = await _store.FindPlayerAsync(id, Token);
+        Assert.Null(player!.ProfileBall);
+    }
+
+    [Fact]
+    public async Task A_chosen_ball_is_written_and_read_back()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        await _store.CreateAnonymousPlayerAsync(id, Token);
+
+        await _store.SetProfileBallAsync(id, 7, Token);
+
+        var player = await _store.FindPlayerAsync(id, Token);
+        Assert.Equal(7, player!.ProfileBall);
+    }
+
+    [Fact]
+    public async Task Choosing_again_replaces_the_previous_choice()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        await _store.CreateAnonymousPlayerAsync(id, Token);
+
+        await _store.SetProfileBallAsync(id, 3, Token);
+        await _store.SetProfileBallAsync(id, 11, Token);
+
+        var player = await _store.FindPlayerAsync(id, Token);
+        Assert.Equal(11, player!.ProfileBall);
+    }
+
+    /// <summary>
+    /// Clearing writes the field away rather than storing the name-derived colour, so an
+    /// account that goes back to the derived ball keeps following its username afterwards.
+    /// </summary>
+    [Fact]
+    public async Task Clearing_the_choice_removes_the_field_entirely()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        await _store.CreateAnonymousPlayerAsync(id, Token);
+        await _store.SetProfileBallAsync(id, 5, Token);
+
+        await _store.SetProfileBallAsync(id, null, Token);
+
+        var stored = await _rawPlayers
+            .Find(Builders<BsonDocument>.Filter.Eq("_id", id))
+            .FirstAsync(Token);
+
+        Assert.False(stored.Contains("ProfileBall"));
+
+        var player = await _store.FindPlayerAsync(id, Token);
+        Assert.Null(player!.ProfileBall);
     }
 }

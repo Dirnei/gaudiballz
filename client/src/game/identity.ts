@@ -15,6 +15,11 @@ export interface Identity {
   readonly isAnonymous: boolean;
   /** What the account is called. Null while nobody is logged in. */
   readonly username: string | null;
+  /**
+   * The ball the player chose for their account, or null when they never chose one — in
+   * which case the colour is derived from the username, exactly as it always was.
+   */
+  readonly ball: number | null;
 }
 
 export const API =
@@ -72,18 +77,22 @@ export async function ensureIdentity(): Promise<Identity | null> {
           playerId: string;
           isAnonymous: boolean;
           username: string | null;
+          ball: number | null;
         };
         return {
           playerId: me.playerId,
           token,
           isAnonymous: me.isAnonymous,
           username: me.username ?? null,
+          ball: me.ball ?? null,
         };
       }
     } catch {
       // Offline. Keep playing as whoever this browser already was.
       const playerId = read(PLAYER_KEY);
-      return playerId === null ? null : { playerId, token, isAnonymous: true, username: null };
+      return playerId === null
+        ? null
+        : { playerId, token, isAnonymous: true, username: null, ball: null };
     }
   }
 
@@ -93,7 +102,9 @@ export async function ensureIdentity(): Promise<Identity | null> {
       return null;
     }
 
-    const identity = (await response.json()) as Identity;
+    // A brand-new anonymous player has no name and no ball; the server sends neither.
+    const created = (await response.json()) as Omit<Identity, 'username' | 'ball'>;
+    const identity: Identity = { ...created, username: null, ball: null };
     remember(identity);
     return identity;
   } catch {

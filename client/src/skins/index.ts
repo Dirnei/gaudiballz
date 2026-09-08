@@ -45,6 +45,36 @@ export const PALETTE = [
 ] as const;
 
 /**
+ * What to call each colour, in the same order.
+ *
+ * The palette was tuned to stay separable under protanopia and deuteranopia, and a picker
+ * that identified its options by colour alone would throw that away at the one screen where
+ * the player is choosing between colours specifically. These are the accessible names of the
+ * picker's controls, and they are what a locked ball's hint reads out with.
+ */
+export const COLOUR_NAMES = [
+  '', // unused; colours are 1-based
+  'Red',
+  'Green',
+  'Blue',
+  'Yellow',
+  'Orange',
+  'Violet',
+  'Pink',
+  'Light blue',
+  'Light green',
+  'Magenta',
+  'Black',
+  'White',
+  'Gray',
+] as const;
+
+/** What this colour is called, for anything that has to say it in words. */
+export function colourName(colour: number): string {
+  return COLOUR_NAMES[colour] ?? `Colour ${colour}`;
+}
+
+/**
  * The pale colours carry a swirl as well as a hue.
  *
  * Light blue, light green, yellow and white all sit at the top of the lightness range, so
@@ -101,6 +131,25 @@ export function ballStyle(colour: number): React.CSSProperties {
     backgroundImage: layers.join(','),
     boxShadow:
       'inset 0 -2px 5px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.22)',
+  };
+}
+
+/**
+ * The same ball, seen through a shadow.
+ *
+ * Deliberately not greyscale. A locked ball has to stay recognisably the object it will
+ * become, because that is what makes the picker read as a collection with a road ahead
+ * rather than as a row of empty slots — and full desaturation would render eleven of the
+ * thirteen identical.
+ *
+ * The swirls survive, because they are how someone who cannot separate the pale hues tells
+ * them apart, and that need does not go away because the ball is not earned yet.
+ */
+export function lockedBallStyle(colour: number): React.CSSProperties {
+  return {
+    ...ballStyle(colour),
+    filter: 'saturate(0.4) brightness(0.42) contrast(0.9)',
+    boxShadow: 'inset 0 -2px 5px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.08)',
   };
 }
 

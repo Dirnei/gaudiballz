@@ -3,6 +3,7 @@ using Fido2NetLib;
 using Puzzle.Server.Levels;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.PlayerIdentity;
+using Puzzle.Server.ProfileBall;
 using Puzzle.Server.Progression;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -47,6 +48,7 @@ builder.Services.AddSingleton(new LevelCodes(
 PlayerIdentitySlice.AddServices(builder.Services);
 ProgressionSlice.AddServices(builder.Services);
 LevelsSlice.AddServices(builder.Services);
+ProfileBallSlice.AddServices(builder.Services);
 
 builder.Services.AddOutputCache();
 
@@ -72,6 +74,7 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }));
 PlayerIdentitySlice.MapEndpoints(app);
 ProgressionSlice.MapEndpoints(app);
 LevelsSlice.MapEndpoints(app);
+ProfileBallSlice.MapEndpoints(app);
 
 // Anything that is not an API route or a real file is the SPA: the client owns its own
 // routing, so a deep link has to reach index.html rather than 404.

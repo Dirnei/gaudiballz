@@ -182,7 +182,22 @@ export async function signIn(): Promise<Identity | null> {
     return null;
   }
 
-  const identity = (await finish.json()) as Identity;
+  const account = (await finish.json()) as {
+    playerId: string;
+    token: string;
+    isAnonymous: boolean;
+    username: string | null;
+    ball: number | null;
+  };
+
+  const identity: Identity = {
+    playerId: account.playerId,
+    token: account.token,
+    isAnonymous: account.isAnonymous,
+    username: account.username ?? null,
+    ball: account.ball ?? null,
+  };
+
   remember(identity);
   return identity;
 }

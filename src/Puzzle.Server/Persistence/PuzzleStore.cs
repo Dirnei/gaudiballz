@@ -106,6 +106,22 @@ public sealed class PuzzleStore
             cancellationToken: token);
 
     /// <summary>
+    /// Sets, or clears, the ball that represents this account.
+    ///
+    /// Clearing unsets the field rather than writing null, so a player who goes back to the
+    /// derived colour leaves a document identical to one that never chose at all. Last write
+    /// wins on purpose: this is one player on one screen setting one field, and there is no
+    /// better result to keep the way there is for a completion.
+    /// </summary>
+    public Task SetProfileBallAsync(string playerId, int? colour, CancellationToken token = default) =>
+        _players.UpdateOneAsync(
+            p => p.Id == playerId,
+            colour is null
+                ? Builders<PlayerDocument>.Update.Unset(p => p.ProfileBall)
+                : Builders<PlayerDocument>.Update.Set(p => p.ProfileBall, colour),
+            cancellationToken: token);
+
+    /// <summary>
     /// Records a completion, keeping the better result.
     ///
     /// <c>$min</c> does the comparison in the database, so a slower attempt arriving after a
