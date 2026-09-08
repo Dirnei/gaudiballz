@@ -6,17 +6,15 @@
  * tapping.
  */
 
-export const UNDOS_PER_ATTEMPT = 2;
+export const UNDOS_PER_ATTEMPT = 5;
 
 export interface Attempt {
   readonly undosRemaining: number;
-  readonly undosUsed: number;
-  readonly resetsUsed: number;
 }
 
 /** A fresh level: undos full. */
 export function startLevel(): Attempt {
-  return { undosRemaining: UNDOS_PER_ATTEMPT, undosUsed: 0, resetsUsed: 0 };
+  return { undosRemaining: UNDOS_PER_ATTEMPT };
 }
 
 export function canUndo(attempt: Attempt): boolean {
@@ -32,24 +30,19 @@ export function spendUndo(attempt: Attempt): Attempt {
     return attempt;
   }
 
-  return {
-    ...attempt,
-    undosRemaining: attempt.undosRemaining - 1,
-    undosUsed: attempt.undosUsed + 1,
-  };
+  return { undosRemaining: attempt.undosRemaining - 1 };
 }
 
 /**
- * Restarts the level.
+ * Restarts the level, which is to say: starts a new attempt.
  *
  * Not limited, and this is the point of it: undos are the scarce thing, and starting the
  * level again is how a player earns a fresh set. Losing the progress made so far is cost
  * enough without a cap on top.
+ *
+ * Nothing carries across. The attempt just given up has already been paid for in the
+ * progress thrown away, so nothing it spent is charged against the next one.
  */
-export function spendReset(attempt: Attempt): Attempt {
-  return {
-    undosRemaining: UNDOS_PER_ATTEMPT,
-    undosUsed: attempt.undosUsed,
-    resetsUsed: attempt.resetsUsed + 1,
-  };
+export function restartLevel(): Attempt {
+  return startLevel();
 }

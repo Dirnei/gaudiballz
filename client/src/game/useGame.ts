@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
 import {
   canUndo as canUndoBudget,
-  spendReset,
+  restartLevel,
   spendUndo,
   startLevel,
   type Attempt,
@@ -299,9 +299,11 @@ export function useGame() {
     setSelected(null);
     setHinted(null);
     plan.current = [];
-    setAttempt(spendReset(attempt));
+    // A new attempt: the board, the undo budget and the counts all start again.
+    setAttempt(restartLevel());
+    setHintsUsed(0);
     setState((current) => (current === null ? current : restartState(current)));
-  }, [attempt]);
+  }, []);
 
   /**
    * Records a completion once per solved attempt.
@@ -426,8 +428,6 @@ export function useGame() {
     solved: state !== null && isSolved(state.board),
     stuck: noMoves,
     undosRemaining: attempt.undosRemaining,
-    undosUsed: attempt.undosUsed,
-    resetsUsed: attempt.resetsUsed,
     hintsUsed,
     hinted,
     useHint,

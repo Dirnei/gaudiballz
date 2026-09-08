@@ -11,7 +11,7 @@ a player earns a fresh set of undos.
 
 ### Requirement: Undo budget
 
-Each attempt (from the first move after loading or resetting) SHALL allow at most 2 undos.
+Each attempt (from the first move after loading or resetting) SHALL allow at most 5 undos.
 The undo control SHALL be disabled once the budget is exhausted. The remaining undo count
 SHALL be visible to the player at all times.
 
@@ -20,12 +20,12 @@ Using a hint SHALL NOT consume an undo.
 #### Scenario: Undo is available at the start of an attempt
 
 - **WHEN** a level is loaded or has just been reset
-- **THEN** the player has 2 undos available
+- **THEN** the player has 5 undos available
 
 #### Scenario: Each undo reduces the remaining count
 
-- **WHEN** the player has 2 undos remaining and undoes a move
-- **THEN** the player has 1 undo remaining
+- **WHEN** the player has 5 undos remaining and undoes a move
+- **THEN** the player has 4 undos remaining
 
 #### Scenario: Undo is disabled when exhausted
 
@@ -68,31 +68,23 @@ on top of that would only strand a player who wants to start the level again.
 
 ### Requirement: Reset restores the undo budget
 
-Resetting a level SHALL set the undo count back to the full budget of 2, so the new attempt
-starts with full undo availability.
+Resetting a level SHALL start a new attempt: the undo count returns to the full budget of 5,
+and the hint count returns to zero.
 
 This is what resetting is for: undos are the limited resource, and starting the level again
-is how a player earns more of them.
+is how a player earns more of them. The hint count starts again with the attempt because the
+attempt it belonged to has been given up, and its cost has already been paid in the progress
+that was thrown away.
 
 #### Scenario: Undo budget is restored after reset
 
 - **WHEN** the player has 0 undos remaining and resets the level
-- **THEN** the player has 2 undos available on the new attempt
+- **THEN** the player has 5 undos available on the new attempt
 
-### Requirement: Undo and reset counts on the win screen
+#### Scenario: The hint count starts again after reset
 
-When a level is solved, the win overlay SHALL display the number of undos used alongside
-the existing hint count. Resets used SHALL also be visible.
-
-#### Scenario: Undos used is shown on solve
-
-- **WHEN** a player solves a level after using 1 undo
-- **THEN** the win overlay shows that 1 undo was used
-
-#### Scenario: Zero undos is not shown
-
-- **WHEN** a player solves a level without using any undos
-- **THEN** the win overlay does not show an undo count
+- **WHEN** the player has used hints and then resets the level
+- **THEN** the hint count for the attempt is zero
 
 ### Requirement: No-moves notice
 

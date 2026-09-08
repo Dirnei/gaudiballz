@@ -420,10 +420,6 @@ export function App() {
                 {par > 0 && game.moveCount <= par && ' · under par'}
                 {game.hintsUsed > 0 &&
                   ` · ${game.hintsUsed} hint${game.hintsUsed === 1 ? '' : 's'}`}
-                {game.undosUsed > 0 &&
-                  ` · ${game.undosUsed} undo${game.undosUsed === 1 ? '' : 's'}`}
-                {game.resetsUsed > 0 &&
-                  ` · ${game.resetsUsed} reset${game.resetsUsed === 1 ? '' : 's'}`}
               </p>
 
               <motion.button
