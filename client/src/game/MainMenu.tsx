@@ -1,13 +1,9 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { AccountBall } from './AccountBall';
-import type { Identity } from './identity';
 
 interface MainMenuProps {
-  readonly identity: Identity | null;
   readonly onPlay: () => void;
   readonly onLevelSelect: () => void;
-  readonly onOpenAccount: () => void;
   readonly onUnlockWithCode: (code: string) => Promise<{ levelId: number } | null>;
 }
 
@@ -16,10 +12,8 @@ interface MainMenuProps {
  * level selection, and level-code entry.
  */
 export function MainMenu({
-  identity,
   onPlay,
   onLevelSelect,
-  onOpenAccount,
   onUnlockWithCode,
 }: MainMenuProps) {
   const [enteringCode, setEnteringCode] = useState(false);
@@ -46,8 +40,6 @@ export function MainMenu({
   const quiet =
     'w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 transition-colors ' +
     'hover:text-slate-200 disabled:opacity-45';
-
-  const loggedIn = identity !== null && !identity.isAnonymous;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6">
@@ -157,17 +149,6 @@ export function MainMenu({
           </div>
         </div>
 
-        {/* Account button — below the card, quiet and unobtrusive */}
-        <button
-          type="button"
-          onClick={onOpenAccount}
-          className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-white/8 py-1.5 pl-2.5 pr-3 text-sm text-slate-300 ring-1 ring-white/10 transition-colors hover:bg-white/12"
-        >
-          <AccountBall identity={identity} />
-          <span className="max-w-[7rem] truncate">
-            {loggedIn ? (identity.username ?? 'Account') : 'Log in'}
-          </span>
-        </button>
       </motion.div>
     </div>
   );

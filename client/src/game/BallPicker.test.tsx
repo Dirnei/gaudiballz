@@ -100,19 +100,6 @@ describe('choosing', () => {
     expect(screen.getByTestId('ball-4')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('offers a way back to the name-derived colour, and only once one is chosen', async () => {
-    const { onChoose } = renderPicker({ highestCompleted: 30, chosen: 5 });
-
-    fireEvent.click(screen.getByRole('button', { name: /colour from my name/i }));
-
-    await waitFor(() => expect(onChoose).toHaveBeenCalledWith(null));
-  });
-
-  it('does not offer that when nothing is chosen', () => {
-    renderPicker({ highestCompleted: 30, chosen: null });
-
-    expect(screen.queryByRole('button', { name: /colour from my name/i })).not.toBeInTheDocument();
-  });
 });
 
 describe('an account that has finished nothing', () => {

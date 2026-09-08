@@ -451,6 +451,29 @@ export function App() {
         }}
       />
 
+      {/* Always top-right, on every screen. */}
+      <button
+        type="button"
+        aria-label={
+          game.identity !== null && !game.identity.isAnonymous
+            ? `Logged in as ${game.identity.username ?? 'your account'}`
+            : 'Not logged in — log in or register'
+        }
+        onClick={() => {
+          setAccountOpen(true);
+          void game.ensureBallUnlocks();
+        }}
+        className="absolute right-5 top-3 z-20 flex items-center gap-1.5 rounded-full bg-white/8 py-1.5 pl-2.5 pr-3 text-sm text-slate-300 ring-1 ring-white/10"
+        style={{ marginTop: 'env(safe-area-inset-top)' }}
+      >
+        <AccountBall identity={game.identity} />
+        <span className="max-w-[7rem] truncate">
+          {game.identity !== null && !game.identity.isAnonymous
+            ? (game.identity.username ?? 'Account')
+            : 'Log in'}
+        </span>
+      </button>
+
       <AnimatePresence mode="wait">
         {screen === 'menu' && (
           <motion.div
@@ -462,10 +485,8 @@ export function App() {
             className="relative flex flex-1 flex-col"
           >
             <MainMenu
-              identity={game.identity}
               onPlay={() => setScreen('play')}
               onLevelSelect={() => setScreen('levels')}
-              onOpenAccount={() => setAccountOpen(true)}
               onUnlockWithCode={async (code) => {
                 const result = await game.unlockWithCode(code);
                 if (result !== null) {
@@ -511,44 +532,16 @@ export function App() {
             transition={{ duration: 0.2 }}
             className="relative flex flex-1 flex-col"
           >
-            <header className="relative flex items-center justify-between px-5 pt-3">
-              <div className="flex items-center gap-2">
-                <IconButton label="Back to menu" onClick={() => setScreen('menu')}>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-                    <path d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" />
-                  </svg>
-                </IconButton>
-                <LevelBadge levelId={game.levelId} code={game.levelCode} />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm tabular-nums ring-1 ring-white/10">
-                  <span className="font-semibold">{game.moveCount}</span>
-                  {par > 0 && <span className="text-slate-400"> / {par}</span>}
-                </div>
-
-                {/* Reachable at any time, and it never asks. No dot, no badge, no reminder — it
-                    looks the same whether or not there is an account behind it. */}
-                <button
-                  type="button"
-                  aria-label={
-                    game.identity !== null && !game.identity.isAnonymous
-                      ? `Logged in as ${game.identity.username ?? 'your account'}`
-                      : 'Not logged in — log in or register'
-                  }
-                  onClick={() => {
-                    setAccountOpen(true);
-                    void game.ensureBallUnlocks();
-                  }}
-                  className="flex items-center gap-1.5 rounded-full bg-white/8 py-1.5 pl-2.5 pr-3 text-sm text-slate-300 ring-1 ring-white/10"
-                >
-                  <AccountBall identity={game.identity} />
-                  <span className="max-w-[7rem] truncate">
-                    {game.identity !== null && !game.identity.isAnonymous
-                      ? (game.identity.username ?? 'Account')
-                      : 'Log in'}
-                  </span>
-                </button>
+            <header className="relative flex items-center gap-2 px-5 pt-3">
+              <IconButton label="Back to menu" onClick={() => setScreen('menu')}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                  <path d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" />
+                </svg>
+              </IconButton>
+              <LevelBadge levelId={game.levelId} code={game.levelCode} />
+              <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm tabular-nums ring-1 ring-white/10">
+                <span className="font-semibold">{game.moveCount}</span>
+                {par > 0 && <span className="text-slate-400"> / {par}</span>}
               </div>
             </header>
 

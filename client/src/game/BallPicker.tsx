@@ -105,17 +105,6 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
         </p>
       )}
 
-      {chosen !== null && (
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void choose(null)}
-          className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400 transition-colors hover:text-slate-200 disabled:opacity-45"
-        >
-          Use the colour from my name
-        </button>
-      )}
-
       {problem !== null && <p className="mt-2 text-sm text-rose-300">{problem}</p>}
     </div>
   );
