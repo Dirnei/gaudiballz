@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
+import { loadAchievements, type AchievementState } from './achievements';
 import { loadBallUnlocks, setProfileBall, type BallUnlock } from './profileBall';
 import {
   HINT_COOLDOWN_MS,
@@ -12,7 +13,10 @@ import {
   type Attempt,
 } from './attempt';
 import { ceilingFor, forgetUnlocked, readUnlocked, rememberUnlocked } from './ceiling';
-import { drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion, type Progress } from './progress';
+import {
+  drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion,
+  type NewAchievement, type Progress,
+} from './progress';
 import {
   ON_REQUEST,
   legalMoves,
@@ -90,6 +94,7 @@ export function useGame() {
    * it is fetched once and kept; the picker is the only thing that reads it.
    */
   const [ballUnlocks, setBallUnlocks] = useState<readonly BallUnlock[]>([]);
+  const [achievements, setAchievements] = useState<AchievementState | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
 
   const [levelId, setLevelId] = useState(() => {
@@ -138,6 +143,11 @@ export function useGame() {
    */
   const plan = useRef<Move[]>([]);
 
+  const restartedLevels = useRef(new Set<number>());
+  const undosUsed = useRef(0);
+  const [colourCount, setColourCount] = useState(0);
+  const [newAchievements, setNewAchievements] = useState<NewAchievement[]>([]);
+
   /**
    * Identity and progress on launch. Silent: no form, no prompt, nothing to dismiss. If the
    * network is not there the game simply starts anyway and picks this up later.
@@ -185,9 +195,10 @@ export function useGame() {
     setHintsUsed(0);
     setHinted(null);
     setAttempt(startLevel());
-    // A new board is the moment to look at it, so the first hint is not available yet.
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
     plan.current = [];
+    undosUsed.current = 0;
+    restartedLevels.current.delete(levelId);
 
     fetch(`${API}/api/v1/levels/${levelId}`)
       .then((response) => {
@@ -202,6 +213,7 @@ export function useGame() {
         }
         const board: Board = createBoard(level.tubes, level.capacity, level.colourCount);
         setState(startGame(board));
+        setColourCount(level.colourCount);
         setInfo({
           levelId: level.levelId,
           parMoves: level.parMoves,
@@ -338,6 +350,7 @@ export function useGame() {
     setSelected(null);
     setHinted(null);
     plan.current = [];
+    undosUsed.current += 1;
     setAttempt(spendUndo(attempt));
     setState((current) => (current === null ? current : undoState(current)));
   }, [attempt]);
@@ -366,12 +379,13 @@ export function useGame() {
     setSelected(null);
     setHinted(null);
     plan.current = [];
-    // A new attempt: the board, both budgets and the counts all start again.
     setAttempt(restartLevel());
     setHintsUsed(0);
+    undosUsed.current = 0;
+    restartedLevels.current.add(levelId);
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
     setState((current) => (current === null ? current : restartState(current)));
-  }, []);
+  }, [levelId]);
 
   /**
    * Records a completion once per solved attempt.
@@ -392,16 +406,23 @@ export function useGame() {
     recorded.current = attempt;
 
     void (async () => {
-      await recordCompletion(levelId, state.moves.length, hintsUsed);
+      const awarded = await recordCompletion(levelId, state.moves.length, hintsUsed, {
+        undoCount: undosUsed.current,
+        restarted: restartedLevels.current.has(levelId),
+        colourCount,
+        parMoves: info?.parMoves ?? 0,
+      });
+      if (awarded.length > 0) {
+        setNewAchievements(awarded);
+      }
       const refreshed = await loadProgress();
       if (refreshed !== null) {
         setProgress(refreshed);
       }
 
-      // The level just solved is finished whether or not the server could be told about it.
       setUnlockedLevel(rememberUnlocked(levelId + 1));
     })();
-  }, [state, levelId, hintsUsed]);
+  }, [state, levelId, hintsUsed, colourCount, info]);
 
   const goToLevel = useCallback((next: number) => {
     const clamped = Math.max(1, next);
@@ -490,6 +511,11 @@ export function useGame() {
     setBallUnlocks(unlocks);
   }, []);
 
+  const ensureAchievements = useCallback(async () => {
+    const loaded = await loadAchievements();
+    setAchievements(loaded);
+  }, []);
+
   /**
    * Saves the ball the player picked, or clears it with null.
    *
@@ -504,6 +530,8 @@ export function useGame() {
 
     return saved;
   }, []);
+
+  const clearNewAchievements = useCallback(() => setNewAchievements([]), []);
 
   return {
     levelId,
@@ -522,6 +550,8 @@ export function useGame() {
     unlockWithCode,
     ballUnlocks,
     ensureBallUnlocks,
+    achievements,
+    ensureAchievements,
     chooseBall,
     solved: state !== null && isSolved(state.board),
     stuck: noMoves,
@@ -536,6 +566,8 @@ export function useGame() {
     useHint,
     canUndo: state !== null && canUndoState(state) && canUndoBudget(attempt),
     moveCount: state?.moves.length ?? 0,
+    newAchievements,
+    clearNewAchievements,
     tapTube,
     undo,
     restart,

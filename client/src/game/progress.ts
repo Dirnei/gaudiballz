@@ -2,7 +2,7 @@
  * Recording and reading progress, with the offline queue in front of it.
  */
 
-import { API, authHeaders } from './identity';
+import { API, authHeaders, sessionId as clientSessionId } from './identity';
 import { clearQueue, enqueue, forget, newId, pending, type PendingCompletion } from './completionQueue';
 
 export interface ProgressEntry {
@@ -18,6 +18,18 @@ export interface Progress {
 }
 
 export const NO_PROGRESS: Progress = { levelsCompleted: 0, highestCompleted: 0, levels: [] };
+
+export interface NewAchievement {
+  readonly id: string;
+  readonly name: string;
+}
+
+export interface CompletionMetadata {
+  readonly undoCount: number;
+  readonly restarted: boolean;
+  readonly colourCount: number;
+  readonly parMoves: number;
+}
 
 export async function loadProgress(): Promise<Progress | null> {
   try {
@@ -35,50 +47,87 @@ export async function loadProgress(): Promise<Progress | null> {
  * impossible: the queue write happens before the network is involved, so a request that
  * fails, times out, or is cut off by the tab closing leaves the work waiting rather than
  * gone.
+ *
+ * Returns any newly earned achievements from the server response, or an empty array when
+ * the server could not be reached or had nothing to report.
  */
-export async function recordCompletion(level: number, moves: number, hints: number): Promise<void> {
-  await enqueue({ id: newId(), level, moves, hints, recordedAt: Date.now() });
-  await drain();
+export async function recordCompletion(
+  level: number,
+  moves: number,
+  hints: number,
+  metadata?: CompletionMetadata,
+): Promise<NewAchievement[]> {
+  await enqueue({
+    id: newId(),
+    level,
+    moves,
+    hints,
+    recordedAt: Date.now(),
+    undoCount: metadata?.undoCount,
+    restarted: metadata?.restarted,
+    sessionId: clientSessionId,
+    colourCount: metadata?.colourCount,
+    parMoves: metadata?.parMoves,
+  });
+  return drain();
 }
 
 /**
  * Sends whatever is waiting. Safe to call at any time — the server keeps the better result
  * per level, so a resend cannot inflate anything.
+ *
+ * Returns any newly earned achievements from the last successful response.
  */
-export async function drain(): Promise<void> {
+export async function drain(): Promise<NewAchievement[]> {
   let waiting: PendingCompletion[];
   try {
     waiting = await pending();
   } catch {
-    return;
+    return [];
   }
+
+  let lastAchievements: NewAchievement[] = [];
 
   for (const item of waiting) {
     try {
       const response = await fetch(`${API}/api/v1/progress/completions`, {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ level: item.level, moves: item.moves, hints: item.hints }),
+        body: JSON.stringify({
+          level: item.level,
+          moves: item.moves,
+          hints: item.hints,
+          undoCount: item.undoCount,
+          restarted: item.restarted,
+          sessionId: item.sessionId,
+          colourCount: item.colourCount,
+          parMoves: item.parMoves,
+        }),
       });
 
       if (response.ok) {
+        try {
+          const body = (await response.json()) as { newAchievements?: NewAchievement[] };
+          lastAchievements = body.newAchievements ?? [];
+        } catch {
+          lastAchievements = [];
+        }
         await forget(item.id);
         continue;
       }
 
-      // A rejection the server is sure about will never succeed, so drop it rather than
-      // retrying forever. Anything else is worth another go later.
       if (response.status === 400) {
         await forget(item.id);
         continue;
       }
 
-      return;
+      return lastAchievements;
     } catch {
-      // Offline. Everything from here stays queued, in order.
-      return;
+      return lastAchievements;
     }
   }
+
+  return lastAchievements;
 }
 
 /**

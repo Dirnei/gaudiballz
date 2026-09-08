@@ -48,6 +48,7 @@ function renderPanel(identity: Identity | null, highestCompleted = 30) {
       ballUnlocks={UNLOCKS}
       highestCompleted={highestCompleted}
       onChooseBall={vi.fn().mockResolvedValue(true)}
+
     />,
   );
 }
@@ -108,6 +109,7 @@ describe('nothing announces a newly earned ball', () => {
         ballUnlocks={UNLOCKS}
         highestCompleted={1}
         onChooseBall={vi.fn().mockResolvedValue(true)}
+  
       />,
     );
     const beforeButtons = screen.getAllByRole('button').length;

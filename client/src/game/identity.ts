@@ -26,6 +26,12 @@ export const API =
   import.meta.env['VITE_API_URL'] ??
   (import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:5199` : '');
 
+export const sessionId: string = (() => {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+})();
+
 function read(key: string): string | null {
   try {
     return localStorage.getItem(key);

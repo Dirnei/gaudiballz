@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'motion/react';
 interface MainMenuProps {
   readonly onPlay: () => void;
   readonly onLevelSelect: () => void;
+  readonly onAchievements: () => void;
+  readonly showAchievements: boolean;
   readonly onUnlockWithCode: (code: string) => Promise<{ levelId: number } | null>;
 }
 
@@ -14,6 +16,8 @@ interface MainMenuProps {
 export function MainMenu({
   onPlay,
   onLevelSelect,
+  onAchievements,
+  showAchievements,
   onUnlockWithCode,
 }: MainMenuProps) {
   const [enteringCode, setEnteringCode] = useState(false);
@@ -82,6 +86,17 @@ export function MainMenu({
           >
             Level Select
           </motion.button>
+
+          {showAchievements && (
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={onAchievements}
+              className={`mt-1 ${quiet}`}
+            >
+              Achievements
+            </motion.button>
+          )}
 
           {/* Level code entry */}
           <div className="mt-5 border-t border-white/8 pt-5">

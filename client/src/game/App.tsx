@@ -8,8 +8,10 @@ import { AccountPanel } from './AccountPanel';
 import { MainMenu } from './MainMenu';
 import { LevelSelect } from './LevelSelect';
 import { haptics } from './haptics';
+import { AchievementToast } from './AchievementToast';
+import { AchievementsScreen } from './AchievementsScreen';
 
-type Screen = 'menu' | 'levels' | 'play';
+type Screen = 'menu' | 'levels' | 'play' | 'achievements';
 
 /** A tube is finished when it is full and single-coloured; empty tubes are just empty. */
 function isComplete(tube: readonly number[], capacity: number): boolean {
@@ -462,6 +464,7 @@ export function App() {
         onClick={() => {
           setAccountOpen(true);
           void game.ensureBallUnlocks();
+          void game.ensureAchievements();
         }}
         className="absolute right-5 top-3 z-20 flex items-center gap-1.5 rounded-full bg-white/8 py-1.5 pl-2.5 pr-3 text-sm text-slate-300 ring-1 ring-white/10"
         style={{ marginTop: 'env(safe-area-inset-top)' }}
@@ -487,6 +490,11 @@ export function App() {
             <MainMenu
               onPlay={() => setScreen('play')}
               onLevelSelect={() => setScreen('levels')}
+              onAchievements={() => {
+                setScreen('achievements');
+                void game.ensureAchievements();
+              }}
+              showAchievements={game.identity !== null && !game.identity.isAnonymous}
               onUnlockWithCode={async (code) => {
                 const result = await game.unlockWithCode(code);
                 if (result !== null) {
@@ -518,6 +526,23 @@ export function App() {
                 game.goToLevel(level);
                 setScreen('play');
               }}
+              onBack={() => setScreen('menu')}
+            />
+          </motion.div>
+        )}
+
+        {screen === 'achievements' && (
+          <motion.div
+            key="achievements"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="relative flex min-h-0 flex-1 flex-col"
+          >
+            <AchievementsScreen
+              identity={game.identity}
+              state={game.achievements}
               onBack={() => setScreen('menu')}
             />
           </motion.div>
@@ -571,7 +596,7 @@ export function App() {
                   className="grid items-end justify-items-center"
                   style={{
                     gridTemplateColumns: `repeat(${
-                      board.tubes.length <= 8
+                      board.tubes.length <= 7
                         ? board.tubes.length
                         : Math.ceil(board.tubes.length / 2)
                     }, max-content)`,
@@ -742,6 +767,11 @@ export function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AchievementToast
+        achievements={game.newAchievements}
+        onDone={game.clearNewAchievements}
+      />
 
       <AnimatePresence>
         {game.solved && (

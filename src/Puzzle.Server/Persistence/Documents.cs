@@ -92,6 +92,40 @@ public sealed class ProgressDocument
 }
 
 /// <summary>
+/// One achievement awarded to one player.
+///
+/// Composite id follows the same pattern as progress: "{playerId}#{achievementId}", so a
+/// range scan on the primary key returns everything for one player.
+/// </summary>
+public sealed class AchievementDocument
+{
+    public string Id { get; set; } = string.Empty;
+    public string PlayerId { get; set; } = string.Empty;
+    public string AchievementId { get; set; } = string.Empty;
+    public DateTime AwardedAt { get; set; }
+
+    public static string KeyFor(string playerId, string achievementId) =>
+        $"{playerId}#{achievementId}";
+}
+
+/// <summary>
+/// One calendar day on which a player completed at least one level.
+///
+/// Composite id: "{playerId}#{yyyy-MM-dd}". One document per player per UTC day, upserted
+/// with $inc so concurrent completions on the same day cannot lose each other.
+/// </summary>
+public sealed class DailyPlayDocument
+{
+    public string Id { get; set; } = string.Empty;
+    public string PlayerId { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+    public int CompletionCount { get; set; }
+
+    public static string KeyFor(string playerId, DateTime utcDate) =>
+        $"{playerId}#{utcDate:yyyy-MM-dd}";
+}
+
+/// <summary>
 /// Registers class maps explicitly rather than relying on automatic mapping, which changes
 /// behaviour silently when a property is renamed or reordered.
 /// </summary>
@@ -141,6 +175,20 @@ public static class BsonRegistration
             {
                 map.AutoMap();
                 map.MapIdMember(p => p.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+            });
+
+            BsonClassMap.RegisterClassMap<AchievementDocument>(map =>
+            {
+                map.AutoMap();
+                map.MapIdMember(a => a.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+            });
+
+            BsonClassMap.RegisterClassMap<DailyPlayDocument>(map =>
+            {
+                map.AutoMap();
+                map.MapIdMember(d => d.Id).SetSerializer(new StringSerializer(BsonType.String));
                 map.SetIgnoreExtraElements(true);
             });
 

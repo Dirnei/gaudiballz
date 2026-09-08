@@ -1,8 +1,10 @@
 using System.Buffers.Text;
 using System.Collections.Concurrent;
+using Akka.Actor;
 using Fido2NetLib;
 using Fido2NetLib.Objects;
 using Microsoft.Extensions.DependencyInjection;
+using Puzzle.Server.Achievements;
 using Puzzle.Server.Persistence;
 
 namespace Puzzle.Server.PlayerIdentity;
@@ -163,7 +165,8 @@ public sealed class PlayerIdentitySlice : ISlice
 
         group.MapPost("/passkey/enrol/finish",
             async (HttpContext http, AuthenticatorAttestationRawResponse response, IFido2 fido2,
-                   PuzzleStore store, PlayerTokens tokens, CancellationToken token) =>
+                   PuzzleStore store, PlayerTokens tokens, AchievementRegistry achievements,
+                   CancellationToken token) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null || !Pending.TryRemove(playerId, out var stored))
@@ -194,6 +197,8 @@ public sealed class PlayerIdentitySlice : ISlice
                 }, token);
 
                 await store.MarkEnrolledAsync(playerId, token);
+
+                achievements.Actor.Tell(new EvaluateRetroactive(playerId), ActorRefs.NoSender);
 
                 return Results.Ok(new { enrolled = true });
             });

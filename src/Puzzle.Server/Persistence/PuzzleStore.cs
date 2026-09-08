@@ -23,6 +23,8 @@ public sealed class PuzzleStore
     private readonly IMongoCollection<PlayerDocument> _players;
     private readonly IMongoCollection<CredentialDocument> _credentials;
     private readonly IMongoCollection<ProgressDocument> _progress;
+    private readonly IMongoCollection<AchievementDocument> _achievements;
+    private readonly IMongoCollection<DailyPlayDocument> _dailyPlay;
 
     public PuzzleStore(MongoOptions options)
     {
@@ -49,6 +51,8 @@ public sealed class PuzzleStore
         _players = database.GetCollection<PlayerDocument>("players", durable);
         _credentials = database.GetCollection<CredentialDocument>("credentials", durable);
         _progress = database.GetCollection<ProgressDocument>("progress", durable);
+        _achievements = database.GetCollection<AchievementDocument>("player_achievements", durable);
+        _dailyPlay = database.GetCollection<DailyPlayDocument>("daily_play", durable);
     }
 
     /// <summary>Idempotent: creating an index that already exists is a no-op.</summary>
@@ -76,8 +80,8 @@ public sealed class PuzzleStore
                 new CreateIndexOptions { Name = "players_by_username", Unique = true, Sparse = true }),
             cancellationToken: token);
 
-        // Progress needs no secondary index: the composite id serves the per-player range
-        // scan off the primary key.
+        // Progress, achievements and daily_play need no secondary index: their composite ids
+        // serve the per-player range scan off the primary key.
     }
 
     public async Task<PlayerDocument> CreateAnonymousPlayerAsync(
@@ -241,4 +245,55 @@ public sealed class PuzzleStore
             p => p.Id == playerId,
             Builders<PlayerDocument>.Update.Set(p => p.IsAnonymous, false),
             cancellationToken: token);
+
+    // ---- achievements --------------------------------------------------------
+
+    /// <summary>
+    /// Awards an achievement. Idempotent: the timestamp is set on insert only, so
+    /// awarding twice keeps the original date.
+    /// </summary>
+    public Task AwardAchievementAsync(
+        string playerId, string achievementId, CancellationToken token = default)
+    {
+        var now = DateTime.UtcNow;
+        return _achievements.UpdateOneAsync(
+            a => a.Id == AchievementDocument.KeyFor(playerId, achievementId),
+            Builders<AchievementDocument>.Update
+                .SetOnInsert(a => a.PlayerId, playerId)
+                .SetOnInsert(a => a.AchievementId, achievementId)
+                .SetOnInsert(a => a.AwardedAt, now),
+            new UpdateOptions { IsUpsert = true },
+            token);
+    }
+
+    public async Task<List<AchievementDocument>> LoadAchievementsAsync(
+        string playerId, CancellationToken token = default) =>
+        await _achievements
+            .Find(Builders<AchievementDocument>.Filter.And(
+                Builders<AchievementDocument>.Filter.Gte(a => a.Id, $"{playerId}#"),
+                Builders<AchievementDocument>.Filter.Lt(a => a.Id, $"{playerId}$")))
+            .ToListAsync(token);
+
+    /// <summary>
+    /// Records that a completion happened on a given UTC day. Concurrent calls on the
+    /// same day increment rather than overwrite.
+    /// </summary>
+    public Task RecordDailyPlayAsync(
+        string playerId, DateTime utcDate, CancellationToken token = default) =>
+        _dailyPlay.UpdateOneAsync(
+            d => d.Id == DailyPlayDocument.KeyFor(playerId, utcDate),
+            Builders<DailyPlayDocument>.Update
+                .SetOnInsert(d => d.PlayerId, playerId)
+                .SetOnInsert(d => d.Date, utcDate.Date)
+                .Inc(d => d.CompletionCount, 1),
+            new UpdateOptions { IsUpsert = true },
+            token);
+
+    public async Task<List<DailyPlayDocument>> LoadDailyPlayAsync(
+        string playerId, CancellationToken token = default) =>
+        await _dailyPlay
+            .Find(Builders<DailyPlayDocument>.Filter.And(
+                Builders<DailyPlayDocument>.Filter.Gte(d => d.Id, $"{playerId}#"),
+                Builders<DailyPlayDocument>.Filter.Lt(d => d.Id, $"{playerId}$")))
+            .ToListAsync(token);
 }
