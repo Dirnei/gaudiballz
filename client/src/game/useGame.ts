@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
+import { loadBallUnlocks, setProfileBall, type BallUnlock } from './profileBall';
 import {
   canUndo as canUndoBudget,
   restartLevel,
@@ -64,8 +65,28 @@ const LAST_LEVEL_KEY = 'puzzle.lastLevel';
 
 export type LoadState = 'loading' | 'ready' | 'error';
 
+/** Converts the server's flat levels array into a Map for O(1) lookup per level. */
+export function buildLevelProgress(
+  progress: Progress | null,
+): Map<number, { moves: number; hints: number }> {
+  const map = new Map<number, { moves: number; hints: number }>();
+  if (progress === null) {
+    return map;
+  }
+  for (const entry of progress.levels) {
+    map.set(entry.level, { moves: entry.moves, hints: entry.hints });
+  }
+  return map;
+}
+
 export function useGame() {
   const [identity, setIdentity] = useState<Identity | null>(null);
+
+  /**
+   * Which colour each ball is earned at. The same for every player and fixed for a build, so
+   * it is fetched once and kept; the picker is the only thing that reads it.
+   */
+  const [ballUnlocks, setBallUnlocks] = useState<readonly BallUnlock[]>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
 
   const [levelId, setLevelId] = useState(() => {
@@ -90,6 +111,9 @@ export function useGame() {
   const [unlockedLevel, setUnlockedLevel] = useState(readUnlocked);
 
   const levelCeiling = ceilingFor(progress?.highestCompleted ?? null, unlockedLevel);
+
+  /** Per-level completion data for the level select grid. O(1) lookup by level number. */
+  const levelProgress = useMemo(() => buildLevelProgress(progress), [progress]);
 
   /**
    * The remaining moves of a winning line, kept between hints.
@@ -411,10 +435,37 @@ export function useGame() {
       current === null ? current : { ...current, isAnonymous: false, username });
   }, []);
 
+  /**
+   * Fetches the unlock table, once, the first time anything needs it.
+   *
+   * Deliberately not on launch: a player who never opens the account panel never asks for
+   * it, which keeps the game's startup to what playing actually requires.
+   */
+  const ensureBallUnlocks = useCallback(async () => {
+    const unlocks = await loadBallUnlocks();
+    setBallUnlocks(unlocks);
+  }, []);
+
+  /**
+   * Saves the ball the player picked, or clears it with null.
+   *
+   * The identity is only updated once the server has taken it, so a refusal — a colour this
+   * account has not earned — leaves the ball on screen exactly as it was.
+   */
+  const chooseBall = useCallback(async (colour: number | null): Promise<boolean> => {
+    const saved = await setProfileBall(colour);
+    if (saved) {
+      setIdentity((current) => (current === null ? current : { ...current, ball: colour }));
+    }
+
+    return saved;
+  }, []);
+
   return {
     levelId,
     levelCode,
     levelCeiling,
+    levelProgress,
     info,
     load,
     state,
@@ -425,6 +476,9 @@ export function useGame() {
     logOut: signOut,
     registered,
     unlockWithCode,
+    ballUnlocks,
+    ensureBallUnlocks,
+    chooseBall,
     solved: state !== null && isSolved(state.board),
     stuck: noMoves,
     undosRemaining: attempt.undosRemaining,

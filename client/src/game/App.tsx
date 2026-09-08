@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Tube } from './Tube';
 import { useGame } from './useGame';
+import { AccountBall } from './AccountBall';
 import { AccountPanel } from './AccountPanel';
-import { ballStyle, colourForName } from '../skins';
+import { MainMenu } from './MainMenu';
+import { LevelSelect } from './LevelSelect';
 import { haptics } from './haptics';
+
+type Screen = 'menu' | 'levels' | 'play';
 
 /** A tube is finished when it is full and single-coloured; empty tubes are just empty. */
 function isComplete(tube: readonly number[], capacity: number): boolean {
@@ -105,6 +109,7 @@ function LevelBadge({ levelId, code }: { levelId: number; code: string | null })
 
 export function App() {
   const game = useGame();
+  const [screen, setScreen] = useState<Screen>('menu');
   const completedCount = useRef(0);
 
   const board = game.state?.board;
@@ -171,116 +176,179 @@ export function App() {
         }}
       />
 
-      <header className="relative flex items-center justify-between px-5 pt-3">
-        <LevelBadge levelId={game.levelId} code={game.levelCode} />
-
-        <div className="flex items-center gap-2">
-          <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm tabular-nums ring-1 ring-white/10">
-            <span className="font-semibold">{game.moveCount}</span>
-            {par > 0 && <span className="text-slate-400"> / {par}</span>}
-          </div>
-
-          {/* Reachable at any time, and it never asks. No dot, no badge, no reminder — it
-              looks the same whether or not there is an account behind it. */}
-          <button
-            type="button"
-            aria-label={
-              game.identity !== null && !game.identity.isAnonymous
-                ? `Logged in as ${game.identity.username ?? 'your account'}`
-                : 'Not logged in — log in or register'
-            }
-            onClick={() => setAccountOpen(true)}
-            className="flex items-center gap-1.5 rounded-full bg-white/8 py-1.5 pl-2.5 pr-3 text-sm text-slate-300 ring-1 ring-white/10"
-          >
-            {game.identity !== null && !game.identity.isAnonymous ? (
-              <span
-                className="h-4 w-4 shrink-0"
-                style={ballStyle(colourForName(game.identity.username ?? game.identity.playerId))}
-              />
-            ) : (
-              <span className="h-4 w-4 shrink-0 rounded-full border border-dashed border-white/25" />
-            )}
-            <span className="max-w-[7rem] truncate">
-              {game.identity !== null && !game.identity.isAnonymous
-                ? (game.identity.username ?? 'Account')
-                : 'Log in'}
-            </span>
-          </button>
-        </div>
-      </header>
-
-      <main className="relative flex flex-1 items-center justify-center px-2">
-        {game.load === 'loading' && (
+      <AnimatePresence mode="wait">
+        {screen === 'menu' && (
           <motion.div
-            animate={{ opacity: [0.35, 1, 0.35] }}
-            transition={{ duration: 1.4, repeat: Infinity }}
-            className="text-sm text-slate-400"
+            key="menu"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="relative flex flex-1 flex-col"
           >
-            Loading level…
+            <MainMenu
+              identity={game.identity}
+              onPlay={() => setScreen('play')}
+              onLevelSelect={() => setScreen('levels')}
+              onOpenAccount={() => setAccountOpen(true)}
+              onUnlockWithCode={async (code) => {
+                const result = await game.unlockWithCode(code);
+                if (result !== null) {
+                  setScreen('play');
+                }
+                return result;
+              }}
+            />
           </motion.div>
         )}
 
-        {game.load === 'error' && (
-          <div className="max-w-xs text-center text-sm text-slate-400">
-            <p className="mb-1 font-medium text-slate-200">Can’t reach the level server</p>
-            <p className="text-xs leading-relaxed">
-              Start it with{' '}
-              <code className="text-slate-300">dotnet run --project src/Puzzle.Server</code>
-            </p>
-          </div>
+        {screen === 'levels' && (
+          <motion.div
+            key="levels"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="relative flex flex-1 flex-col"
+          >
+            <LevelSelect
+              levelId={game.levelId}
+              levelCeiling={game.levelCeiling}
+              progress={game.levelProgress}
+              onSelectLevel={(level) => {
+                game.goToLevel(level);
+                setScreen('play');
+              }}
+              onBack={() => setScreen('menu')}
+            />
+          </motion.div>
         )}
 
-        {game.load === 'ready' && board && (
-          <div className="flex max-w-xl flex-wrap items-end justify-center">
-            {board.tubes.map((tube, index) => (
-              <Tube
-                key={index}
-                items={tube}
-                capacity={board.capacity}
-                selected={game.selected === index}
-                complete={isComplete(tube, board.capacity)}
-                onTap={() => {
+        {screen === 'play' && (
+          <motion.div
+            key="play"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="relative flex flex-1 flex-col"
+          >
+            <header className="relative flex items-center justify-between px-5 pt-3">
+              <div className="flex items-center gap-2">
+                <IconButton label="Back to menu" onClick={() => setScreen('menu')}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
+                    <path d="M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z" />
+                  </svg>
+                </IconButton>
+                <LevelBadge levelId={game.levelId} code={game.levelCode} />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="rounded-full bg-white/8 px-3.5 py-1.5 text-sm tabular-nums ring-1 ring-white/10">
+                  <span className="font-semibold">{game.moveCount}</span>
+                  {par > 0 && <span className="text-slate-400"> / {par}</span>}
+                </div>
+
+                {/* Reachable at any time, and it never asks. No dot, no badge, no reminder — it
+                    looks the same whether or not there is an account behind it. */}
+                <button
+                  type="button"
+                  aria-label={
+                    game.identity !== null && !game.identity.isAnonymous
+                      ? `Logged in as ${game.identity.username ?? 'your account'}`
+                      : 'Not logged in — log in or register'
+                  }
+                  onClick={() => {
+                    setAccountOpen(true);
+                    void game.ensureBallUnlocks();
+                  }}
+                  className="flex items-center gap-1.5 rounded-full bg-white/8 py-1.5 pl-2.5 pr-3 text-sm text-slate-300 ring-1 ring-white/10"
+                >
+                  <AccountBall identity={game.identity} />
+                  <span className="max-w-[7rem] truncate">
+                    {game.identity !== null && !game.identity.isAnonymous
+                      ? (game.identity.username ?? 'Account')
+                      : 'Log in'}
+                  </span>
+                </button>
+              </div>
+            </header>
+
+            <main className="relative flex flex-1 items-center justify-center px-2">
+              {game.load === 'loading' && (
+                <motion.div
+                  animate={{ opacity: [0.35, 1, 0.35] }}
+                  transition={{ duration: 1.4, repeat: Infinity }}
+                  className="text-sm text-slate-400"
+                >
+                  Loading level...
+                </motion.div>
+              )}
+
+              {game.load === 'error' && (
+                <div className="max-w-xs text-center text-sm text-slate-400">
+                  <p className="mb-1 font-medium text-slate-200">Can't reach the level server</p>
+                  <p className="text-xs leading-relaxed">
+                    Start it with{' '}
+                    <code className="text-slate-300">dotnet run --project src/Puzzle.Server</code>
+                  </p>
+                </div>
+              )}
+
+              {game.load === 'ready' && board && (
+                <div className="flex max-w-xl flex-wrap items-end justify-center">
+                  {board.tubes.map((tube, index) => (
+                    <Tube
+                      key={index}
+                      items={tube}
+                      capacity={board.capacity}
+                      selected={game.selected === index}
+                      complete={isComplete(tube, board.capacity)}
+                      onTap={() => {
+                        haptics.move();
+                        game.tapTube(index);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </main>
+
+            <footer className="relative flex items-center justify-center gap-3 px-5 pb-5 pt-2">
+              <IconButton label="Previous level" onClick={() => game.goToLevel(game.levelId - 1)} disabled={game.levelId <= 1}>
+                &#x2039;
+              </IconButton>
+              <IconButton
+                label={`Undo last move, ${game.undosRemaining} left`}
+                onClick={game.undo}
+                disabled={!game.canUndo}
+                remaining={game.undosRemaining}
+              >
+                &#x21B6;
+              </IconButton>
+              <IconButton
+                label="Show me a move"
+                onClick={() => {
                   haptics.move();
-                  game.tapTube(index);
+                  game.useHint();
                 }}
-              />
-            ))}
-          </div>
+                disabled={game.stuck || game.solved}
+              >
+                ?
+              </IconButton>
+              <IconButton
+                label="Restart level"
+                onClick={() => setConfirmingReset(true)}
+              >
+                &#x21BB;
+              </IconButton>
+              <IconButton label="Next level" onClick={() => game.goToLevel(game.levelId + 1)} disabled={game.levelId >= game.levelCeiling}>
+                &#x203A;
+              </IconButton>
+            </footer>
+          </motion.div>
         )}
-      </main>
-
-      <footer className="relative flex items-center justify-center gap-3 px-5 pb-5 pt-2">
-        <IconButton label="Previous level" onClick={() => game.goToLevel(game.levelId - 1)} disabled={game.levelId <= 1}>
-          ‹
-        </IconButton>
-        <IconButton
-          label={`Undo last move, ${game.undosRemaining} left`}
-          onClick={game.undo}
-          disabled={!game.canUndo}
-          remaining={game.undosRemaining}
-        >
-          ↶
-        </IconButton>
-        <IconButton
-          label="Show me a move"
-          onClick={() => {
-            haptics.move();
-            game.useHint();
-          }}
-          disabled={game.stuck || game.solved}
-        >
-          ?
-        </IconButton>
-        <IconButton
-          label="Restart level"
-          onClick={() => setConfirmingReset(true)}
-        >
-          ↻
-        </IconButton>
-        <IconButton label="Next level" onClick={() => game.goToLevel(game.levelId + 1)} disabled={game.levelId >= game.levelCeiling}>
-          ›
-        </IconButton>
-      </footer>
+      </AnimatePresence>
 
       <AccountPanel
         open={accountOpen}
@@ -298,7 +366,9 @@ export function App() {
           setAccountOpen(false);
           void game.logOut();
         }}
-        onUnlockWithCode={game.unlockWithCode}
+        ballUnlocks={game.ballUnlocks}
+        highestCompleted={game.progress?.highestCompleted ?? 0}
+        onChooseBall={game.chooseBall}
       />
 
       {/* A restart throws away the progress on the level, so it is asked about first. */}
