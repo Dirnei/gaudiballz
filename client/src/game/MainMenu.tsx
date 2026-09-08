@@ -129,7 +129,7 @@ export function MainMenu() {
           className="text-4xl font-bold tracking-tight text-white"
           style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
         >
-          GUADI BALLZ
+          GAUDI BALLZ
         </h1>
         <p className="mt-2 text-sm text-slate-400">Sort the colours. Clear the board.</p>
         {totalPoints > 0 && (

@@ -67,6 +67,15 @@ button {
   }
 }
 
+@keyframes bloom-drift {
+  0%   { translate: 0 0;        scale: 1;    }
+  20%  { translate: 10% -8%;    scale: 1.08; }
+  40%  { translate: -8% 6%;     scale: 0.94; }
+  60%  { translate: 6% -10%;    scale: 1.06; }
+  80%  { translate: -10% 8%;    scale: 0.96; }
+  100% { translate: 0 0;        scale: 1;    }
+}
+
 /* Keyboard focus indicator, matching the play-screen tube focus (yellow ring). */
 .kb-focus {
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.7);

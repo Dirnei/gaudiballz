@@ -15,8 +15,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
       },
       manifest: {
-        name: 'Guadi Ballz',
-        short_name: 'Guadi',
+        name: 'Gaudi Ballz',
+        short_name: 'Gaudi',
         description: 'A free, ad-free colour sorting puzzle.',
         theme_color: '#0f172a',
         background_color: '#0f172a',

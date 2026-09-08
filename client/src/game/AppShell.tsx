@@ -3,6 +3,7 @@ import { Link, Outlet } from 'react-router-dom';
 import { FlaskLogo } from './FlaskLogo';
 import { AccountBall } from './AccountBall';
 import { AccountPanel } from './AccountPanel';
+import { BackgroundBloom } from './BackgroundBloom';
 import { useGameContext } from './GameContext';
 
 export function AppShell() {
@@ -19,25 +20,16 @@ export function AppShell() {
           'radial-gradient(120% 80% at 50% -10%, #1e2b52 0%, #101833 42%, #070b16 100%)',
       }}
     >
-      {/* Soft colour bloom */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-1/4 h-64 opacity-45 blur-3xl"
-        style={{
-          background:
-            'radial-gradient(40% 60% at 25% 50%, rgba(56,189,248,0.35), transparent 70%),' +
-            'radial-gradient(40% 60% at 75% 50%, rgba(168,85,247,0.30), transparent 70%)',
-        }}
-      />
+      <BackgroundBloom />
 
       <header className="relative z-10 flex items-center gap-3 px-5 pt-3 pb-2">
-        <Link to="/" className="flex items-center gap-2" aria-label="Guadi Ballz home">
+        <Link to="/" className="flex items-center gap-2" aria-label="Gaudi Ballz home">
           <FlaskLogo className="h-8 w-auto text-slate-200" />
           <span
             className="text-lg font-bold tracking-tight text-white"
             style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
           >
-            Guadi Ballz
+            Gaudi Ballz
           </span>
         </Link>
 

@@ -384,7 +384,7 @@ export function GameScreen() {
             className="text-lg font-bold tracking-tight text-white"
             style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
           >
-            Guadi Ballz
+            Gaudi Ballz
           </span>
         </button>
         <div className="ml-auto">
@@ -417,7 +417,7 @@ export function GameScreen() {
           className="font-bold tracking-wide text-white/30"
           style={{ fontFamily: "'Fredoka', system-ui, sans-serif", fontSize: '4rem', lineHeight: 1 }}
         >
-          GUADI BALLZ
+          GAUDI BALLZ
         </span>
       </div>
 
