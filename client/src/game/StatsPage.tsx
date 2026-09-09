@@ -81,7 +81,7 @@ export function StatsPage() {
               <StatCard value={String(stats.highestLevel)} label="Highest Level" color="text-violet-400" sub={stats.comparisons?.['level']} icon="arrow" iconBg="bg-violet-400/12" />
               <StatCard value={String(stats.bestMoves)} label="Best Moves" color="text-sky-400" sub={stats.bestMovesLevel > 0 ? `Level ${stats.bestMovesLevel}` : undefined} icon="chart" iconBg="bg-sky-400/12" />
               <StatCard value={String(stats.currentStreak)} label="Day Streak" color="text-emerald-400" sub={`Best: ${stats.bestStreak} days`} icon="flame" iconBg="bg-emerald-400/12" />
-              <StatCard value={String(stats.globalRank)} label="Global Rank" color="text-slate-200" sub={stats.comparisons?.['rank']} icon="rank" iconBg="bg-white/6" />
+              <StatCard value={`#${stats.globalRank}`} label="Global Rank" color="text-slate-200" sub={stats.comparisons?.['rank']} icon="rank" iconBg="bg-white/6" />
             </div>
 
             {/* Level progress */}

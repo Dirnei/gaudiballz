@@ -375,7 +375,7 @@ export function GameScreen() {
       <header className="relative z-10 flex items-center gap-3 px-5 pt-3 pb-1">
         <button
           type="button"
-          aria-label="Back to menu"
+          aria-label="Gaudi Ballz home"
           onClick={() => navigate('/')}
           className="flex items-center gap-2"
         >

@@ -133,7 +133,7 @@ describe('when the save does not take', () => {
 
     fireEvent.click(screen.getByTestId('ball-6'));
 
-    expect(await screen.findByText(/didn’t save/i)).toBeInTheDocument();
+    expect(await screen.findByText(/didn't save/i)).toBeInTheDocument();
     expect(screen.getByTestId('ball-2')).toHaveAttribute('aria-pressed', 'true');
   });
 });
@@ -142,7 +142,7 @@ describe('with no unlock table', () => {
   it('says the server is unreachable rather than showing an empty grid', () => {
     render(<BallPicker unlocks={[]} highestCompleted={30} chosen={null} onChoose={vi.fn()} />);
 
-    expect(screen.getByText(/can’t reach the server/i)).toBeInTheDocument();
+    expect(screen.getByText(/can't reach the server/i)).toBeInTheDocument();
     expect(screen.queryByTestId('ball-1')).not.toBeInTheDocument();
   });
 });

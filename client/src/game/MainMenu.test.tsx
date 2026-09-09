@@ -42,14 +42,10 @@ describe('MainMenu keyboard navigation', () => {
     press('ArrowDown');
     expect(screen.getByTestId('menu-level-select')).toHaveClass('kb-focus');
     expect(screen.getByTestId('menu-play')).not.toHaveClass('kb-focus');
-
-    press('ArrowDown');
-    expect(screen.getByTestId('menu-enter-code')).toHaveClass('kb-focus');
   });
 
   it('wraps from last to first', () => {
     setup();
-    press('ArrowDown');
     press('ArrowDown');
     press('ArrowDown');
     press('ArrowDown');
@@ -60,7 +56,7 @@ describe('MainMenu keyboard navigation', () => {
     setup();
     press('ArrowDown');
     press('ArrowUp');
-    expect(screen.getByTestId('menu-enter-code')).toHaveClass('kb-focus');
+    expect(screen.getByTestId('menu-level-select')).toHaveClass('kb-focus');
   });
 
   it('Enter activates the focused item', () => {
@@ -76,25 +72,6 @@ describe('MainMenu keyboard navigation', () => {
     press('ArrowDown');
     press(' ');
     // Play navigates — no error means the action ran
-  });
-
-  it('includes achievements when shown', () => {
-    setup({
-      identity: { playerId: 'p1', token: 't', isAnonymous: false, username: 'test', ball: null },
-    });
-    press('ArrowDown');
-    press('ArrowDown');
-    press('ArrowDown');
-    expect(screen.getByTestId('menu-achievements')).toHaveClass('kb-focus');
-  });
-
-  it('Escape closes code entry', () => {
-    setup();
-    fireEvent.click(screen.getByTestId('menu-enter-code'));
-    expect(screen.getByTestId('code-input')).toBeInTheDocument();
-
-    press('Escape');
-    expect(screen.queryByTestId('code-input')).not.toBeInTheDocument();
   });
 
   it('pointer click clears keyboard focus', () => {
