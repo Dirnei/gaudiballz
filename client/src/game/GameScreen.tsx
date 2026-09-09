@@ -437,7 +437,7 @@ export function GameScreen() {
             <p className="mb-1 font-medium text-slate-200">Can&#39;t reach the level server</p>
             <p className="text-xs leading-relaxed">
               Start it with{' '}
-              <code className="text-slate-300">dotnet run --project src/Puzzle.Server</code>
+              <code className="text-slate-300">dotnet run --project src/GaudiBallz.Server</code>
             </p>
           </div>
         )}

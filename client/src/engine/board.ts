@@ -1,7 +1,7 @@
 /**
  * The board model.
  *
- * This is the browser half of a cross-language pair; the other half is `Puzzle.Rules` in
+ * This is the browser half of a cross-language pair; the other half is `GaudiBallz.Rules` in
  * C#. The `sort-puzzle-rules` capability spec is the arbiter between them, and the
  * fixtures in `conformance/v1/` hold them in step.
  *

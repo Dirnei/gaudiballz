@@ -85,7 +85,7 @@ jobs:
       # the TypeScript engine's recorded answers, and the client side checks the fixtures
       # generated from C#. Neither regenerates here — a behaviour change shows up as a
       # failure rather than a quietly rewritten fixture.
-      - run: dotnet test src/Puzzle.Rules.Tests -- --filter-trait "Category=Conformance"
+      - run: dotnet test src/GaudiBallz.Rules.Tests -- --filter-trait "Category=Conformance"
       - run: npm ci
         working-directory: client
       - run: npm run test:conformance

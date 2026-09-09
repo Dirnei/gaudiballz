@@ -18,14 +18,14 @@ WORKDIR /src
 
 # Restore before the source arrives, for the same reason.
 COPY global.json Directory.Build.props Directory.Packages.props gaudiballz.slnx ./
-COPY src/Puzzle.Rules/Puzzle.Rules.csproj              src/Puzzle.Rules/
-COPY src/Puzzle.Rules.Tests/Puzzle.Rules.Tests.csproj  src/Puzzle.Rules.Tests/
-COPY src/Puzzle.Server/Puzzle.Server.csproj            src/Puzzle.Server/
-COPY src/Puzzle.Server.Tests/Puzzle.Server.Tests.csproj src/Puzzle.Server.Tests/
-RUN dotnet restore src/Puzzle.Server/Puzzle.Server.csproj
+COPY src/GaudiBallz.Rules/GaudiBallz.Rules.csproj              src/GaudiBallz.Rules/
+COPY src/GaudiBallz.Rules.Tests/GaudiBallz.Rules.Tests.csproj  src/GaudiBallz.Rules.Tests/
+COPY src/GaudiBallz.Server/GaudiBallz.Server.csproj            src/GaudiBallz.Server/
+COPY src/GaudiBallz.Server.Tests/GaudiBallz.Server.Tests.csproj src/GaudiBallz.Server.Tests/
+RUN dotnet restore src/GaudiBallz.Server/GaudiBallz.Server.csproj
 
 COPY src/ ./src/
-RUN dotnet publish src/Puzzle.Server/Puzzle.Server.csproj \
+RUN dotnet publish src/GaudiBallz.Server/GaudiBallz.Server.csproj \
     -c Release -o /app --no-restore
 
 # ---------- runtime ----------
@@ -49,4 +49,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget -qO- http://localhost:8080/healthz || exit 1
 
-ENTRYPOINT ["dotnet", "Puzzle.Server.dll"]
+ENTRYPOINT ["dotnet", "GaudiBallz.Server.dll"]
