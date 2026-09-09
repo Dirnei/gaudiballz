@@ -52,3 +52,4 @@ client/.vitest/
 ## Throwaway checkouts for parallel work. A whole second copy of the tree lives here, so
 ## without this a `git add -A` at the root sweeps it all into a commit.
 .claude/worktrees/
+.claude/skills/
