@@ -17,7 +17,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS server
 WORKDIR /src
 
 # Restore before the source arrives, for the same reason.
-COPY global.json Directory.Build.props Directory.Packages.props puzzle.slnx ./
+COPY global.json Directory.Build.props Directory.Packages.props gaudiballz.slnx ./
 COPY src/Puzzle.Rules/Puzzle.Rules.csproj              src/Puzzle.Rules/
 COPY src/Puzzle.Rules.Tests/Puzzle.Rules.Tests.csproj  src/Puzzle.Rules.Tests/
 COPY src/Puzzle.Server/Puzzle.Server.csproj            src/Puzzle.Server/

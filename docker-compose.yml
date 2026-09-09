@@ -9,8 +9,8 @@ services:
   # the database is unavailable — only recording progress fails, and the client queues that.
   game:
     build: .
-    image: puzzle:local
-    container_name: puzzle
+    image: gaudiballz:local
+    container_name: gaudiballz
     ports:
       - "8123:8080"
     environment:
@@ -32,7 +32,7 @@ services:
   # deploying against a replica set means validating a topology nobody runs.
   mongo:
     image: mongo:8
-    container_name: puzzle-mongo
+    container_name: gaudiballz-mongo
     command: ["--replSet", "rs0", "--bind_ip_all"]
     volumes:
       - mongo-data:/data/db
