@@ -130,6 +130,44 @@ public sealed class DailyPlayDocument
 }
 
 /// <summary>
+/// One entry in the leaderboard materialized view. Upserted on each completion that changes
+/// the player's point total, so reads are a simple index scan.
+/// </summary>
+public sealed class LeaderboardDocument
+{
+    public string Id { get; set; } = string.Empty;
+    public string PlayerId { get; set; } = string.Empty;
+    public string? Username { get; set; }
+    public int TotalPoints { get; set; }
+    public int GamesPlayed { get; set; }
+    public int GamesWon { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// All-time entries have no period. Weekly/daily entries are keyed by a period string
+    /// like "2026-W37" or "2026-09-09".
+    /// </summary>
+    public string? Period { get; set; }
+
+    public static string AllTimeKey(string playerId) => playerId;
+    public static string PeriodKey(string playerId, string period) => $"{playerId}#{period}";
+}
+
+/// <summary>
+/// One event in the activity feed. Stored in a capped collection so old events are
+/// evicted automatically.
+/// </summary>
+public sealed class ActivityFeedDocument
+{
+    public ObjectId Id { get; set; }
+    public string PlayerId { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string EventType { get; set; } = string.Empty;
+    public string Detail { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; }
+}
+
+/// <summary>
 /// Registers class maps explicitly rather than relying on automatic mapping, which changes
 /// behaviour silently when a property is renamed or reordered.
 /// </summary>
@@ -193,6 +231,21 @@ public static class BsonRegistration
             {
                 map.AutoMap();
                 map.MapIdMember(d => d.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+            });
+
+            BsonClassMap.RegisterClassMap<LeaderboardDocument>(map =>
+            {
+                map.AutoMap();
+                map.MapIdMember(l => l.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+                map.GetMemberMap(l => l.Username).SetIgnoreIfNull(true);
+                map.GetMemberMap(l => l.Period).SetIgnoreIfNull(true);
+            });
+
+            BsonClassMap.RegisterClassMap<ActivityFeedDocument>(map =>
+            {
+                map.AutoMap();
                 map.SetIgnoreExtraElements(true);
             });
 

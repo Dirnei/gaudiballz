@@ -1,6 +1,7 @@
 using Akka.Actor;
 using Fido2NetLib;
 using Puzzle.Server.Achievements;
+using Puzzle.Server.Hub;
 using Puzzle.Server.Levels;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.PlayerIdentity;
@@ -54,6 +55,7 @@ ProgressionSlice.AddServices(builder.Services);
 LevelsSlice.AddServices(builder.Services);
 ProfileBallSlice.AddServices(builder.Services);
 AchievementsSlice.AddServices(builder.Services);
+HubSlice.AddServices(builder.Services);
 
 builder.Services.AddOutputCache();
 
@@ -81,6 +83,7 @@ ProgressionSlice.MapEndpoints(app);
 LevelsSlice.MapEndpoints(app);
 ProfileBallSlice.MapEndpoints(app);
 AchievementsSlice.MapEndpoints(app);
+HubSlice.MapEndpoints(app);
 
 // Anything that is not an API route or a real file is the SPA: the client owns its own
 // routing, so a deep link has to reach index.html rather than 404.

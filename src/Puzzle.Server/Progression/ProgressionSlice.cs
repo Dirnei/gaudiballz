@@ -2,6 +2,7 @@ using Akka.Actor;
 using Microsoft.Extensions.DependencyInjection;
 using Puzzle.Rules;
 using Puzzle.Server.Achievements;
+using Puzzle.Server.Hub;
 using Puzzle.Server.Levels;
 using Puzzle.Server.Persistence;
 using Puzzle.Server.PlayerIdentity;
@@ -49,7 +50,8 @@ public sealed class ProgressionSlice : ISlice
 
         group.MapPost("/completions",
             async (HttpContext http, CompletionRequest request, PlayerRegistry registry,
-                   PlayerTokens tokens, PuzzleStore store, AchievementRegistry achievements) =>
+                   PlayerTokens tokens, PuzzleStore store, AchievementRegistry achievements,
+                   PresenceTracker presence) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null)
@@ -111,6 +113,52 @@ public sealed class ProgressionSlice : ISlice
                     {
                         // Timeout — achievements still awarded asynchronously
                     }
+                }
+
+                // Hub: update leaderboard and activity feed (fire-and-forget, never blocks the response)
+                if (player is { IsAnonymous: false, Username: not null })
+                {
+                    var updatedProgress = snapshot.Progress;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await store.UpsertLeaderboardAsync(
+                                playerId, player.Username,
+                                updatedProgress.TotalPoints + replayBonus + timeBonus,
+                                updatedProgress.LevelsCompleted,
+                                updatedProgress.Levels.Values.Count(r => r.Stars > 0));
+
+                            if (attemptPoints > 0)
+                            {
+                                var weekPeriod = $"{DateTime.UtcNow.Year}-W{System.Globalization.CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(DateTime.UtcNow, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday):D2}";
+                                var dayPeriod = DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, weekPeriod, attemptPoints);
+                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, attemptPoints);
+                            }
+
+                            await store.RecordActivityAsync(playerId, player.Username, "level_clear",
+                                $"cleared Level {request.Level} in {request.Moves} moves");
+
+                            if (starDelta > 0 && !isReplay)
+                            {
+                                await store.RecordActivityAsync(playerId, player.Username, "new_record",
+                                    $"set a new record on Level {request.Level}");
+                            }
+
+                            foreach (var ach in newAchievements)
+                            {
+                                var name = ach.GetType().GetProperty("name")?.GetValue(ach)?.ToString() ?? "an achievement";
+                                await store.RecordActivityAsync(playerId, player.Username, "achievement",
+                                    $"earned {name}");
+                            }
+                        }
+                        catch
+                        {
+                            // Hub updates are best-effort; never fail a completion for them.
+                        }
+                    });
                 }
 
                 return Results.Ok(ShapeCompletion(

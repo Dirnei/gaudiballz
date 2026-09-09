@@ -25,6 +25,8 @@ public sealed class PuzzleStore
     private readonly IMongoCollection<ProgressDocument> _progress;
     private readonly IMongoCollection<AchievementDocument> _achievements;
     private readonly IMongoCollection<DailyPlayDocument> _dailyPlay;
+    private readonly IMongoCollection<LeaderboardDocument> _leaderboard;
+    private readonly IMongoDatabase _database;
 
     public PuzzleStore(MongoOptions options)
     {
@@ -39,7 +41,7 @@ public sealed class PuzzleStore
         settings.ConnectTimeout = TimeSpan.FromSeconds(2);
         settings.SocketTimeout = TimeSpan.FromSeconds(5);
 
-        var database = new MongoClient(settings).GetDatabase(options.Database);
+        _database = new MongoClient(settings).GetDatabase(options.Database);
 
         // Progress is what a player would notice losing, so it is written with majority
         // acknowledgement rather than fire-and-forget.
@@ -48,11 +50,12 @@ public sealed class PuzzleStore
             WriteConcern = WriteConcern.WMajority.With(journal: true),
         };
 
-        _players = database.GetCollection<PlayerDocument>("players", durable);
-        _credentials = database.GetCollection<CredentialDocument>("credentials", durable);
-        _progress = database.GetCollection<ProgressDocument>("progress", durable);
-        _achievements = database.GetCollection<AchievementDocument>("player_achievements", durable);
-        _dailyPlay = database.GetCollection<DailyPlayDocument>("daily_play", durable);
+        _players = _database.GetCollection<PlayerDocument>("players", durable);
+        _credentials = _database.GetCollection<CredentialDocument>("credentials", durable);
+        _progress = _database.GetCollection<ProgressDocument>("progress", durable);
+        _achievements = _database.GetCollection<AchievementDocument>("player_achievements", durable);
+        _dailyPlay = _database.GetCollection<DailyPlayDocument>("daily_play", durable);
+        _leaderboard = _database.GetCollection<LeaderboardDocument>("leaderboard", durable);
     }
 
     /// <summary>Idempotent: creating an index that already exists is a no-op.</summary>
@@ -82,6 +85,12 @@ public sealed class PuzzleStore
 
         // Progress, achievements and daily_play need no secondary index: their composite ids
         // serve the per-player range scan off the primary key.
+
+        await _leaderboard.Indexes.CreateOneAsync(
+            new CreateIndexModel<LeaderboardDocument>(
+                Builders<LeaderboardDocument>.IndexKeys.Descending(l => l.TotalPoints),
+                new CreateIndexOptions { Name = "leaderboard_by_points" }),
+            cancellationToken: token);
     }
 
     public async Task<PlayerDocument> CreateAnonymousPlayerAsync(
@@ -347,4 +356,184 @@ public sealed class PuzzleStore
                 Builders<DailyPlayDocument>.Filter.Gte(d => d.Id, $"{playerId}#"),
                 Builders<DailyPlayDocument>.Filter.Lt(d => d.Id, $"{playerId}$")))
             .ToListAsync(token);
+
+    // ---- leaderboard --------------------------------------------------------
+
+    public Task UpsertLeaderboardAsync(
+        string playerId, string? username, int totalPoints, int gamesPlayed, int gamesWon,
+        CancellationToken token = default)
+    {
+        var now = DateTime.UtcNow;
+
+        return _leaderboard.UpdateOneAsync(
+            l => l.Id == LeaderboardDocument.AllTimeKey(playerId),
+            Builders<LeaderboardDocument>.Update
+                .SetOnInsert(l => l.PlayerId, playerId)
+                .Set(l => l.Username, username)
+                .Set(l => l.TotalPoints, totalPoints)
+                .Set(l => l.GamesPlayed, gamesPlayed)
+                .Set(l => l.GamesWon, gamesWon)
+                .Set(l => l.UpdatedAt, now),
+            new UpdateOptions { IsUpsert = true },
+            token);
+    }
+
+    public Task UpsertPeriodLeaderboardAsync(
+        string playerId, string? username, string period, int periodPoints,
+        CancellationToken token = default)
+    {
+        var now = DateTime.UtcNow;
+
+        return _leaderboard.UpdateOneAsync(
+            l => l.Id == LeaderboardDocument.PeriodKey(playerId, period),
+            Builders<LeaderboardDocument>.Update
+                .SetOnInsert(l => l.PlayerId, playerId)
+                .Set(l => l.Username, username)
+                .Set(l => l.Period, period)
+                .Inc(l => l.TotalPoints, periodPoints)
+                .Inc(l => l.GamesPlayed, 1)
+                .Set(l => l.UpdatedAt, now),
+            new UpdateOptions { IsUpsert = true },
+            token);
+    }
+
+    public async Task<List<LeaderboardDocument>> QueryLeaderboardAsync(
+        string? period, int offset, int limit, CancellationToken token = default)
+    {
+        var filter = period is null
+            ? Builders<LeaderboardDocument>.Filter.Eq(l => l.Period, null)
+            : Builders<LeaderboardDocument>.Filter.Eq(l => l.Period, period);
+
+        return await _leaderboard
+            .Find(filter)
+            .SortByDescending(l => l.TotalPoints)
+            .Skip(offset)
+            .Limit(limit)
+            .ToListAsync(token);
+    }
+
+    public async Task<(int Rank, LeaderboardDocument? Entry)> GetPlayerRankAsync(
+        string playerId, string? period, CancellationToken token = default)
+    {
+        var id = period is null
+            ? LeaderboardDocument.AllTimeKey(playerId)
+            : LeaderboardDocument.PeriodKey(playerId, period);
+
+        var entry = await _leaderboard.Find(l => l.Id == id).FirstOrDefaultAsync(token);
+        if (entry is null)
+        {
+            return (0, null);
+        }
+
+        var periodFilter = period is null
+            ? Builders<LeaderboardDocument>.Filter.Eq(l => l.Period, null)
+            : Builders<LeaderboardDocument>.Filter.Eq(l => l.Period, period);
+
+        var rank = await _leaderboard.CountDocumentsAsync(
+            Builders<LeaderboardDocument>.Filter.And(
+                periodFilter,
+                Builders<LeaderboardDocument>.Filter.Gt(l => l.TotalPoints, entry.TotalPoints)),
+            cancellationToken: token);
+
+        return ((int)rank + 1, entry);
+    }
+
+    // ---- activity feed ------------------------------------------------------
+
+    public async Task EnsureActivityFeedCollectionAsync(CancellationToken token = default)
+    {
+        var collections = await _database.ListCollectionNamesAsync(cancellationToken: token);
+        var names = await collections.ToListAsync(token);
+
+        if (!names.Contains("activity_feed"))
+        {
+            await _database.CreateCollectionAsync(
+                "activity_feed",
+                new CreateCollectionOptions { Capped = true, MaxSize = 4 * 1024 * 1024, MaxDocuments = 5000 },
+                token);
+        }
+    }
+
+    public Task RecordActivityAsync(
+        string playerId, string username, string eventType, string detail,
+        CancellationToken token = default)
+    {
+        var collection = _database.GetCollection<ActivityFeedDocument>("activity_feed");
+        return collection.InsertOneAsync(new ActivityFeedDocument
+        {
+            PlayerId = playerId,
+            Username = username,
+            EventType = eventType,
+            Detail = detail,
+            Timestamp = DateTime.UtcNow,
+        }, cancellationToken: token);
+    }
+
+    public async Task<List<ActivityFeedDocument>> GetRecentActivityAsync(
+        int limit, CancellationToken token = default)
+    {
+        var collection = _database.GetCollection<ActivityFeedDocument>("activity_feed");
+        return await collection
+            .Find(Builders<ActivityFeedDocument>.Filter.Empty)
+            .SortByDescending(a => a.Id)
+            .Limit(limit)
+            .ToListAsync(token);
+    }
+
+    // ---- community stats ----------------------------------------------------
+
+    public async Task<long> CountSolvedTodayAsync(CancellationToken token = default)
+    {
+        var today = DateTime.UtcNow.Date;
+        var docs = await _dailyPlay
+            .Find(d => d.Date == today)
+            .ToListAsync(token);
+
+        return docs.Sum(d => (long)d.CompletionCount);
+    }
+
+    public async Task<long> CountActivePlayersThisWeekAsync(CancellationToken token = default)
+    {
+        var today = DateTime.UtcNow.Date;
+        var dayOfWeek = today.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)today.DayOfWeek - 1;
+        var monday = today.AddDays(-dayOfWeek);
+
+        var docs = await _dailyPlay
+            .Find(d => d.Date >= monday && d.Date <= today)
+            .ToListAsync(token);
+
+        return docs.Select(d => d.PlayerId).Distinct().Count();
+    }
+
+    // ---- leaderboard backfill -----------------------------------------------
+
+    public async Task BackfillLeaderboardAsync(CancellationToken token = default)
+    {
+        var existing = await _leaderboard.CountDocumentsAsync(
+            Builders<LeaderboardDocument>.Filter.Eq(l => l.Period, null),
+            cancellationToken: token);
+        if (existing > 0)
+        {
+            return;
+        }
+
+        var players = await _players
+            .Find(p => !p.IsAnonymous)
+            .ToListAsync(token);
+
+        foreach (var player in players)
+        {
+            var progress = await LoadProgressAsync(player.Id, token);
+            if (progress.Levels.Count == 0)
+            {
+                continue;
+            }
+
+            var gamesPlayed = progress.Levels.Count;
+            var gamesWon = progress.Levels.Values.Count(r => r.Stars >= 1);
+
+            await UpsertLeaderboardAsync(
+                player.Id, player.Username, progress.TotalPoints, gamesPlayed, gamesWon, token);
+        }
+    }
 }

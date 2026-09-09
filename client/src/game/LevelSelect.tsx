@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useGameContext } from './GameContext';
 import { PageLayout } from './PageLayout';
@@ -23,6 +23,23 @@ export function LevelSelect() {
   const navigate = useNavigate();
   const { levelId, levelCeiling, levelProgress: progress } = game;
   const totalPoints = game.progress?.totalPoints ?? 0;
+
+  const [levelCode, setLevelCode] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function handleCodeUnlock() {
+    setCodeError(null);
+    setBusy(true);
+    const result = await game.unlockWithCode(levelCode);
+    setBusy(false);
+    if (result === null) {
+      setCodeError('Invalid code.');
+    } else {
+      setLevelCode('');
+      navigate('/play');
+    }
+  }
 
   const previewEnd = Math.ceil((levelCeiling + 5) / 5) * 5;
   const totalTiles = Math.max(previewEnd, levelCeiling + 5);
@@ -166,6 +183,43 @@ export function LevelSelect() {
           );
         })}
       </div>
+
+      {/* Level code entry — always visible */}
+      <div className="mx-auto mt-6 flex max-w-xs items-center gap-2">
+        <input
+          value={levelCode}
+          onChange={(e) => { setLevelCode(e.target.value); setCodeError(null); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && levelCode.trim().length > 0 && !busy) void handleCodeUnlock();
+          }}
+          autoComplete="off"
+          spellCheck={false}
+          maxLength={6}
+          placeholder="Level code"
+          className="min-w-0 flex-1 rounded-2xl bg-slate-950/50 px-4 py-2.5 text-center font-mono text-sm uppercase tracking-widest text-slate-100 outline-none ring-1 ring-white/10 transition placeholder:text-slate-500 placeholder:tracking-normal placeholder:normal-case focus:ring-2 focus:ring-sky-400/70"
+          data-testid="code-input"
+        />
+        <button
+          type="button"
+          onClick={() => void handleCodeUnlock()}
+          disabled={busy || levelCode.trim().length === 0}
+          className="flex-shrink-0 rounded-2xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-colors hover:bg-sky-400 disabled:opacity-45"
+        >
+          {busy ? '...' : 'Unlock'}
+        </button>
+      </div>
+      <AnimatePresence>
+        {codeError !== null && (
+          <motion.p
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            className="mt-2 text-center text-xs text-rose-300"
+          >
+            {codeError}
+          </motion.p>
+        )}
+      </AnimatePresence>
     </PageLayout>
   );
 }

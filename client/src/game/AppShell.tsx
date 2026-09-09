@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { FlaskLogo } from './FlaskLogo';
 import { AccountBall } from './AccountBall';
 import { AccountPanel } from './AccountPanel';
 import { BackgroundBloom } from './BackgroundBloom';
 import { useGameContext } from './GameContext';
+import { useHeartbeat } from './useHeartbeat';
 
 export function AppShell() {
   const game = useGameContext();
+  useHeartbeat();
   const [accountOpen, setAccountOpen] = useState(false);
 
   return (
@@ -26,12 +28,35 @@ export function AppShell() {
         <Link to="/" className="flex items-center gap-2" aria-label="Gaudi Ballz home">
           <FlaskLogo className="h-8 w-auto text-slate-200" />
           <span
-            className="text-lg font-bold tracking-tight text-white"
+            className="hidden text-lg font-bold tracking-tight text-white sm:inline"
             style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
           >
             Gaudi Ballz
           </span>
         </Link>
+
+        <nav className="ml-4 flex gap-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+          {[
+            { to: '/', label: 'Home' },
+            { to: '/leaderboard', label: 'Leaderboard' },
+            { to: '/stats', label: 'Your Stats' },
+          ].map(({ to, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) =>
+                'whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition-colors ' +
+                (isActive
+                  ? 'bg-violet-500/15 text-violet-300'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-slate-200')
+              }
+              style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
 
         <div className="ml-auto">
           <button

@@ -8,6 +8,8 @@ import { AchievementsScreen } from './AchievementsScreen';
 import { GameScreen } from './GameScreen';
 import { Impressum } from './Impressum';
 import { Datenschutz } from './Datenschutz';
+import { LeaderboardPage } from './LeaderboardPage';
+import { StatsPage } from './StatsPage';
 
 export const routes: RouteObject[] = [
   {
@@ -16,6 +18,8 @@ export const routes: RouteObject[] = [
       { index: true, element: <MainMenu /> },
       { path: 'levels', element: <LevelSelect /> },
       { path: 'achievements', element: <AchievementsScreen /> },
+      { path: 'leaderboard', element: <LeaderboardPage /> },
+      { path: 'stats', element: <StatsPage /> },
       { path: 'impressum', element: <Impressum /> },
       { path: 'datenschutz', element: <Datenschutz /> },
     ],
