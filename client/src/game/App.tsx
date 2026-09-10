@@ -10,10 +10,12 @@ import { Impressum } from './Impressum';
 import { Datenschutz } from './Datenschutz';
 import { LeaderboardPage } from './LeaderboardPage';
 import { StatsPage } from './StatsPage';
+import { ErrorFallback } from './ErrorFallback';
 
 export const routes: RouteObject[] = [
   {
     element: <AppShell />,
+    errorElement: <ErrorFallback />,
     children: [
       { index: true, element: <MainMenu /> },
       { path: 'levels', element: <LevelSelect /> },
@@ -26,6 +28,7 @@ export const routes: RouteObject[] = [
   },
   {
     element: <ImmersiveLayout />,
+    errorElement: <ErrorFallback />,
     children: [
       { path: 'play', element: <GameScreen /> },
     ],
