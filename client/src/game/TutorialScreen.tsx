@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Tube } from './Tube';
@@ -11,11 +12,12 @@ import {
   createTutorialBoard,
   markTutorialSeen,
   startTutorial,
-  TUTORIAL_PROMPTS,
+  tutorialPrompt,
   type TutorialState,
 } from './tutorial';
 
 export function TutorialScreen() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [gameState, setGameState] = useState<GameState>(() => startGame(createTutorialBoard()));
   const [tutorial, setTutorial] = useState<TutorialState>(startTutorial);
@@ -77,7 +79,7 @@ export function TutorialScreen() {
             className="text-lg font-bold tracking-tight text-white"
             style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
           >
-            Tutorial
+            {t('tutorial.title')}
           </span>
         </div>
         <div className="ml-auto">
@@ -86,7 +88,7 @@ export function TutorialScreen() {
             onClick={skip}
             className="rounded-full bg-white/8 px-4 py-1.5 text-sm text-slate-400 ring-1 ring-white/10 transition-colors hover:bg-white/12 hover:text-slate-200"
           >
-            Skip
+            {t('tutorial.skip')}
           </button>
         </div>
       </header>
@@ -100,7 +102,7 @@ export function TutorialScreen() {
             className="mb-6 rounded-2xl bg-slate-800/90 px-5 py-3 text-center text-sm text-slate-200 shadow-xl ring-1 ring-white/10 backdrop-blur"
             data-testid="tutorial-prompt"
           >
-            {TUTORIAL_PROMPTS[tutorial.step]}
+            {tutorialPrompt(tutorial.step)}
           </motion.div>
         )}
 
@@ -148,8 +150,8 @@ export function TutorialScreen() {
               >
                 ✓
               </motion.div>
-              <p className="text-2xl font-bold tracking-tight">You got it!</p>
-              <p className="mt-2 text-sm text-slate-400">Now try a real puzzle.</p>
+              <p className="text-2xl font-bold tracking-tight">{t('tutorial.solvedTitle')}</p>
+              <p className="mt-2 text-sm text-slate-400">{t('tutorial.solvedBody')}</p>
               <motion.button
                 type="button"
                 whileTap={{ scale: 0.96 }}
@@ -157,7 +159,7 @@ export function TutorialScreen() {
                 className="mt-6 w-full rounded-2xl bg-sky-500 px-4 py-3.5 font-semibold text-white shadow-lg shadow-sky-500/30"
                 data-testid="tutorial-continue"
               >
-                Let's go!
+                {t('tutorial.letsGo')}
               </motion.button>
             </motion.div>
           </motion.div>

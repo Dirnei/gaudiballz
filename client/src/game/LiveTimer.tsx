@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 function formatTime(ms: number): string {
   const seconds = ms / 1000;
@@ -13,6 +14,7 @@ interface LiveTimerProps {
 }
 
 export function LiveTimer({ elapsedMs, running, className, timeTargetMs }: LiveTimerProps) {
+  const { t } = useTranslation();
   const spanRef = useRef<HTMLSpanElement>(null);
 
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
@@ -38,9 +40,9 @@ export function LiveTimer({ elapsedMs, running, className, timeTargetMs }: LiveT
     <span className={className}>
       <span ref={spanRef}>{formatTime(elapsedMs())}</span>
       {timeTargetMs != null && (
-        <span className="text-slate-400">s / {formatTime(timeTargetMs)}s</span>
+        <span className="text-slate-400">{t('timer.seconds')} {t('timer.target', { time: formatTime(timeTargetMs) })}</span>
       )}
-      {timeTargetMs == null && <span className="text-slate-400">s</span>}
+      {timeTargetMs == null && <span className="text-slate-400">{t('timer.seconds')}</span>}
     </span>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Tube } from './Tube';
@@ -20,15 +21,16 @@ function isComplete(tube: readonly number[], capacity: number): boolean {
   return tube.length === capacity && tube.every((colour) => colour === tube[0]);
 }
 
-function hintLabel(remaining: number, cooldownEnd: number | null, stuck: boolean): string {
+function hintLabel(remaining: number, cooldownEnd: number | null, stuck: boolean, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (remaining === 0) {
-    return 'No hints left this attempt';
+    return t('game.hintNoHints');
   }
-  const action = stuck ? 'Take back a move' : 'Show me a move';
+  const action = stuck ? t('game.hintTakeBack') : t('game.hintShowMove');
+  const left = t('game.hintRemaining', { count: remaining });
   if (cooldownEnd !== null) {
-    return `${action}, ${remaining} left — available shortly`;
+    return `${action}, ${left} — ${t('game.hintAvailableShortly')}`;
   }
-  return `${action}, ${remaining} left`;
+  return `${action}, ${left}`;
 }
 
 function CooldownSweep({ end, duration }: { end: number; duration: number }) {
@@ -136,6 +138,7 @@ function fallbackCopy(text: string): Promise<void> {
 }
 
 function LevelBadge({ levelId, code }: { levelId: number; code: string | null }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   function copy() {
@@ -152,7 +155,7 @@ function LevelBadge({ levelId, code }: { levelId: number; code: string | null })
       onClick={copy}
       className="group flex items-center gap-2.5 rounded-full bg-white/8 py-1.5 pl-3.5 pr-3 ring-1 ring-white/10"
     >
-      <span className="text-sm font-semibold">Level {levelId}</span>
+      <span className="text-sm font-semibold">{t('game.level', { id: levelId })}</span>
       {code !== null && (
         <span className="rounded-md bg-white/6 px-1.5 py-0.5 font-mono text-[0.65rem] tracking-widest text-slate-400 transition-colors group-active:bg-sky-500/20 group-active:text-sky-300">
           {copied ? '✓' : code}
@@ -163,6 +166,7 @@ function LevelBadge({ levelId, code }: { levelId: number; code: string | null })
 }
 
 export function GameScreen() {
+  const { t } = useTranslation();
   const game = useGameContext();
   const navigate = useNavigate();
   const completedCount = useRef(0);
@@ -451,7 +455,7 @@ export function GameScreen() {
       <header className="relative z-10 flex items-center gap-3 px-5 pt-3 pb-1">
         <button
           type="button"
-          aria-label="Gaudi Ballz home"
+          aria-label={t('brand.homeLabel')}
           onClick={() => navigate('/')}
           className="flex items-center gap-2"
         >
@@ -468,8 +472,8 @@ export function GameScreen() {
             type="button"
             aria-label={
               game.identity !== null && !game.identity.isAnonymous
-                ? `Logged in as ${game.identity.username ?? 'your account'}`
-                : 'Not logged in — log in or register'
+                ? t('account.loggedInAs', { username: game.identity.username ?? t('account.yourAccount') })
+                : t('account.notLoggedIn')
             }
             onClick={() => {
               setAccountOpen(true);
@@ -481,8 +485,8 @@ export function GameScreen() {
             <AccountBall identity={game.identity} />
             <span className="max-w-[7rem] truncate">
               {game.identity !== null && !game.identity.isAnonymous
-                ? (game.identity.username ?? 'Account')
-                : 'Log in'}
+                ? (game.identity.username ?? t('account.fallback'))
+                : t('account.logIn')}
             </span>
           </button>
         </div>
@@ -504,15 +508,15 @@ export function GameScreen() {
             transition={{ duration: 1.4, repeat: Infinity }}
             className="text-sm text-slate-400"
           >
-            Loading level...
+            {t('game.loading')}
           </motion.div>
         )}
 
         {game.load === 'error' && (
           <div className="max-w-xs text-center text-sm text-slate-400">
-            <p className="mb-1 font-medium text-slate-200">Can&#39;t reach the level server</p>
+            <p className="mb-1 font-medium text-slate-200">{t('game.cantReach')}</p>
             <p className="text-xs leading-relaxed">
-              Start it with{' '}
+              {t('game.startWith')}{' '}
               <code className="text-slate-300">dotnet run --project src/GaudiBallz.Server</code>
             </p>
           </div>
@@ -573,8 +577,8 @@ export function GameScreen() {
 
       <footer className="relative flex items-center justify-center gap-3 px-5 pb-5 pt-2">
         <ControlButton
-          label="Back to menu"
-          text="Home"
+          label={t('nav.backToMenu')}
+          text={t('game.home')}
           onClick={() => navigate('/')}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -582,8 +586,8 @@ export function GameScreen() {
           </svg>
         </ControlButton>
         <ControlButton
-          label={`Undo last move, ${game.undosRemaining} left`}
-          text="Undo"
+          label={t('game.undoLabel', { count: game.undosRemaining })}
+          text={t('game.undo')}
           onClick={game.undo}
           disabled={!game.canUndo}
           badge={game.undosRemaining}
@@ -597,8 +601,8 @@ export function GameScreen() {
             <CooldownSweep key={game.hintCooldownEnd} end={game.hintCooldownEnd} duration={HINT_COOLDOWN_MS} />
           )}
           <ControlButton
-            label={hintLabel(game.hintsRemaining, game.hintCooldownEnd, game.stuck)}
-            text="Hint"
+            label={hintLabel(game.hintsRemaining, game.hintCooldownEnd, game.stuck, t)}
+            text={t('game.hint')}
             onClick={() => { haptics.move(); game.useHint(); }}
             disabled={!game.canHint}
             badge={game.hintsRemaining}
@@ -609,8 +613,8 @@ export function GameScreen() {
           </ControlButton>
         </span>
         <ControlButton
-          label="Restart level"
-          text="Restart"
+          label={t('game.restartLabel')}
+          text={t('game.restart')}
           onClick={() => setConfirmingReset(true)}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -638,8 +642,8 @@ export function GameScreen() {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-[19rem] rounded-3xl bg-slate-800/95 p-6 text-center shadow-2xl ring-1 ring-white/10"
             >
-              <p className="text-lg font-semibold">Restart this level?</p>
-              <p className="mt-1 text-sm text-slate-400">You get your undos back.</p>
+              <p className="text-lg font-semibold">{t('game.restartTitle')}</p>
+              <p className="mt-1 text-sm text-slate-400">{t('game.restartBody')}</p>
               <button
                 type="button"
                 onClick={() => {
@@ -648,14 +652,14 @@ export function GameScreen() {
                 }}
                 className="mt-5 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/25"
               >
-                Restart
+                {t('game.restartConfirm')}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingReset(false)}
                 className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400"
               >
-                Cancel
+                {t('game.restartCancel')}
               </button>
             </motion.div>
           </motion.div>
@@ -673,21 +677,21 @@ export function GameScreen() {
             className="absolute inset-x-0 bottom-24 z-20 flex justify-center px-5"
           >
             <div className="flex items-center gap-3 rounded-2xl bg-amber-500/12 px-4 py-3 text-sm ring-1 ring-amber-400/30 backdrop-blur">
-              <span className="text-amber-200">No moves left.</span>
+              <span className="text-amber-200">{t('game.stuckNoMoves')}</span>
               <button
                 type="button"
                 onClick={game.undo}
                 disabled={!game.canUndo}
                 className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-100 disabled:opacity-40"
               >
-                Undo
+                {t('game.undo')}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmingReset(true)}
                 className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-100"
               >
-                Restart
+                {t('game.restart')}
               </button>
             </div>
           </motion.div>
@@ -740,7 +744,7 @@ export function GameScreen() {
                 ✓
               </motion.div>
 
-              <p className="text-2xl font-bold tracking-tight">Solved</p>
+              <p className="text-2xl font-bold tracking-tight">{t('game.solved')}</p>
 
               {game.attemptStars > 0 && (() => {
                 const bonus = game.replayBonus + game.timeBonus;
@@ -760,21 +764,21 @@ export function GameScreen() {
                         </span>
                       ))}
                       <span className="ml-2 text-sm font-medium text-amber-400">
-                        {game.attemptPoints} pts
+                        {t('game.points', { points: game.attemptPoints })}
                       </span>
                     </div>
 
                     {totalEarned > 0 && (
                       <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
-                        {game.starDelta > 0 && <span className="text-amber-400/80">+{game.starDelta} star upgrade</span>}
-                        {game.timeBonus > 0 && <span className="text-amber-400/80">+{game.timeBonus} best time</span>}
-                        {game.replayBonus > 0 && <span>+{game.replayBonus} replay</span>}
+                        {game.starDelta > 0 && <span className="text-amber-400/80">{t('game.starUpgrade', { points: game.starDelta })}</span>}
+                        {game.timeBonus > 0 && <span className="text-amber-400/80">{t('game.bestTime', { points: game.timeBonus })}</span>}
+                        {game.replayBonus > 0 && <span>{t('game.replay', { points: game.replayBonus })}</span>}
                       </div>
                     )}
 
                     {bestStars > 0 && bestStars > game.attemptStars && (
                       <p className="mt-1 text-xs text-slate-500">
-                        Best: {'★'.repeat(bestStars)}{'☆'.repeat(3 - bestStars)}
+                        {t('game.bestStars')} {'★'.repeat(bestStars)}{'☆'.repeat(3 - bestStars)}
                       </p>
                     )}
                   </>
@@ -782,10 +786,10 @@ export function GameScreen() {
               })()}
 
               <p className="mt-1 text-sm text-slate-400">
-                {game.moveCount} moves
-                {par > 0 && game.moveCount <= par && ' · under par'}
+                {t('game.moves', { count: game.moveCount })}
+                {par > 0 && game.moveCount <= par && ` · ${t('game.underPar')}`}
                 {game.hintsUsed > 0 &&
-                  ` · ${game.hintsUsed} hint${game.hintsUsed === 1 ? '' : 's'}`}
+                  ` · ${t('game.hints', { count: game.hintsUsed })}`}
               </p>
               <p className="mt-0.5 text-sm tabular-nums text-slate-400">
                 {formatTime(game.elapsed.elapsedMs())}s
@@ -800,14 +804,14 @@ export function GameScreen() {
                 onClick={() => game.goToLevel(game.levelId + 1)}
                 className="mt-6 w-full rounded-2xl bg-sky-500 px-4 py-3.5 font-semibold text-white shadow-lg shadow-sky-500/30"
               >
-                Next level
+                {t('game.nextLevel')}
               </motion.button>
               <button
                 type="button"
                 onClick={game.restart}
                 className="mt-2 w-full rounded-2xl px-4 py-2.5 text-sm text-slate-400"
               >
-                Play again
+                {t('game.playAgain')}
               </button>
             </motion.div>
           </motion.div>

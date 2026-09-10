@@ -1,0 +1,226 @@
+{
+  "brand": {
+    "name": "Gaudi Ballz",
+    "tagline": "Sortiere die Farben. Räum das Brett ab.",
+    "homeLabel": "Gaudi Ballz Startseite"
+  },
+  "nav": {
+    "home": "Startseite",
+    "leaderboard": "Bestenliste",
+    "yourStats": "Deine Statistik",
+    "backToMenu": "Zurück zum Menü"
+  },
+  "footer": {
+    "impressum": "Impressum",
+    "datenschutz": "Datenschutz",
+    "kofi": "Ko-fi"
+  },
+  "account": {
+    "loggedInAs": "Angemeldet als {{username}}",
+    "yourAccount": "dein Konto",
+    "notLoggedIn": "Nicht angemeldet — anmelden oder registrieren",
+    "fallback": "Konto",
+    "logIn": "Anmelden",
+    "logOut": "Abmelden",
+    "register": "Registrieren",
+    "createAccount": "Konto erstellen",
+    "pickAName": "Wähle einen Namen",
+    "notLoggedInTitle": "Nicht angemeldet",
+    "usernamePlaceholder": "Benutzername",
+    "waitingForDevice": "Warte auf dein Gerät…",
+    "back": "Zurück",
+    "yourBall": "Deine Kugel",
+    "error": {
+      "nameCantBeUsed": "Dieser Name kann nicht verwendet werden.",
+      "nameTaken": "Dieser Name wurde gerade vergeben.",
+      "didntComplete": "Das hat nicht geklappt.",
+      "passkeyNotLinked": "Dieser Passkey ist hier mit keinem Konto verknüpft.",
+      "couldNotCheck": "Der Name konnte gerade nicht geprüft werden."
+    }
+  },
+  "passkey": {
+    "unsupported": "Dieser Browser unterstützt keine Passkeys, es gibt hier also nichts einzurichten.",
+    "insecureContext": "Passkeys brauchen eine sichere Verbindung. Das funktioniert auf dem Computer, auf dem das Spiel läuft, aber nicht über eine einfache Netzwerkadresse."
+  },
+  "menu": {
+    "play": "Spielen",
+    "levelSelect": "Levelauswahl",
+    "points": "★ {{points}} Pkt.",
+    "supportOnKofi": "Unterstütze auf Ko-fi"
+  },
+  "game": {
+    "loading": "Level wird geladen…",
+    "cantReach": "Levelserver nicht erreichbar",
+    "startWith": "Starte mit",
+    "level": "Level {{id}}",
+    "home": "Menü",
+    "undo": "Zurück",
+    "hint": "Tipp",
+    "restart": "Neustart",
+    "undoLabel": "Letzten Zug rückgängig, {{count}} übrig",
+    "restartLabel": "Level neu starten",
+    "hintNoHints": "Keine Tipps mehr in diesem Versuch",
+    "hintShowMove": "Zeig mir einen Zug",
+    "hintTakeBack": "Nimm einen Zug zurück",
+    "hintAvailableShortly": "gleich verfügbar",
+    "hintRemaining": "{{count}} übrig",
+    "restartTitle": "Dieses Level neu starten?",
+    "restartBody": "Deine Rückgängig-Züge werden zurückgesetzt.",
+    "restartConfirm": "Neustart",
+    "restartCancel": "Abbrechen",
+    "stuckNoMoves": "Keine Züge mehr.",
+    "solved": "Gelöst",
+    "points": "{{points}} Pkt.",
+    "starUpgrade": "+{{points}} Sternaufwertung",
+    "bestTime": "+{{points}} Bestzeit",
+    "replay": "+{{points}} Wiederholung",
+    "bestStars": "Bester:",
+    "moves_one": "{{count}} Zug",
+    "moves_other": "{{count}} Züge",
+    "underPar": "unter Par",
+    "hints_one": "{{count}} Tipp",
+    "hints_other": "{{count}} Tipps",
+    "nextLevel": "Nächstes Level",
+    "playAgain": "Nochmal spielen"
+  },
+  "tutorial": {
+    "title": "Anleitung",
+    "skip": "Überspringen",
+    "pickSource": "Tippe auf ein Röhrchen, um die Kugeln oben aufzunehmen",
+    "pickTarget": "Tippe jetzt auf ein anderes Röhrchen, um sie hineinzuschütten",
+    "freePlay": "Sortiere alle Farben, um zu gewinnen!",
+    "solvedTitle": "Geschafft!",
+    "solvedBody": "Jetzt probier ein echtes Rätsel.",
+    "letsGo": "Los geht's!"
+  },
+  "tube": {
+    "label": "Röhrchen mit {{count}} von {{capacity}}",
+    "complete": ", vollständig"
+  },
+  "timer": {
+    "seconds": "s",
+    "target": "/ {{time}}s"
+  },
+  "levels": {
+    "title": "Levelauswahl",
+    "codePlaceholder": "Level-Code",
+    "unlock": "Freischalten",
+    "invalidCode": "Ungültiger Code."
+  },
+  "ballPicker": {
+    "cantReach": "Server nicht erreichbar, daher gibt es gerade nichts zur Auswahl.",
+    "firstLocked": "Schließe Level {{level}} ab, um deine ersten Kugeln freizuschalten.",
+    "earnedHint": "Die abgedunkelten zeigen das Level, ab dem sie verfügbar sind.",
+    "saveFailed": "Speichern fehlgeschlagen. Deine Kugel ist unverändert.",
+    "unlocksAt": "{{name}} — wird bei Level {{level}} freigeschaltet"
+  },
+  "achievements": {
+    "title": "Erfolge",
+    "forRegistered": "Erfolge sind für registrierte Spieler",
+    "createToEarn": "Erstelle ein Konto, um Erfolge zu sammeln und deinen Fortschritt zu verfolgen.",
+    "loading": "Erfolge werden geladen…",
+    "overallProgress": "Gesamtfortschritt",
+    "unlocked": "Erfolg freigeschaltet",
+    "category": {
+      "milestone": "Meilensteine",
+      "perfection": "Perfektion",
+      "streak": "Serien",
+      "calendar": "Kalender",
+      "exploration": "Erkundung"
+    }
+  },
+  "leaderboard": {
+    "title": "Bestenliste",
+    "allTime": "Gesamt",
+    "thisWeek": "Diese Woche",
+    "today": "Heute",
+    "rank": "Rang",
+    "player": "Spieler",
+    "points": "Punkte",
+    "games": "Spiele",
+    "winRate": "Siegquote",
+    "you": "(du)",
+    "loading": "Bestenliste wird geladen…",
+    "empty": "Noch keine Daten für diesen Zeitraum.",
+    "yourRank": "Dein Rang: #{{rank}}",
+    "pts": "{{points}} Pkt.",
+    "winPct": "{{pct}} % Sieg"
+  },
+  "stats": {
+    "title": "Deine Statistik",
+    "registerPrompt": "Registriere ein Konto, um deine Statistiken zu verfolgen und in der Bestenliste mitzumachen.",
+    "loading": "Statistik wird geladen…",
+    "totalPoints": "Gesamtpunkte",
+    "gamesPlayed": "Spiele gespielt",
+    "highestLevel": "Höchstes Level",
+    "bestMoves": "Beste Züge",
+    "dayStreak": "Tagessträhne",
+    "globalRank": "Weltrang",
+    "currentLevel": "Aktuelles Level",
+    "wonAndRate": "{{won}} gewonnen · {{rate}} % Siegquote",
+    "levelN": "Level {{level}}",
+    "bestDays": "Bester: {{days}} Tage",
+    "levelProgress": "Levelfortschritt",
+    "levelsCompleted": "{{completed}} von {{total}} Levels abgeschlossen"
+  },
+  "community": {
+    "playingNow": "{{count}} spielen gerade",
+    "solvedToday": "{{count}} Rätsel heute gelöst",
+    "playersThisWeek": "{{count}} Spieler diese Woche"
+  },
+  "recentGames": {
+    "title": "Letzte Spiele",
+    "won": "Sieg",
+    "lost": "Niederlage",
+    "level": "Level {{level}}",
+    "moves": "{{count}} Züge",
+    "points": "{{points}} Pkt."
+  },
+  "activityFeed": {
+    "title": "Aktivitäten",
+    "levelCleared": "hat Level {{level}} in {{moves}} Zügen gelöst",
+    "newRecord": "hat einen neuen Rekord auf Level {{level}} aufgestellt",
+    "achievementEarned": "hat {{name}} erreicht"
+  },
+  "chapterNote": {
+    "spare-tube": "Ab hier ein Röhrchen weniger — aber die Röhrchen sind tiefer.",
+    "shorter-tubes": "Kürzere Röhrchen. Kein Platz mehr zum Atmen.",
+    "new-colour": "Eine neue Farbe kommt dazu — {{colours}} zu sortieren."
+  },
+  "validationError": {
+    "username-too-short": "Ein Name braucht mindestens 3 Zeichen.",
+    "username-too-long": "Ein Name darf höchstens 20 Zeichen haben.",
+    "username-invalid-chars": "Verwende Buchstaben, Zahlen, Bindestriche oder Unterstriche.",
+    "username-taken": "Dieser Name ist vergeben.",
+    "invalid-level-code": "Ungültiger Level-Code."
+  },
+  "achievement": {
+    "milestone-1": { "name": "Erste Schritte", "description": "Schließe 1 Level ab" },
+    "milestone-5": { "name": "Los geht's", "description": "Schließe 5 Levels ab" },
+    "milestone-10": { "name": "Zweistellig", "description": "Schließe 10 Levels ab" },
+    "milestone-25": { "name": "Auf halbem Weg", "description": "Schließe 25 Levels ab" },
+    "milestone-50": { "name": "Halbes Hundert", "description": "Schließe 50 Levels ab" },
+    "milestone-100": { "name": "Jahrhundert", "description": "Schließe 100 Levels ab" },
+    "milestone-150": { "name": "Veteran", "description": "Schließe 150 Levels ab" },
+    "under-par": { "name": "Unter Par", "description": "Schließe ein Level mit oder unter Par ab" },
+    "no-hint-10": { "name": "Makellose Zehn", "description": "Schließe 10 Levels ohne Tipps ab" },
+    "no-hint-25": { "name": "Keine Hilfe nötig", "description": "Schließe 25 Levels ohne Tipps ab" },
+    "purist-40": { "name": "Purist", "description": "Schließe 40 Levels ohne Tipps oder Rückgängig ab" },
+    "speed-demon": { "name": "Tempobolzen", "description": "Schließe 5 Levels mit oder unter Par ab" },
+    "streak-2": { "name": "Zwei-Tage-Serie", "description": "Spiele an 2 aufeinanderfolgenden Tagen" },
+    "streak-7": { "name": "Wochenkrieger", "description": "Spiele an 7 aufeinanderfolgenden Tagen" },
+    "streak-14": { "name": "Zwei Wochen", "description": "Spiele an 14 aufeinanderfolgenden Tagen" },
+    "streak-30": { "name": "Monatliche Hingabe", "description": "Spiele an 30 aufeinanderfolgenden Tagen" },
+    "full-week": { "name": "Volle Woche", "description": "Schließe an jedem Tag einer Kalenderwoche mindestens ein Level ab" },
+    "restart-complete": { "name": "Neustart-Ausdauer", "description": "Starte ein Level neu und schließe es dann ab" },
+    "all-hints-used": { "name": "Tipps-Lehrling", "description": "Verwende alle Tipps in einem Level und schließe es trotzdem ab" },
+    "deep-diver": { "name": "Tiefseetaucher", "description": "Schließe ein Level mit 6 oder mehr Farben ab" },
+    "marathon": { "name": "Marathon", "description": "Schließe 10 Levels in einer Sitzung ab" }
+  },
+  "error": {
+    "title": "Etwas ist schiefgelaufen",
+    "body": "Ein unerwarteter Fehler ist aufgetreten. Keine Sorge — dein Fortschritt ist sicher.",
+    "backToMenu": "Zurück zum Menü",
+    "details": "Fehlerdetails (nur Entwicklung)"
+  }
+}

@@ -165,13 +165,24 @@ public sealed class HubSlice : ISlice
                 events = [];
             }
 
-            return Results.Ok(events.Select(e => new
-            {
-                username = e.Username,
-                eventType = e.EventType,
-                detail = e.Detail,
-                timestamp = e.Timestamp,
-            }));
+            return Results.Ok(events.Select(e => e.Kind is not null
+                ? (object)new
+                {
+                    username = e.Username,
+                    eventType = e.EventType,
+                    kind = e.Kind,
+                    @params = e.Params,
+                    detail = e.Detail,
+                    timestamp = e.Timestamp,
+                }
+                : new
+                {
+                    username = e.Username,
+                    eventType = e.EventType,
+                    kind = "legacy",
+                    text = e.Detail,
+                    timestamp = e.Timestamp,
+                }));
         });
 
         group.MapPost("/heartbeat", (

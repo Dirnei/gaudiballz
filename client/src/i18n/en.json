@@ -1,0 +1,226 @@
+{
+  "brand": {
+    "name": "Gaudi Ballz",
+    "tagline": "Sort the colours. Clear the board.",
+    "homeLabel": "Gaudi Ballz home"
+  },
+  "nav": {
+    "home": "Home",
+    "leaderboard": "Leaderboard",
+    "yourStats": "Your Stats",
+    "backToMenu": "Back to menu"
+  },
+  "footer": {
+    "impressum": "Impressum",
+    "datenschutz": "Datenschutz",
+    "kofi": "Ko-fi"
+  },
+  "account": {
+    "loggedInAs": "Logged in as {{username}}",
+    "yourAccount": "your account",
+    "notLoggedIn": "Not logged in — log in or register",
+    "fallback": "Account",
+    "logIn": "Log in",
+    "logOut": "Log out",
+    "register": "Register",
+    "createAccount": "Create account",
+    "pickAName": "Pick a name",
+    "notLoggedInTitle": "Not logged in",
+    "usernamePlaceholder": "Username",
+    "waitingForDevice": "Waiting for your device…",
+    "back": "Back",
+    "yourBall": "Your ball",
+    "error": {
+      "nameCantBeUsed": "That name can't be used.",
+      "nameTaken": "Someone just took that name.",
+      "didntComplete": "That didn't complete.",
+      "passkeyNotLinked": "That passkey isn't linked to an account here.",
+      "couldNotCheck": "Could not check that name just now."
+    }
+  },
+  "passkey": {
+    "unsupported": "This browser can't do passkeys, so there's nothing to set up here.",
+    "insecureContext": "Passkeys need a secure connection. This works on the computer running the game, but not over a plain network address."
+  },
+  "menu": {
+    "play": "Play",
+    "levelSelect": "Level Select",
+    "points": "★ {{points}} pts",
+    "supportOnKofi": "Support on Ko-fi"
+  },
+  "game": {
+    "loading": "Loading level...",
+    "cantReach": "Can't reach the level server",
+    "startWith": "Start it with",
+    "level": "Level {{id}}",
+    "home": "Home",
+    "undo": "Undo",
+    "hint": "Hint",
+    "restart": "Restart",
+    "undoLabel": "Undo last move, {{count}} left",
+    "restartLabel": "Restart level",
+    "hintNoHints": "No hints left this attempt",
+    "hintShowMove": "Show me a move",
+    "hintTakeBack": "Take back a move",
+    "hintAvailableShortly": "available shortly",
+    "hintRemaining": "{{count}} left",
+    "restartTitle": "Restart this level?",
+    "restartBody": "You get your undos back.",
+    "restartConfirm": "Restart",
+    "restartCancel": "Cancel",
+    "stuckNoMoves": "No moves left.",
+    "solved": "Solved",
+    "points": "{{points}} pts",
+    "starUpgrade": "+{{points}} star upgrade",
+    "bestTime": "+{{points}} best time",
+    "replay": "+{{points}} replay",
+    "bestStars": "Best:",
+    "moves_one": "{{count}} move",
+    "moves_other": "{{count}} moves",
+    "underPar": "under par",
+    "hints_one": "{{count}} hint",
+    "hints_other": "{{count}} hints",
+    "nextLevel": "Next level",
+    "playAgain": "Play again"
+  },
+  "tutorial": {
+    "title": "Tutorial",
+    "skip": "Skip",
+    "pickSource": "Tap a tube to pick up the balls on top",
+    "pickTarget": "Now tap another tube to pour them in",
+    "freePlay": "Sort all the colours to win!",
+    "solvedTitle": "You got it!",
+    "solvedBody": "Now try a real puzzle.",
+    "letsGo": "Let's go!"
+  },
+  "tube": {
+    "label": "Tube holding {{count}} of {{capacity}}",
+    "complete": ", complete"
+  },
+  "timer": {
+    "seconds": "s",
+    "target": "/ {{time}}s"
+  },
+  "levels": {
+    "title": "Level Select",
+    "codePlaceholder": "Level code",
+    "unlock": "Unlock",
+    "invalidCode": "Invalid code."
+  },
+  "ballPicker": {
+    "cantReach": "Can't reach the server, so there's nothing to choose from right now.",
+    "firstLocked": "Finish level {{level}} to earn your first balls.",
+    "earnedHint": "The dimmed ones show the level that earns them.",
+    "saveFailed": "That didn't save. Your ball is unchanged.",
+    "unlocksAt": "{{name}} — unlocks at level {{level}}"
+  },
+  "achievements": {
+    "title": "Achievements",
+    "forRegistered": "Achievements are for registered players",
+    "createToEarn": "Create an account to start earning achievements and track your progress.",
+    "loading": "Loading achievements...",
+    "overallProgress": "Overall progress",
+    "unlocked": "Achievement unlocked",
+    "category": {
+      "milestone": "Milestones",
+      "perfection": "Perfection",
+      "streak": "Streaks",
+      "calendar": "Calendar",
+      "exploration": "Exploration"
+    }
+  },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "allTime": "All Time",
+    "thisWeek": "This Week",
+    "today": "Today",
+    "rank": "Rank",
+    "player": "Player",
+    "points": "Points",
+    "games": "Games",
+    "winRate": "Win Rate",
+    "you": "(you)",
+    "loading": "Loading leaderboard...",
+    "empty": "No leaderboard data for this period yet.",
+    "yourRank": "Your rank: #{{rank}}",
+    "pts": "{{points}} pts",
+    "winPct": "{{pct}}% win"
+  },
+  "stats": {
+    "title": "Your Stats",
+    "registerPrompt": "Register an account to track your statistics and compete on the leaderboard.",
+    "loading": "Loading stats...",
+    "totalPoints": "Total Points",
+    "gamesPlayed": "Games Played",
+    "highestLevel": "Highest Level",
+    "bestMoves": "Best Moves",
+    "dayStreak": "Day Streak",
+    "globalRank": "Global Rank",
+    "currentLevel": "Current Level",
+    "wonAndRate": "{{won}} won · {{rate}}% win rate",
+    "levelN": "Level {{level}}",
+    "bestDays": "Best: {{days}} days",
+    "levelProgress": "Level Progress",
+    "levelsCompleted": "{{completed}} of {{total}} levels completed"
+  },
+  "community": {
+    "playingNow": "{{count}} playing now",
+    "solvedToday": "{{count}} puzzles solved today",
+    "playersThisWeek": "{{count}} players this week"
+  },
+  "recentGames": {
+    "title": "Recent Games",
+    "won": "Won",
+    "lost": "Lost",
+    "level": "Level {{level}}",
+    "moves": "{{count}} moves",
+    "points": "{{points}} pts"
+  },
+  "activityFeed": {
+    "title": "Live Activity",
+    "levelCleared": "cleared Level {{level}} in {{moves}} moves",
+    "newRecord": "set a new record on Level {{level}}",
+    "achievementEarned": "earned {{name}}"
+  },
+  "chapterNote": {
+    "spare-tube": "One spare tube from here — but the tubes are deeper.",
+    "shorter-tubes": "Shorter tubes. No more room to breathe.",
+    "new-colour": "A new colour joins — {{colours}} to sort."
+  },
+  "validationError": {
+    "username-too-short": "A name needs at least 3 characters.",
+    "username-too-long": "A name can be at most 20 characters.",
+    "username-invalid-chars": "Use letters, numbers, hyphens or underscores.",
+    "username-taken": "That name is taken.",
+    "invalid-level-code": "Invalid level code."
+  },
+  "achievement": {
+    "milestone-1": { "name": "First Steps", "description": "Complete 1 level" },
+    "milestone-5": { "name": "Getting Started", "description": "Complete 5 levels" },
+    "milestone-10": { "name": "Double Digits", "description": "Complete 10 levels" },
+    "milestone-25": { "name": "Halfway There", "description": "Complete 25 levels" },
+    "milestone-50": { "name": "Half Century", "description": "Complete 50 levels" },
+    "milestone-100": { "name": "Century", "description": "Complete 100 levels" },
+    "milestone-150": { "name": "Veteran", "description": "Complete 150 levels" },
+    "under-par": { "name": "Under Par", "description": "Complete a level at or below par moves" },
+    "no-hint-10": { "name": "Flawless Ten", "description": "Complete 10 levels without using any hints" },
+    "no-hint-25": { "name": "No Help Needed", "description": "Complete 25 levels without using any hints" },
+    "purist-40": { "name": "Purist", "description": "Complete 40 levels without using any hints or undos" },
+    "speed-demon": { "name": "Speed Demon", "description": "Complete 5 levels at or below par moves" },
+    "streak-2": { "name": "Two-Day Streak", "description": "Play on 2 consecutive days" },
+    "streak-7": { "name": "Week Warrior", "description": "Play on 7 consecutive days" },
+    "streak-14": { "name": "Fortnight", "description": "Play on 14 consecutive days" },
+    "streak-30": { "name": "Monthly Dedication", "description": "Play on 30 consecutive days" },
+    "full-week": { "name": "Full Week", "description": "Complete at least one level on every day of a calendar week" },
+    "restart-complete": { "name": "Restart Resilience", "description": "Restart a level and then complete it" },
+    "all-hints-used": { "name": "Hint Apprentice", "description": "Use all hints in a single level and still complete it" },
+    "deep-diver": { "name": "Deep Diver", "description": "Complete a level with 6 or more colours" },
+    "marathon": { "name": "Marathon", "description": "Complete 10 levels in a single session" }
+  },
+  "error": {
+    "title": "Something went wrong",
+    "body": "An unexpected error occurred. No worries — your progress is safe.",
+    "backToMenu": "Back to menu",
+    "details": "Error details (dev only)"
+  }
+}

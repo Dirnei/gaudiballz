@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { blockerMessage, passkeyBlocker, register, signIn, usernameAvailable } from './passkeys';
 import { ballStyle, colourForName } from '../skins';
@@ -43,6 +44,7 @@ export function AccountPanel({
   highestCompleted,
   onChooseBall,
 }: AccountPanelProps) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<Status>('idle');
   const [username, setUsername] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
@@ -124,7 +126,7 @@ export function AccountPanel({
 
     const check = await usernameAvailable(username);
     if (!check.available) {
-      setProblem(check.reason ?? "That name can't be used.");
+      setProblem(check.reason ?? t('account.error.nameCantBeUsed'));
       setStatus('idle');
       return;
     }
@@ -137,10 +139,10 @@ export function AccountPanel({
         return;
       }
       setProblem(
-        outcome === 'name-taken' ? 'Someone just took that name.' : "That didn't complete.",
+        outcome === 'name-taken' ? t('account.error.nameTaken') : t('account.error.didntComplete'),
       );
     } catch {
-      setProblem("That didn't complete.");
+      setProblem(t('account.error.didntComplete'));
     }
     setStatus('idle');
   }
@@ -151,14 +153,14 @@ export function AccountPanel({
     try {
       const who = await signIn();
       if (who === null) {
-        setProblem("That passkey isn't linked to an account here.");
+        setProblem(t('account.error.passkeyNotLinked'));
       } else {
         setStatus('idle');
         onLoggedIn(who);
         return;
       }
     } catch {
-      setProblem("That didn't complete.");
+      setProblem(t('account.error.didntComplete'));
     }
     setStatus('idle');
   }
@@ -223,7 +225,7 @@ export function AccountPanel({
             />
 
             <h2 className="mt-4 text-xl font-semibold tracking-tight">
-              {loggedIn ? name : naming ? 'Pick a name' : 'Not logged in'}
+              {loggedIn ? name : naming ? t('account.pickAName') : t('account.notLoggedInTitle')}
             </h2>
 
             {blocked !== null ? (
@@ -237,7 +239,7 @@ export function AccountPanel({
                 className={`mt-6 ${quiet}${fc(0)}`}
                 data-testid="panel-logout"
               >
-                Log out
+                {t('account.logOut')}
               </button>
             ) : naming ? (
               <>
@@ -256,7 +258,7 @@ export function AccountPanel({
                   spellCheck={false}
                   maxLength={20}
                   autoFocus
-                  placeholder="Username"
+                  placeholder={t('account.usernamePlaceholder')}
                   className="mt-5 w-full rounded-2xl bg-slate-950/50 px-4 py-3 text-center text-base text-slate-100 outline-none ring-1 ring-white/10 transition placeholder:text-slate-600 focus:ring-2 focus:ring-sky-400/70"
                   data-testid="panel-username"
                 />
@@ -270,7 +272,7 @@ export function AccountPanel({
                   className={`mt-3 ${primary}${fc(0)}`}
                   data-testid="panel-create"
                 >
-                  {busy ? 'Waiting for your device…' : 'Create account'}
+                  {busy ? t('account.waitingForDevice') : t('account.createAccount')}
                 </button>
 
                 <button
@@ -285,7 +287,7 @@ export function AccountPanel({
                   className={`mt-1 ${quiet}${fc(1)}`}
                   data-testid="panel-back"
                 >
-                  Back
+                  {t('account.back')}
                 </button>
               </>
             ) : (
@@ -299,7 +301,7 @@ export function AccountPanel({
                   className={`mt-6 ${primary}${fc(0)}`}
                   data-testid="panel-login"
                 >
-                  {busy ? 'Waiting for your device…' : 'Log in'}
+                  {busy ? t('account.waitingForDevice') : t('account.logIn')}
                 </button>
 
                 <button
@@ -311,7 +313,7 @@ export function AccountPanel({
                   className={`mt-1 ${quiet}${fc(1)}`}
                   data-testid="panel-register"
                 >
-                  Register
+                  {t('account.register')}
                 </button>
               </>
             )}
@@ -331,7 +333,7 @@ export function AccountPanel({
 
             {loggedIn && (
               <div className="mt-6 border-t border-white/8 pt-5">
-                <h3 className="mb-3 text-sm font-medium text-slate-300">Your ball</h3>
+                <h3 className="mb-3 text-sm font-medium text-slate-300">{t('account.yourBall')}</h3>
                 <BallPicker
                   unlocks={ballUnlocks}
                   highestCompleted={highestCompleted}

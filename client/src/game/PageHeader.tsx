@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -8,13 +9,14 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ title, trailing }: PageHeaderProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
     <header className="flex items-center gap-3 px-5 pt-3">
       <motion.button
         type="button"
-        aria-label="Back to menu"
+        aria-label={t('nav.backToMenu')}
         whileTap={{ scale: 0.9 }}
         transition={{ type: 'spring', stiffness: 700, damping: 26 }}
         onClick={() => navigate('/')}

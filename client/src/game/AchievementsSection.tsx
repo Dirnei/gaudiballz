@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { Achievement, AchievementState } from './achievements';
 
 interface AchievementsSectionProps {
@@ -6,13 +7,7 @@ interface AchievementsSectionProps {
 
 const CATEGORY_ORDER = ['milestone', 'perfection', 'streak', 'calendar', 'exploration'];
 
-const CATEGORY_LABELS: Record<string, string> = {
-  milestone: 'Milestones',
-  perfection: 'Perfection',
-  streak: 'Streaks',
-  calendar: 'Calendar',
-  exploration: 'Exploration',
-};
+// Category labels now come from t(`achievements.category.${cat}`).
 
 function AchievementRow({ achievement }: { achievement: Achievement }) {
   return (
@@ -48,9 +43,11 @@ function AchievementRow({ achievement }: { achievement: Achievement }) {
 }
 
 export function AchievementsSection({ state }: AchievementsSectionProps) {
+  const { t } = useTranslation();
+
   if (state === null) {
     return (
-      <div className="py-4 text-center text-sm text-slate-500">Loading achievements...</div>
+      <div className="py-4 text-center text-sm text-slate-500">{t('achievements.loading')}</div>
     );
   }
 
@@ -65,7 +62,7 @@ export function AchievementsSection({ state }: AchievementsSectionProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-300">Achievements</h3>
+        <h3 className="text-sm font-semibold text-slate-300">{t('achievements.title')}</h3>
         <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-amber-300 ring-1 ring-amber-400/20">
           {earned} / {state.achievements.length}
         </span>
@@ -80,7 +77,7 @@ export function AchievementsSection({ state }: AchievementsSectionProps) {
         return (
           <div key={cat}>
             <p className="mb-1.5 text-xs font-medium uppercase tracking-wider text-slate-500">
-              {CATEGORY_LABELS[cat] ?? cat}
+              {t(`achievements.category.${cat}`)}
             </p>
             <div className="space-y-1.5">
               {items.map((a) => (

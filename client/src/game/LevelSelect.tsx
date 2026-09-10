@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useGameContext } from './GameContext';
@@ -19,6 +20,7 @@ function tileState(
 }
 
 export function LevelSelect() {
+  const { t } = useTranslation();
   const game = useGameContext();
   const navigate = useNavigate();
   const { levelId, levelCeiling, levelProgress: progress } = game;
@@ -34,7 +36,7 @@ export function LevelSelect() {
     const result = await game.unlockWithCode(levelCode);
     setBusy(false);
     if (result === null) {
-      setCodeError('Invalid code.');
+      setCodeError(t('levels.invalidCode'));
     } else {
       setLevelCode('');
       navigate('/play');
@@ -143,7 +145,7 @@ export function LevelSelect() {
 
   return (
     <PageLayout
-      title="Level Select"
+      title={t('levels.title')}
       trailing={totalPoints > 0 ? (
         <span className="text-sm font-medium tabular-nums text-amber-400">
           ★ {totalPoints.toLocaleString()}
@@ -195,7 +197,7 @@ export function LevelSelect() {
           autoComplete="off"
           spellCheck={false}
           maxLength={6}
-          placeholder="Level code"
+          placeholder={t('levels.codePlaceholder')}
           className="min-w-0 flex-1 rounded-2xl bg-slate-950/50 px-4 py-2.5 text-center font-mono text-sm uppercase tracking-widest text-slate-100 outline-none ring-1 ring-white/10 transition placeholder:text-slate-500 placeholder:tracking-normal placeholder:normal-case focus:ring-2 focus:ring-sky-400/70"
           data-testid="code-input"
         />
@@ -205,7 +207,7 @@ export function LevelSelect() {
           disabled={busy || levelCode.trim().length === 0}
           className="flex-shrink-0 rounded-2xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-colors hover:bg-sky-400 disabled:opacity-45"
         >
-          {busy ? '...' : 'Unlock'}
+          {busy ? '...' : t('levels.unlock')}
         </button>
       </div>
       <AnimatePresence>

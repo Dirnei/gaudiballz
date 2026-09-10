@@ -239,6 +239,32 @@ public static class LevelCatalogue
         return null;
     }
 
+    /// <summary>
+    /// A stable kebab-case key for the chapter note, so clients can localise it.
+    /// Null when <see cref="ChapterNote"/> is null.
+    /// </summary>
+    public static string? ChapterNoteKey(int levelId)
+    {
+        if (levelId == OneSpareTubeFrom)
+        {
+            return "spare-tube";
+        }
+
+        if (levelId == 111)
+        {
+            return "shorter-tubes";
+        }
+
+        if (levelId > 1
+            && levelId < OneSpareTubeFrom
+            && ParametersFor(levelId).Colours > ParametersFor(levelId - 1).Colours)
+        {
+            return "new-colour";
+        }
+
+        return null;
+    }
+
     public static int TimeTargetMs(int levelId)
     {
         var level = Build(levelId);

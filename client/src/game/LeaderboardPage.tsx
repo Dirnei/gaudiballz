@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { API, authHeaders } from './identity';
 import { useGameContext } from './GameContext';
@@ -38,6 +39,7 @@ function ballColor(name: string): string {
 }
 
 export function LeaderboardPage() {
+  const { t } = useTranslation();
   const game = useGameContext();
   const myId = game.identity?.playerId ?? null;
 
@@ -73,12 +75,12 @@ export function LeaderboardPage() {
         className="mx-auto w-full max-w-3xl pt-5"
       >
         <h1 className="text-2xl font-bold tracking-tight text-white" style={fredoka}>
-          Leaderboard
+          {t('leaderboard.title')}
         </h1>
 
         {/* Period tabs */}
         <div className="mt-4 flex gap-1 rounded-full bg-white/4 p-1 w-fit">
-          {([['alltime', 'All Time'], ['week', 'This Week'], ['today', 'Today']] as const).map(([key, label]) => (
+          {([['alltime', t('leaderboard.allTime')], ['week', t('leaderboard.thisWeek')], ['today', t('leaderboard.today')]] as [Period, string][]).map(([key, label]) => (
             <button
               key={key}
               type="button"
@@ -97,7 +99,7 @@ export function LeaderboardPage() {
         </div>
 
         {loading && !data && (
-          <p className="mt-12 text-center text-sm text-slate-500">Loading leaderboard...</p>
+          <p className="mt-12 text-center text-sm text-slate-500">{t('leaderboard.loading')}</p>
         )}
 
         {/* Podium */}
@@ -115,11 +117,11 @@ export function LeaderboardPage() {
             <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: '0 0.3rem' }}>
               <thead>
                 <tr className="text-left text-[0.7rem] font-semibold uppercase tracking-wider text-slate-500" style={fredoka}>
-                  <th className="py-1 px-3">Rank</th>
-                  <th className="py-1 px-3">Player</th>
-                  <th className="py-1 px-3">Points</th>
-                  <th className="py-1 px-3 hidden sm:table-cell">Games</th>
-                  <th className="py-1 px-3 text-right">Win Rate</th>
+                  <th className="py-1 px-3">{t('leaderboard.rank')}</th>
+                  <th className="py-1 px-3">{t('leaderboard.player')}</th>
+                  <th className="py-1 px-3">{t('leaderboard.points')}</th>
+                  <th className="py-1 px-3 hidden sm:table-cell">{t('leaderboard.games')}</th>
+                  <th className="py-1 px-3 text-right">{t('leaderboard.winRate')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -136,7 +138,7 @@ export function LeaderboardPage() {
                         <div className="flex items-center gap-2">
                           <span className="h-3.5 w-3.5 rounded-full flex-shrink-0" style={{ background: ballColor(e.username) }} />
                           <span className="font-semibold" style={{ ...fredoka, color: isMe ? '#A855F7' : undefined }}>
-                            {e.username}{isMe ? ' (you)' : ''}
+                            {e.username}{isMe ? ` ${t('leaderboard.you')}` : ''}
                           </span>
                         </div>
                       </td>
@@ -168,14 +170,14 @@ export function LeaderboardPage() {
               border: '2px solid #9333EA',
             }}
           >
-            <span className="text-sm font-bold text-violet-300" style={fredoka}>Your rank: #{data.viewer.rank}</span>
-            <span className="text-sm font-bold tabular-nums text-amber-400">{data.viewer.totalPoints.toLocaleString()} pts</span>
+            <span className="text-sm font-bold text-violet-300" style={fredoka}>{t('leaderboard.yourRank', { rank: data.viewer.rank })}</span>
+            <span className="text-sm font-bold tabular-nums text-amber-400">{t('leaderboard.pts', { points: data.viewer.totalPoints.toLocaleString() })}</span>
           </div>
         )}
 
         {data && data.entries.length === 0 && (
           <p className="mt-12 text-center text-sm text-slate-500">
-            No leaderboard data for this period yet.
+            {t('leaderboard.empty')}
           </p>
         )}
       </motion.div>
@@ -191,6 +193,7 @@ function PodiumSlot({
   winRate: number;
   first?: boolean;
 }) {
+  const { t } = useTranslation();
   const fredoka = { fontFamily: "'Fredoka', system-ui, sans-serif" } as const;
   const size = first ? 'h-16 w-16 text-xl' : 'h-12 w-12 text-base';
   const pedestalH = first ? 'h-[72px]' : rank === 2 ? 'h-[52px]' : 'h-[36px]';
@@ -216,8 +219,8 @@ function PodiumSlot({
         #{rank}
       </div>
       <div className="mt-0.5 truncate text-sm font-bold text-slate-200" style={fredoka}>{entry.username}</div>
-      <div className="text-xs tabular-nums text-slate-500">{entry.totalPoints.toLocaleString()} pts</div>
-      <div className="text-[0.65rem] font-bold text-emerald-400">{winRate}% win</div>
+      <div className="text-xs tabular-nums text-slate-500">{t('leaderboard.pts', { points: entry.totalPoints.toLocaleString() })}</div>
+      <div className="text-[0.65rem] font-bold text-emerald-400">{t('leaderboard.winPct', { pct: winRate })}</div>
       <div className={`mt-2 rounded-t-lg bg-gradient-to-t from-white/4 to-white/7 ring-1 ring-white/6 ring-b-0 ${pedestalH}`} />
     </div>
   );

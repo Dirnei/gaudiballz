@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface AchievementToastProps {
   readonly achievements: readonly { readonly id: string; readonly name: string }[];
@@ -7,6 +8,7 @@ interface AchievementToastProps {
 }
 
 export function AchievementToast({ achievements, onDone }: AchievementToastProps) {
+  const { t } = useTranslation();
   const items = achievements ?? [];
   const [current, setCurrent] = useState(0);
   const [visible, setVisible] = useState(items.length > 0);
@@ -54,7 +56,7 @@ export function AchievementToast({ achievements, onDone }: AchievementToastProps
             <span className="text-lg">🏆</span>
             <div>
               <p className="text-sm font-semibold text-amber-200">{achievement.name}</p>
-              <p className="text-xs text-amber-300/70">Achievement unlocked</p>
+              <p className="text-xs text-amber-300/70">{t('achievements.unlocked')}</p>
             </div>
           </div>
         </motion.div>

@@ -77,7 +77,7 @@ public sealed class PlayerIdentitySlice : ISlice
             var problem = UsernameProblem(username);
             if (problem is not null)
             {
-                return Results.Ok(new { available = false, reason = problem });
+                return Results.Ok(new { available = false, reason = problem.Message, code = problem.Code });
             }
 
             var taken = await store.FindByUsernameAsync(username, token) is not null;
@@ -85,6 +85,7 @@ public sealed class PlayerIdentitySlice : ISlice
             {
                 available = !taken,
                 reason = taken ? "That name is taken." : null,
+                code = taken ? "username-taken" : (string?)null,
             });
         });
 
@@ -124,7 +125,7 @@ public sealed class PlayerIdentitySlice : ISlice
                     var problem = UsernameProblem(request.Username);
                     if (problem is not null)
                     {
-                        return Results.BadRequest(new { error = problem });
+                        return Results.BadRequest(new { error = problem.Message, code = problem.Code });
                     }
 
                     // Claimed here rather than after the ceremony: the unique index is the
@@ -132,7 +133,7 @@ public sealed class PlayerIdentitySlice : ISlice
                     // caught before the player's device is troubled.
                     if (!await store.TryClaimUsernameAsync(playerId, request.Username, token))
                     {
-                        return Results.Conflict(new { error = "That name is taken." });
+                        return Results.Conflict(new { error = "That name is taken.", code = "username-taken" });
                     }
                 }
 
@@ -280,26 +281,29 @@ public sealed class PlayerIdentitySlice : ISlice
 
     public sealed record RegisterRequest(string Username);
 
+    /// <summary>A validation problem with a human-readable message and a stable machine code.</summary>
+    private sealed record ValidationProblem(string Message, string Code);
+
     /// <summary>What is wrong with this username, or null when nothing is.</summary>
-    private static string? UsernameProblem(string? username)
+    private static ValidationProblem? UsernameProblem(string? username)
     {
         var trimmed = username?.Trim() ?? string.Empty;
 
         if (trimmed.Length < 3)
         {
-            return "A name needs at least 3 characters.";
+            return new("A name needs at least 3 characters.", "username-too-short");
         }
 
         if (trimmed.Length > 20)
         {
-            return "A name can be at most 20 characters.";
+            return new("A name can be at most 20 characters.", "username-too-long");
         }
 
         // Letters, digits, and a couple of separators. Deliberately narrow: a name that is
         // shown to the player should not be able to hide characters they cannot see.
         return trimmed.All(c => char.IsLetterOrDigit(c) || c is '-' or '_')
             ? null
-            : "Use letters, numbers, hyphens or underscores.";
+            : new("Use letters, numbers, hyphens or underscores.", "username-invalid-chars");
     }
 
     private static string? BearerFrom(HttpContext http)

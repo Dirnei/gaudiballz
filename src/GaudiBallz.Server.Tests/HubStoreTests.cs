@@ -111,6 +111,69 @@ public sealed class HubStoreTests
         Assert.DoesNotContain("winRate", entry.Detail);
     }
 
+    // ---- structured activity feed -------------------------------------------
+
+    [Fact]
+    public async Task Structured_activity_stores_kind_and_params()
+    {
+        await _store.EnsureActivityFeedCollectionAsync(Token);
+
+        var id = Guid.NewGuid().ToString("N");
+        await _store.RecordStructuredActivityAsync(
+            id, "StructTest", "level_clear", "cleared Level 7 in 15 moves",
+            "level-cleared",
+            new Dictionary<string, object> { ["level"] = 7, ["moves"] = 15 },
+            Token);
+
+        var events = await _store.GetRecentActivityAsync(50, Token);
+        var entry = events.Find(e => e.Username == "StructTest" && e.PlayerId == id);
+
+        Assert.NotNull(entry);
+        Assert.Equal("level-cleared", entry.Kind);
+        Assert.NotNull(entry.Params);
+        Assert.Equal(7, Convert.ToInt32(entry.Params["level"], System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal(15, Convert.ToInt32(entry.Params["moves"], System.Globalization.CultureInfo.InvariantCulture));
+        // Detail is kept as fallback
+        Assert.Equal("cleared Level 7 in 15 moves", entry.Detail);
+    }
+
+    [Fact]
+    public async Task Legacy_activity_has_null_kind_and_params()
+    {
+        await _store.EnsureActivityFeedCollectionAsync(Token);
+
+        var id = Guid.NewGuid().ToString("N");
+        await _store.RecordActivityAsync(id, "LegacyTest", "level_clear", "cleared Level 3", Token);
+
+        var events = await _store.GetRecentActivityAsync(50, Token);
+        var entry = events.Find(e => e.Username == "LegacyTest" && e.PlayerId == id);
+
+        Assert.NotNull(entry);
+        Assert.Null(entry.Kind);
+        Assert.Null(entry.Params);
+        Assert.Equal("cleared Level 3", entry.Detail);
+    }
+
+    [Fact]
+    public async Task Structured_achievement_earned_stores_achievement_id()
+    {
+        await _store.EnsureActivityFeedCollectionAsync(Token);
+
+        var id = Guid.NewGuid().ToString("N");
+        await _store.RecordStructuredActivityAsync(
+            id, "AchTest", "achievement", "earned First Steps",
+            "achievement-earned",
+            new Dictionary<string, object> { ["achievementId"] = "milestone-1", ["achievementName"] = "First Steps" },
+            Token);
+
+        var events = await _store.GetRecentActivityAsync(50, Token);
+        var entry = events.Find(e => e.Username == "AchTest" && e.PlayerId == id);
+
+        Assert.NotNull(entry);
+        Assert.Equal("achievement-earned", entry.Kind);
+        Assert.Equal("milestone-1", entry.Params!["achievementId"]?.ToString());
+    }
+
     // ---- community stats ----------------------------------------------------
 
     [Fact]

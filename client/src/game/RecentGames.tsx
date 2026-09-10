@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { useGameContext } from './GameContext';
 
 export function RecentGames() {
+  const { t } = useTranslation();
   const game = useGameContext();
   const levels = game.progress?.levels;
 
@@ -16,7 +18,7 @@ export function RecentGames() {
         className="mb-3 text-lg font-bold tracking-tight text-white"
         style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
       >
-        Recent Games
+        {t('recentGames.title')}
       </h2>
       <div
         className="rounded-2xl px-4 py-2"
@@ -42,19 +44,19 @@ export function RecentGames() {
                   : 'bg-red-500/10 text-red-400')
               }
             >
-              {entry.stars >= 1 ? 'Won' : 'Lost'}
+              {entry.stars >= 1 ? t('recentGames.won') : t('recentGames.lost')}
             </span>
             <div className="flex-1">
               <div
                 className="text-sm font-semibold text-slate-200"
                 style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
               >
-                Level {entry.level}
+                {t('recentGames.level', { level: entry.level })}
               </div>
-              <div className="text-xs text-slate-500">{entry.moves} moves</div>
+              <div className="text-xs text-slate-500">{t('recentGames.moves', { count: entry.moves })}</div>
             </div>
             <div className="text-sm font-bold tabular-nums text-amber-400">
-              {entry.points.toLocaleString()} pts
+              {t('recentGames.points', { points: entry.points.toLocaleString() })}
             </div>
           </div>
         ))}

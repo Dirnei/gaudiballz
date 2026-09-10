@@ -156,6 +156,10 @@ public sealed class LeaderboardDocument
 /// <summary>
 /// One event in the activity feed. Stored in a capped collection so old events are
 /// evicted automatically.
+///
+/// New events store structured data in <see cref="Kind"/> and <see cref="Params"/> so
+/// clients can localise them. Legacy events (written before structured storage) have no
+/// <c>Kind</c> and carry only a pre-formatted <see cref="Detail"/> string.
 /// </summary>
 public sealed class ActivityFeedDocument
 {
@@ -165,6 +169,12 @@ public sealed class ActivityFeedDocument
     public string EventType { get; set; } = string.Empty;
     public string Detail { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
+
+    /// <summary>Structured event kind, e.g. "level-cleared", "new-record", "achievement-earned". Null for legacy events.</summary>
+    public string? Kind { get; set; }
+
+    /// <summary>Structured parameters for the event. Null for legacy events.</summary>
+    public Dictionary<string, object>? Params { get; set; }
 }
 
 /// <summary>
@@ -247,6 +257,8 @@ public static class BsonRegistration
             {
                 map.AutoMap();
                 map.SetIgnoreExtraElements(true);
+                map.GetMemberMap(a => a.Kind).SetIgnoreIfNull(true);
+                map.GetMemberMap(a => a.Params).SetIgnoreIfNull(true);
             });
 
             _registered = true;

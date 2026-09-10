@@ -7,6 +7,7 @@
  */
 
 import { API, authHeaders, remember, type Identity } from './identity';
+import i18n from '../i18n/i18n';
 
 /** Why passkeys cannot be used here, or null when they can. */
 export type PasskeyBlocker = 'unsupported' | 'insecure-context' | null;
@@ -32,9 +33,9 @@ export function passkeyBlocker(): PasskeyBlocker {
 export function blockerMessage(blocker: PasskeyBlocker): string | null {
   switch (blocker) {
     case 'unsupported':
-      return 'This browser can’t do passkeys, so there’s nothing to set up here.';
+      return i18n.t('passkey.unsupported');
     case 'insecure-context':
-      return 'Passkeys need a secure connection. This works on the computer running the game, but not over a plain network address.';
+      return i18n.t('passkey.insecureContext');
     default:
       return null;
   }
@@ -65,11 +66,11 @@ export async function usernameAvailable(
       `${API}/api/v1/players/username-available?username=${encodeURIComponent(username)}`,
     );
     if (!response.ok) {
-      return { available: false, reason: 'Could not check that name just now.' };
+      return { available: false, reason: i18n.t('account.error.couldNotCheck') };
     }
     return (await response.json()) as { available: boolean; reason: string | null };
   } catch {
-    return { available: false, reason: 'Could not check that name just now.' };
+    return { available: false, reason: i18n.t('account.error.couldNotCheck') };
   }
 }
 

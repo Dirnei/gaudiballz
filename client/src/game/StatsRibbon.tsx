@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { API } from './identity';
 
 interface CommunityStats {
@@ -8,6 +9,7 @@ interface CommunityStats {
 }
 
 export function StatsRibbon() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<CommunityStats | null>(null);
 
   useEffect(() => {
@@ -27,20 +29,20 @@ export function StatsRibbon() {
     <div className="flex flex-wrap justify-center gap-2 py-4">
       <Chip>
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-        {stats.onlineCount.toLocaleString()} playing now
+        {t('community.playingNow', { count: stats.onlineCount.toLocaleString() })}
       </Chip>
       <Chip>
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <circle cx="8" cy="8" r="5" stroke="currentColor" strokeWidth="1.5" fill="none" className="text-rose-400" />
           <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-rose-400" />
         </svg>
-        {stats.solvedToday.toLocaleString()} puzzles solved today
+        {t('community.solvedToday', { count: stats.solvedToday.toLocaleString() })}
       </Chip>
       <Chip>
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z" fill="#FACC15" />
         </svg>
-        {stats.activeThisWeek.toLocaleString()} players this week
+        {t('community.playersThisWeek', { count: stats.activeThisWeek.toLocaleString() })}
       </Chip>
     </div>
   );

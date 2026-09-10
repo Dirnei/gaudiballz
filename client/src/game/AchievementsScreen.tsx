@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import type { Achievement, AchievementState } from './achievements';
@@ -7,13 +8,7 @@ import { PageLayout } from './PageLayout';
 
 const CATEGORY_ORDER = ['milestone', 'perfection', 'streak', 'calendar', 'exploration'];
 
-const CATEGORY_LABELS: Record<string, string> = {
-  milestone: 'Milestones',
-  perfection: 'Perfection',
-  streak: 'Streaks',
-  calendar: 'Calendar',
-  exploration: 'Exploration',
-};
+// Category labels now come from t(`achievements.category.${cat}`).
 
 const CATEGORY_ICONS: Record<string, string> = {
   milestone: '📊',
@@ -67,6 +62,7 @@ function AchievementCard({ achievement }: { achievement: Achievement }) {
 }
 
 function OverallProgress({ state }: { state: AchievementState }) {
+  const { t } = useTranslation();
   const earned = state.achievements.filter((a) => a.earned).length;
   const total = state.achievements.length;
   const pct = total > 0 ? (earned / total) * 100 : 0;
@@ -74,7 +70,7 @@ function OverallProgress({ state }: { state: AchievementState }) {
   return (
     <div className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/8">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-300">Overall progress</span>
+        <span className="text-sm font-medium text-slate-300">{t('achievements.overallProgress')}</span>
         <span className="text-sm font-semibold tabular-nums text-amber-300">
           {earned} / {total}
         </span>
@@ -90,6 +86,7 @@ function OverallProgress({ state }: { state: AchievementState }) {
 }
 
 export function AchievementsScreen() {
+  const { t } = useTranslation();
   const game = useGameContext();
   const navigate = useNavigate();
   const { identity, achievements: state } = game;
@@ -107,15 +104,15 @@ export function AchievementsScreen() {
   }, [navigate]);
 
   return (
-    <PageLayout title="Achievements">
+    <PageLayout title={t('achievements.title')}>
       {!loggedIn ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <span className="text-4xl">🏆</span>
           <p className="mt-4 text-base font-semibold text-slate-300">
-            Achievements are for registered players
+            {t('achievements.forRegistered')}
           </p>
           <p className="mt-1.5 max-w-[16rem] text-sm leading-relaxed text-slate-500">
-            Create an account to start earning achievements and track your progress.
+            {t('achievements.createToEarn')}
           </p>
         </div>
       ) : state === null ? (
@@ -125,7 +122,7 @@ export function AchievementsScreen() {
             transition={{ duration: 1.4, repeat: Infinity }}
             className="text-sm text-slate-400"
           >
-            Loading achievements...
+            {t('achievements.loading')}
           </motion.div>
         </div>
       ) : (
@@ -145,7 +142,7 @@ export function AchievementsScreen() {
                 <div className="mb-3 flex items-center gap-2">
                   <span className="text-sm">{CATEGORY_ICONS[cat]}</span>
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    {CATEGORY_LABELS[cat] ?? cat}
+                    {t(`achievements.category.${cat}`)}
                   </h2>
                   <span className="text-[0.65rem] tabular-nums text-slate-600">
                     {categoryEarned}/{items.length}

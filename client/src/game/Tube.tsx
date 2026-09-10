@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { TUBE_STYLE, ballStyle } from '../skins';
 
@@ -24,6 +25,7 @@ interface TubeProps {
  * that actually makes a pour feel good.
  */
 export function Tube({ ref, items, capacity, selected, focused, complete, dropTarget, tubeIndex, onTap, onPointerDown }: TubeProps) {
+  const { t } = useTranslation();
   const slots = Array.from({ length: capacity }, (_, i) => items[i]);
 
   // A one-shot celebration the moment a tube fills, rather than a permanent style. The
@@ -48,7 +50,7 @@ export function Tube({ ref, items, capacity, selected, focused, complete, dropTa
       onClick={onPointerDown ? undefined : onTap}
       onPointerDown={onPointerDown}
       data-tube-index={tubeIndex}
-      aria-label={`Tube holding ${items.length} of ${capacity}${complete ? ', complete' : ''}`}
+      aria-label={t('tube.label', { count: items.length, capacity }) + (complete ? t('tube.complete') : '')}
       aria-pressed={selected}
       className="flex flex-col items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-0"
       style={{ padding: 'var(--gap)', borderRadius: '1rem', touchAction: 'none' }}

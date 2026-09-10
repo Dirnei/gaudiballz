@@ -138,20 +138,30 @@ public sealed class ProgressionSlice : ISlice
                                 await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, attemptPoints);
                             }
 
-                            await store.RecordActivityAsync(playerId, player.Username, "level_clear",
-                                $"cleared Level {request.Level} in {request.Moves} moves");
+                            await store.RecordStructuredActivityAsync(
+                                playerId, player.Username, "level_clear",
+                                $"cleared Level {request.Level} in {request.Moves} moves",
+                                "level-cleared",
+                                new Dictionary<string, object> { ["level"] = request.Level, ["moves"] = request.Moves });
 
                             if (starDelta > 0 && !isReplay)
                             {
-                                await store.RecordActivityAsync(playerId, player.Username, "new_record",
-                                    $"set a new record on Level {request.Level}");
+                                await store.RecordStructuredActivityAsync(
+                                    playerId, player.Username, "new_record",
+                                    $"set a new record on Level {request.Level}",
+                                    "new-record",
+                                    new Dictionary<string, object> { ["level"] = request.Level });
                             }
 
                             foreach (var ach in newAchievements)
                             {
-                                var name = ach.GetType().GetProperty("name")?.GetValue(ach)?.ToString() ?? "an achievement";
-                                await store.RecordActivityAsync(playerId, player.Username, "achievement",
-                                    $"earned {name}");
+                                var achId = ach.GetType().GetProperty("id")?.GetValue(ach)?.ToString() ?? "";
+                                var achName = ach.GetType().GetProperty("name")?.GetValue(ach)?.ToString() ?? "an achievement";
+                                await store.RecordStructuredActivityAsync(
+                                    playerId, player.Username, "achievement",
+                                    $"earned {achName}",
+                                    "achievement-earned",
+                                    new Dictionary<string, object> { ["achievementId"] = achId, ["achievementName"] = achName });
                             }
                         }
                         catch

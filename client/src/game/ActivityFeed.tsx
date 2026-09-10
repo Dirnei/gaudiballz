@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { API } from './identity';
 
 interface FeedEvent {
   readonly username: string;
   readonly eventType: string;
-  readonly detail: string;
+  readonly detail?: string;
+  readonly text?: string;
+  readonly kind?: string;
+  readonly params?: Record<string, unknown>;
   readonly timestamp: string;
 }
 
@@ -25,17 +29,35 @@ function ballColor(name: string): string {
   return BALL_COLORS[Math.abs(hash) % BALL_COLORS.length];
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, lng: string): string {
   const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const rtf = new Intl.RelativeTimeFormat(lng, { numeric: 'auto' });
+  if (seconds < 60) return rtf.format(-seconds, 'second');
+  if (minutes < 60) return rtf.format(-minutes, 'minute');
+  if (hours < 24) return rtf.format(-hours, 'hour');
+  return rtf.format(-days, 'day');
+}
+
+function formatEvent(ev: FeedEvent, t: (key: string, opts?: Record<string, unknown>) => string): string {
+  if (ev.kind && ev.kind !== 'legacy' && ev.params) {
+    switch (ev.kind) {
+      case 'level-cleared':
+        return t('activityFeed.levelCleared', { level: ev.params.level, moves: ev.params.moves });
+      case 'new-record':
+        return t('activityFeed.newRecord', { level: ev.params.level });
+      case 'achievement-earned':
+        return t('activityFeed.achievementEarned', { name: ev.params.achievementName ?? ev.params.achievementId });
+    }
+  }
+  return ev.detail ?? ev.text ?? '';
 }
 
 export function ActivityFeed() {
+  const { t, i18n } = useTranslation();
   const [events, setEvents] = useState<FeedEvent[]>([]);
 
   useEffect(() => {
@@ -57,7 +79,7 @@ export function ActivityFeed() {
         className="mb-3 text-lg font-bold tracking-tight text-white"
         style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
       >
-        Live Activity
+        {t('activityFeed.title')}
       </h2>
       <div
         className="rounded-2xl px-4 py-2"
@@ -86,9 +108,9 @@ export function ActivityFeed() {
               >
                 {ev.username}
               </strong>{' '}
-              <span className="text-slate-400">{ev.detail}</span>
+              <span className="text-slate-400">{formatEvent(ev, t)}</span>
             </div>
-            <span className="flex-shrink-0 text-xs text-slate-600">{relativeTime(ev.timestamp)}</span>
+            <span className="flex-shrink-0 text-xs text-slate-600">{relativeTime(ev.timestamp, i18n.language)}</span>
           </div>
         ))}
       </div>

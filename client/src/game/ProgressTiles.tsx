@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGameContext } from './GameContext';
 import { API, authHeaders } from './identity';
 
@@ -8,6 +9,7 @@ interface HubStats {
 }
 
 export function ProgressTiles() {
+  const { t } = useTranslation();
   const game = useGameContext();
   const totalPoints = game.progress?.totalPoints ?? 0;
   const highestLevel = game.progress?.highestCompleted ?? 0;
@@ -36,11 +38,11 @@ export function ProgressTiles() {
 
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-      <Tile value={totalPoints.toLocaleString()} label="Total Points" color="text-amber-400" />
-      <Tile value={String(highestLevel)} label="Current Level" color="text-violet-400" />
-      <Tile value={String(streak)} label="Day Streak" color="text-emerald-400" />
+      <Tile value={totalPoints.toLocaleString()} label={t('stats.totalPoints')} color="text-amber-400" />
+      <Tile value={String(highestLevel)} label={t('stats.currentLevel')} color="text-violet-400" />
+      <Tile value={String(streak)} label={t('stats.dayStreak')} color="text-emerald-400" />
       {isRegistered && rank != null && rank > 0 && (
-        <Tile value={String(rank)} label="Global Rank" color="text-sky-400" />
+        <Tile value={String(rank)} label={t('stats.globalRank')} color="text-sky-400" />
       )}
     </div>
   );

@@ -184,6 +184,51 @@ public sealed class LevelCatalogueTests
             flat);
     }
 
+    // ---- chapter note keys ------------------------------------------------
+
+    [Fact]
+    public void Chapter_note_key_is_spare_tube_at_the_one_spare_boundary()
+    {
+        Assert.Equal("spare-tube", LevelCatalogue.ChapterNoteKey(LevelCatalogue.OneSpareTubeFrom));
+    }
+
+    [Fact]
+    public void Chapter_note_key_is_shorter_tubes_at_level_111()
+    {
+        Assert.Equal("shorter-tubes", LevelCatalogue.ChapterNoteKey(111));
+    }
+
+    [Fact]
+    public void Chapter_note_key_is_new_colour_when_a_colour_is_added()
+    {
+        // Level 6 introduces the fourth colour (3 -> 4).
+        Assert.Equal("new-colour", LevelCatalogue.ChapterNoteKey(6));
+    }
+
+    [Fact]
+    public void Chapter_note_key_is_null_for_ordinary_levels()
+    {
+        // Level 2 has the same colours as level 1 and no structural change.
+        Assert.Null(LevelCatalogue.ChapterNoteKey(2));
+    }
+
+    [Fact]
+    public void Chapter_note_key_matches_chapter_note_nullity()
+    {
+        // Every level that has a note also has a key, and vice versa.
+        foreach (var levelId in CampaignLevels())
+        {
+            var note = LevelCatalogue.ChapterNote(levelId);
+            var key = LevelCatalogue.ChapterNoteKey(levelId);
+
+            Assert.True(
+                (note is null) == (key is null),
+                $"Level {levelId}: note is {(note is null ? "null" : "present")} but key is {(key is null ? "null" : "present")}.");
+        }
+    }
+
+    // ---- time targets ---------------------------------------------------
+
     [Fact]
     public void Two_spare_regime_uses_par_times_3_seconds()
     {

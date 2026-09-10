@@ -469,6 +469,29 @@ public sealed class PuzzleStore
         }, cancellationToken: token);
     }
 
+    /// <summary>
+    /// Records a structured activity event with a kind and typed parameters, so clients
+    /// can localise the message. The <paramref name="detail"/> is kept as a fallback for
+    /// clients that do not yet understand the structured format.
+    /// </summary>
+    public Task RecordStructuredActivityAsync(
+        string playerId, string username, string eventType, string detail,
+        string kind, Dictionary<string, object> parameters,
+        CancellationToken token = default)
+    {
+        var collection = _database.GetCollection<ActivityFeedDocument>("activity_feed");
+        return collection.InsertOneAsync(new ActivityFeedDocument
+        {
+            PlayerId = playerId,
+            Username = username,
+            EventType = eventType,
+            Detail = detail,
+            Kind = kind,
+            Params = parameters,
+            Timestamp = DateTime.UtcNow,
+        }, cancellationToken: token);
+    }
+
     public async Task<List<ActivityFeedDocument>> GetRecentActivityAsync(
         int limit, CancellationToken token = default)
     {

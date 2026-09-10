@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ballStyle, colourName, lockedBallStyle } from '../skins';
 import { isEarned, type BallUnlock } from './profileBall';
 
@@ -26,6 +27,7 @@ const COLUMNS = 7;
  * to pull anyone out of a puzzle.
  */
 export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: BallPickerProps) {
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
@@ -36,7 +38,7 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
 
     const saved = await onChoose(colour);
     if (!saved) {
-      setProblem("That didn't save. Your ball is unchanged.");
+      setProblem(t('ballPicker.saveFailed'));
     }
 
     setSaving(false);
@@ -91,7 +93,7 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
   if (unlocks.length === 0) {
     return (
       <p className="text-sm text-slate-400">
-        Can't reach the server, so there's nothing to choose from right now.
+        {t('ballPicker.cantReach')}
       </p>
     );
   }
@@ -101,7 +103,7 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
 
   return (
     <div>
-      <div className="grid grid-cols-7 gap-2.5" role="group" aria-label="Your ball">
+      <div className="grid grid-cols-7 gap-2.5" role="group" aria-label={t('account.yourBall')}>
         {unlocks.map((unlock, i) => {
           const open = isEarned(unlock, highestCompleted);
           const cname = colourName(unlock.colour);
@@ -115,7 +117,7 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
               aria-pressed={chosen === unlock.colour}
               data-testid={`ball-${unlock.colour}`}
               data-locked={open ? undefined : 'true'}
-              aria-label={open ? cname : `${cname} — unlocks at level ${unlock.unlocksAtLevel}`}
+              aria-label={open ? cname : t('ballPicker.unlocksAt', { name: cname, level: unlock.unlocksAtLevel })}
               onClick={() => open && void choose(unlock.colour)}
               onPointerDown={handlePointerDown}
               className={
@@ -143,13 +145,13 @@ export function BallPicker({ unlocks, highestCompleted, chosen, onChoose }: Ball
 
       {earned.length === 0 && firstLocked !== undefined && (
         <p className="mt-3 text-sm text-slate-400">
-          Finish level {firstLocked.unlocksAtLevel} to earn your first balls.
+          {t('ballPicker.firstLocked', { level: firstLocked.unlocksAtLevel })}
         </p>
       )}
 
       {earned.length > 0 && (
         <p className="mt-3 text-xs text-slate-500">
-          The dimmed ones show the level that earns them.
+          {t('ballPicker.earnedHint')}
         </p>
       )}
 

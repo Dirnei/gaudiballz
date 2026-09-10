@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { API, authHeaders } from './identity';
 import { useGameContext } from './GameContext';
@@ -23,6 +24,7 @@ interface PlayerStats {
 const fredoka = { fontFamily: "'Fredoka', system-ui, sans-serif" } as const;
 
 export function StatsPage() {
+  const { t } = useTranslation();
   const game = useGameContext();
   const isRegistered = game.identity !== null && !game.identity.isAnonymous;
 
@@ -52,8 +54,8 @@ export function StatsPage() {
   if (!isRegistered) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-        <h2 className="text-xl font-bold text-white" style={fredoka}>Your Stats</h2>
-        <p className="mt-2 text-sm text-slate-400">Register an account to track your statistics and compete on the leaderboard.</p>
+        <h2 className="text-xl font-bold text-white" style={fredoka}>{t('stats.title')}</h2>
+        <p className="mt-2 text-sm text-slate-400">{t('stats.registerPrompt')}</p>
       </div>
     );
   }
@@ -68,20 +70,20 @@ export function StatsPage() {
         transition={{ type: 'spring', stiffness: 400, damping: 30 }}
         className="mx-auto w-full max-w-3xl pt-5"
       >
-        <h1 className="text-2xl font-bold tracking-tight text-white" style={fredoka}>Your Stats</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-white" style={fredoka}>{t('stats.title')}</h1>
 
         {!stats ? (
-          <p className="mt-12 text-center text-sm text-slate-500">Loading stats...</p>
+          <p className="mt-12 text-center text-sm text-slate-500">{t('stats.loading')}</p>
         ) : (
           <>
             {/* Stat cards */}
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <StatCard value={stats.totalPoints.toLocaleString()} label="Total Points" color="text-amber-400" sub={stats.comparisons?.['points']} icon="star" iconBg="bg-amber-400/12" />
-              <StatCard value={String(stats.gamesPlayed)} label="Games Played" color="text-emerald-400" sub={`${stats.gamesWon} won · ${stats.winRate}% win rate`} icon="check" iconBg="bg-emerald-400/12" />
-              <StatCard value={String(stats.highestLevel)} label="Highest Level" color="text-violet-400" sub={stats.comparisons?.['level']} icon="arrow" iconBg="bg-violet-400/12" />
-              <StatCard value={String(stats.bestMoves)} label="Best Moves" color="text-sky-400" sub={stats.bestMovesLevel > 0 ? `Level ${stats.bestMovesLevel}` : undefined} icon="chart" iconBg="bg-sky-400/12" />
-              <StatCard value={String(stats.currentStreak)} label="Day Streak" color="text-emerald-400" sub={`Best: ${stats.bestStreak} days`} icon="flame" iconBg="bg-emerald-400/12" />
-              <StatCard value={`#${stats.globalRank}`} label="Global Rank" color="text-slate-200" sub={stats.comparisons?.['rank']} icon="rank" iconBg="bg-white/6" />
+              <StatCard value={stats.totalPoints.toLocaleString()} label={t('stats.totalPoints')} color="text-amber-400" sub={stats.comparisons?.['points']} icon="star" iconBg="bg-amber-400/12" />
+              <StatCard value={String(stats.gamesPlayed)} label={t('stats.gamesPlayed')} color="text-emerald-400" sub={t('stats.wonAndRate', { won: stats.gamesWon, rate: stats.winRate })} icon="check" iconBg="bg-emerald-400/12" />
+              <StatCard value={String(stats.highestLevel)} label={t('stats.highestLevel')} color="text-violet-400" sub={stats.comparisons?.['level']} icon="arrow" iconBg="bg-violet-400/12" />
+              <StatCard value={String(stats.bestMoves)} label={t('stats.bestMoves')} color="text-sky-400" sub={stats.bestMovesLevel > 0 ? t('stats.levelN', { level: stats.bestMovesLevel }) : undefined} icon="chart" iconBg="bg-sky-400/12" />
+              <StatCard value={String(stats.currentStreak)} label={t('stats.dayStreak')} color="text-emerald-400" sub={t('stats.bestDays', { days: stats.bestStreak })} icon="flame" iconBg="bg-emerald-400/12" />
+              <StatCard value={`#${stats.globalRank}`} label={t('stats.globalRank')} color="text-slate-200" sub={stats.comparisons?.['rank']} icon="rank" iconBg="bg-white/6" />
             </div>
 
             {/* Level progress */}
@@ -97,8 +99,8 @@ export function StatsPage() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-white" style={fredoka}>Level Progress</div>
-                  <div className="mt-0.5 text-xs text-slate-500">{stats.levelsCompleted} of {stats.totalLevels} levels completed</div>
+                  <div className="font-bold text-white" style={fredoka}>{t('stats.levelProgress')}</div>
+                  <div className="mt-0.5 text-xs text-slate-500">{t('stats.levelsCompleted', { completed: stats.levelsCompleted, total: stats.totalLevels })}</div>
                 </div>
                 <div className="text-xl font-bold text-violet-400" style={fredoka}>{progressPct}%</div>
               </div>
@@ -109,8 +111,8 @@ export function StatsPage() {
                 />
               </div>
               <div className="mt-1.5 flex justify-between text-[0.7rem] tabular-nums text-slate-600">
-                <span>Level 1</span>
-                <span>Level {stats.totalLevels}</span>
+                <span>{t('stats.levelN', { level: 1 })}</span>
+                <span>{t('stats.levelN', { level: stats.totalLevels })}</span>
               </div>
             </div>
 

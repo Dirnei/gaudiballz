@@ -46,6 +46,7 @@ public sealed class LevelsSlice : ISlice
                 timeTargetMs = LevelCatalogue.TimeTargetMs(levelId),
                 spareTubes = level.Parameters.SpareTubes,
                 chapterNote = LevelCatalogue.ChapterNote(levelId),
+                noteKey = LevelCatalogue.ChapterNoteKey(levelId),
                 code = codes.CodeFor(levelId),
             });
         })
@@ -57,7 +58,7 @@ public sealed class LevelsSlice : ISlice
         {
             var levelId = codes.LevelFor(request.Code);
             return levelId is null
-                ? Results.BadRequest(new { error = "Invalid level code." })
+                ? Results.BadRequest(new { error = "Invalid level code.", code = "invalid-level-code" })
                 : Results.Ok(new { levelId });
         })
         .WithName("UnlockLevel");
