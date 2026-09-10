@@ -132,13 +132,14 @@ public sealed class ProgressionSlice : ISlice
                                 updatedProgress.Levels.Values.Count(r => r.Stars > 0),
                                 ball);
 
-                            if (attemptPoints > 0)
+                            var earnedThisAttempt = starDelta + replayBonus + timeBonus;
+                            if (earnedThisAttempt > 0)
                             {
                                 var weekPeriod = $"{DateTime.UtcNow.Year}-W{System.Globalization.CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(DateTime.UtcNow, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday):D2}";
                                 var dayPeriod = DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
-                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, weekPeriod, attemptPoints, ball);
-                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, attemptPoints, ball);
+                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, weekPeriod, earnedThisAttempt, ball);
+                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, earnedThisAttempt, ball);
                             }
 
                             await store.RecordStructuredActivityAsync(
