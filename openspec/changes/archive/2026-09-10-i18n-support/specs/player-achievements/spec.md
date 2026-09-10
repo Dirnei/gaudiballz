@@ -41,7 +41,7 @@ The initial catalogue SHALL include achievements in these categories:
 
 Each achievement SHALL be awarded at most once per player. Earning the same achievement a second time SHALL be a no-op.
 
-#### Scenario: The catalogue is available with identifiers
+#### Scenario: The catalogue is available
 
 - **WHEN** a registered player requests their achievements
 - **THEN** every achievement in the catalogue is present in the response, each with its stable string identifier, display name, description, category, and earned state

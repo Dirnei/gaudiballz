@@ -8,7 +8,7 @@ Each recorded event SHALL include a structured payload with the action kind and 
 
 Anonymous player actions SHALL NOT appear in the feed.
 
-#### Scenario: Level completion recorded with structured data
+#### Scenario: Level completion recorded
 
 - **WHEN** a registered player completes level 45 in 19 moves
 - **THEN** an event is recorded with the player name, action kind `level-cleared`, and parameters `{ level: 45, moves: 19 }`
@@ -31,7 +31,7 @@ The feed SHALL be limited to a reasonable number of recent events (not unbounded
 
 Legacy events that were stored as pre-formatted text SHALL be returned with action kind `legacy` and the original text in a `text` parameter, so the client can render them as-is.
 
-#### Scenario: Fetching the activity feed with structured events
+#### Scenario: Fetching the activity feed
 
 - **WHEN** the client requests the activity feed
 - **THEN** it receives the most recent events, each with player name, action kind, parameters, and timestamp
