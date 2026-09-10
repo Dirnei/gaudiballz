@@ -60,6 +60,14 @@ public sealed class ScoringTests
     }
 
     [Fact]
+    public void Zero_elapsed_time_caps_at_2_stars()
+    {
+        var (stars, points) = Scoring.Calculate(moves: 10, hints: 0, elapsedTimeMs: 0, par: 12, timeTargetMs: 30_000);
+        Assert.Equal(2, stars);
+        Assert.Equal(250, points);
+    }
+
+    [Fact]
     public void Null_elapsed_time_caps_at_2_stars()
     {
         var (stars, points) = Scoring.Calculate(moves: 10, hints: 0, elapsedTimeMs: null, par: 12, timeTargetMs: 30_000);

@@ -9,7 +9,7 @@ public static class Scoring
             return (1, 100);
         }
 
-        if (elapsedTimeMs is not null && elapsedTimeMs.Value <= timeTargetMs)
+        if (elapsedTimeMs is > 0 && elapsedTimeMs.Value <= timeTargetMs)
         {
             return (3, 500);
         }
