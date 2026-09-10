@@ -468,6 +468,7 @@ export function useGame() {
     if (clamped > levelCeiling) {
       return;
     }
+    setState(null);
     setLevelId(clamped);
   }, [levelCeiling]);
 
