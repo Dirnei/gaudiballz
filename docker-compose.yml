@@ -20,6 +20,12 @@ services:
       Mongo__Database: "puzzle"
       Passkeys__Domain: "localhost"
       Passkeys__Origins: "http://localhost:8123,http://localhost:5175"
+      # Legal contact details shown on /impressum and /datenschutz.
+      # Legal__Name: "Your Name"
+      # Legal__Street: "Street 1"
+      # Legal__City: "12345 City"
+      # Legal__Country: "Germany"
+      # Legal__Email: "you@example.com"
     depends_on:
       mongo:
         condition: service_healthy

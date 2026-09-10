@@ -1,19 +1,28 @@
 import { PageLayout } from './PageLayout';
+import { useLegalContact } from './useLegalContact';
 
 export function Datenschutz() {
+  const { contact, loading, configured } = useLegalContact();
+
   return (
     <PageLayout title="Datenschutz">
       <div className="space-y-6 text-sm leading-relaxed text-slate-300">
         <section>
           <h2 className="mb-1 font-semibold text-slate-200">Verantwortlicher</h2>
-          <p>
-            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">[Ihr Name]</span>,{' '}
-            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">[Ihre Adresse]</span>
-          </p>
-          <p className="mt-1">
-            E-Mail:{' '}
-            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-300">[Ihre E-Mail-Adresse]</span>
-          </p>
+          {loading ? (
+            <p className="text-slate-500">Laden…</p>
+          ) : !configured ? (
+            <p className="rounded bg-amber-500/15 px-3 py-2 text-amber-300">
+              Die Betreiberinformationen wurden noch nicht konfiguriert.
+            </p>
+          ) : (
+            <>
+              <p>
+                {contact!.name}, {contact!.street}, {contact!.city}, {contact!.country}
+              </p>
+              <p className="mt-1">E-Mail: {contact!.email}</p>
+            </>
+          )}
         </section>
 
         <section>

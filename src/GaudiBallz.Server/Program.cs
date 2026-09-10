@@ -2,6 +2,7 @@ using Akka.Actor;
 using Fido2NetLib;
 using GaudiBallz.Server.Achievements;
 using GaudiBallz.Server.Hub;
+using GaudiBallz.Server.Legal;
 using GaudiBallz.Server.Levels;
 using GaudiBallz.Server.Persistence;
 using GaudiBallz.Server.PlayerIdentity;
@@ -56,6 +57,7 @@ LevelsSlice.AddServices(builder.Services);
 ProfileBallSlice.AddServices(builder.Services);
 AchievementsSlice.AddServices(builder.Services);
 HubSlice.AddServices(builder.Services);
+LegalSlice.AddServices(builder.Services);
 
 builder.Services.AddOutputCache();
 
@@ -84,6 +86,7 @@ LevelsSlice.MapEndpoints(app);
 ProfileBallSlice.MapEndpoints(app);
 AchievementsSlice.MapEndpoints(app);
 HubSlice.MapEndpoints(app);
+LegalSlice.MapEndpoints(app);
 
 // Anything that is not an API route or a real file is the SPA: the client owns its own
 // routing, so a deep link has to reach index.html rather than 404.

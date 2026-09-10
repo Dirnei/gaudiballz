@@ -1,36 +1,4 @@
-# legal-pages Specification
-
-## Purpose
-Provides the legally required Impressum and Datenschutzerklärung (privacy policy) pages for deploying a publicly accessible website from Germany, served at stable URL paths.
-
-## Requirements
-
-### Requirement: Impressum page at a stable URL
-
-The application SHALL serve an Impressum page at the path `/impressum`. The page SHALL contain the site operator's name, postal address, and contact information as required by § 5 TMG / § 18 MStV.
-
-#### Scenario: Visiting the Impressum
-
-- **WHEN** a user navigates to `/impressum`
-- **THEN** a page is displayed containing the operator's name, address, and contact details
-
-### Requirement: Datenschutzerklärung page at a stable URL
-
-The application SHALL serve a privacy policy page at the path `/datenschutz`. The page SHALL describe what personal data is processed, the legal basis for processing, data retention, and the user's rights under GDPR.
-
-#### Scenario: Visiting the Datenschutzerklärung
-
-- **WHEN** a user navigates to `/datenschutz`
-- **THEN** a page is displayed describing data processing practices and user rights
-
-### Requirement: Legal pages are accessible without an account
-
-The Impressum and Datenschutzerklärung pages SHALL be accessible to any visitor without logging in or creating an account.
-
-#### Scenario: Anonymous visitor reads the Impressum
-
-- **WHEN** a visitor who has never used the game navigates to `/impressum`
-- **THEN** the Impressum page is displayed without requiring authentication
+## ADDED Requirements
 
 ### Requirement: Legal contact details served from server configuration
 
@@ -73,3 +41,11 @@ The legal contact API endpoint SHALL be accessible without authentication, the s
 
 - **WHEN** a request is made to the contact endpoint without any authentication token
 - **THEN** the server returns the contact details successfully
+
+## REMOVED Requirements
+
+### Requirement: Legal page content uses placeholder fields
+
+**Reason**: Replaced by server-configured contact details. Hardcoded placeholders required rebuilding the container image to change operator information; runtime configuration makes the same image deployable by any operator.
+
+**Migration**: Set `Legal__Name`, `Legal__Street`, `Legal__City`, `Legal__Country`, and `Legal__Email` environment variables in the deployment configuration instead of editing source code.
