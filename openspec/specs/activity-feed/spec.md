@@ -35,7 +35,7 @@ Anonymous player actions SHALL NOT appear in the feed.
 
 ### Requirement: The activity feed returns recent events
 
-The system SHALL provide an endpoint that returns the most recent notable events in reverse chronological order. Each event SHALL include the player name, action kind, structured parameters, and timestamp.
+The system SHALL provide an endpoint that returns the most recent notable events in reverse chronological order. Each event SHALL include the player name, the player's profile ball colour, action kind, structured parameters, and timestamp.
 
 The feed SHALL be limited to a reasonable number of recent events (not unbounded).
 
@@ -44,7 +44,7 @@ Legacy events that were stored as pre-formatted text SHALL be returned with acti
 #### Scenario: Fetching the activity feed
 
 - **WHEN** the client requests the activity feed
-- **THEN** it receives the most recent events, each with player name, action kind, parameters, and timestamp
+- **THEN** it receives the most recent events, each with player name, profile ball, action kind, parameters, and timestamp
 
 #### Scenario: Legacy event returned as-is
 
