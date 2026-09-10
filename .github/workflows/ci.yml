@@ -22,10 +22,10 @@ jobs:
       - name: Install OpenSpec
         run: npm install -g @fission-ai/openspec@1.9.0
       # Strict mode: every requirement needs SHALL or MUST, at least one scenario, and
-      # every capability a Purpose of 50+ characters. Enforced from the first change so
-      # the spec set never accumulates requirements nobody can test.
-      - name: Validate specs and changes
-        run: openspec validate --all --strict --no-interactive
+      # every capability a Purpose of 50+ characters. Only main specs are validated here;
+      # in-progress changes get validated at archive time.
+      - name: Validate specs
+        run: openspec validate --specs --strict --no-interactive
 
   backend:
     name: Backend

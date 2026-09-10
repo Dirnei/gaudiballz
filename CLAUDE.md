@@ -76,8 +76,9 @@ cd client && npm run test:conformance
 - **Port 8123**: Docker maps to 8123 because 8080 and 8090 are taken on this machine.
 - **OpenSpec for planning**: Use `openspec` for non-trivial changes. Specs describe
   observable behaviour only; implementation details go in `design.md`.
-- **CI validates specs**: `openspec validate --all --strict` runs in CI. Every
+- **CI validates specs**: `openspec validate --specs --strict` runs in CI. Every
   requirement needs SHALL/MUST, at least one scenario, and a Purpose of 50+ chars.
+  In-progress changes are excluded — they get validated at archive time.
 
 ## Git
 
