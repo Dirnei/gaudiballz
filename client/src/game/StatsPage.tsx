@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { API, authHeaders } from './identity';
 import { useGameContext } from './GameContext';
-import type { Achievement } from './achievements';
+import { AchievementsSection } from './AchievementsSection';
 
 interface PlayerStats {
   readonly totalPoints: number;
@@ -27,7 +27,7 @@ export function StatsPage() {
   const isRegistered = game.identity !== null && !game.identity.isAnonymous;
 
   const [stats, setStats] = useState<PlayerStats | null>(null);
-  const [achievements, setAchievements] = useState<readonly Achievement[] | null>(null);
+  const [achievementsReady, setAchievementsReady] = useState(false);
 
   useEffect(() => {
     if (!isRegistered) return;
@@ -46,7 +46,7 @@ export function StatsPage() {
   }, [isRegistered, game]);
 
   useEffect(() => {
-    if (game.achievements) setAchievements(game.achievements.achievements);
+    if (game.achievements) setAchievementsReady(true);
   }, [game.achievements]);
 
   if (!isRegistered) {
@@ -115,43 +115,9 @@ export function StatsPage() {
             </div>
 
             {/* Achievements */}
-            {achievements && (
+            {achievementsReady && (
               <div className="mt-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-bold text-white" style={fredoka}>Achievements</h2>
-                  <span className="text-sm font-semibold text-slate-500">
-                    {achievements.filter((a) => a.earned).length} / {achievements.length} unlocked
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2.5">
-                  {achievements.map((ach) => (
-                    <div
-                      key={ach.id}
-                      className={
-                        'flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition-colors ' +
-                        (ach.earned
-                          ? 'bg-white/4 ring-white/6 text-slate-200'
-                          : 'bg-white/2 ring-white/4 text-slate-600 opacity-40')
-                      }
-                    >
-                      {ach.earned ? (
-                        <span className="h-5 w-5 rounded-lg bg-amber-400/12 flex items-center justify-center flex-shrink-0">
-                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                            <path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z" fill="#FACC15" />
-                          </svg>
-                        </span>
-                      ) : (
-                        <span className="h-5 w-5 rounded-lg bg-white/4 flex items-center justify-center flex-shrink-0">
-                          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                            <rect x="4" y="7" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                            <path d="M6 7V5a2 2 0 014 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
-                        </span>
-                      )}
-                      <span style={fredoka}>{ach.name}</span>
-                    </div>
-                  ))}
-                </div>
+                <AchievementsSection state={game.achievements} />
               </div>
             )}
           </>

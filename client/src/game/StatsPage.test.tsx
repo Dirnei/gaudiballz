@@ -33,8 +33,8 @@ describe('StatsPage', () => {
       identity: { playerId: 'p1', isAnonymous: false, username: 'Test' },
       achievements: {
         achievements: [
-          { id: 'a1', name: 'First Clear', description: '', category: 'milestone', earned: true, awardedAt: null, threshold: null, progress: null },
-          { id: 'a2', name: 'Level 10', description: '', category: 'milestone', earned: false, awardedAt: null, threshold: 10, progress: 5 },
+          { id: 'a1', name: 'First Clear', description: 'Complete your first level', category: 'milestone', earned: true, awardedAt: null, threshold: null, progress: null },
+          { id: 'a2', name: 'Level 10', description: 'Complete 10 levels', category: 'milestone', earned: false, awardedAt: null, threshold: 10, progress: 5 },
         ],
       },
       ensureAchievements: vi.fn(),
@@ -60,7 +60,10 @@ describe('StatsPage', () => {
     expect(await screen.findByText((5000).toLocaleString())).toBeTruthy();
     expect(screen.getByText('50')).toBeTruthy();
     expect(screen.getByText('#12')).toBeTruthy();
-    expect(screen.getByText('1 / 2 unlocked')).toBeTruthy();
+    expect(screen.getByText('1 / 2')).toBeTruthy();
     expect(screen.getByText('First Clear')).toBeTruthy();
+    expect(screen.getByText('Complete your first level')).toBeTruthy();
+    expect(screen.getByText('Complete 10 levels')).toBeTruthy();
+    expect(screen.getByText('5 / 10')).toBeTruthy();
   });
 });
