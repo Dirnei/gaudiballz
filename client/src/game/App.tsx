@@ -6,6 +6,7 @@ import { MainMenu } from './MainMenu';
 import { LevelSelect } from './LevelSelect';
 import { AchievementsScreen } from './AchievementsScreen';
 import { GameScreen } from './GameScreen';
+import { TutorialScreen } from './TutorialScreen';
 import { Impressum } from './Impressum';
 import { Datenschutz } from './Datenschutz';
 import { LeaderboardPage } from './LeaderboardPage';
@@ -31,6 +32,7 @@ export const routes: RouteObject[] = [
     errorElement: <ErrorFallback />,
     children: [
       { path: 'play', element: <GameScreen /> },
+      { path: 'tutorial', element: <TutorialScreen /> },
     ],
   },
   {

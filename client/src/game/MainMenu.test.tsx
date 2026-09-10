@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const mockGame = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
 vi.mock('./GameContext', () => ({
@@ -81,5 +81,39 @@ describe('MainMenu keyboard navigation', () => {
 
     fireEvent.pointerDown(screen.getByTestId('menu-level-select'));
     expect(screen.getByTestId('menu-play')).not.toHaveClass('kb-focus');
+  });
+});
+
+describe('tutorial redirect', () => {
+  function setupWithRoutes() {
+    mockGame.current = defaultGame();
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<MainMenu />} />
+          <Route path="/tutorial" element={<div data-testid="at-tutorial" />} />
+          <Route path="/play" element={<div data-testid="at-play" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('navigates to /tutorial when tutorial has not been seen', () => {
+    setupWithRoutes();
+    fireEvent.click(screen.getByTestId('menu-play'));
+
+    expect(screen.getByTestId('at-tutorial')).toBeInTheDocument();
+  });
+
+  it('navigates to /play when tutorial has been seen', () => {
+    localStorage.setItem('puzzle.tutorialSeen', '1');
+    setupWithRoutes();
+    fireEvent.click(screen.getByTestId('menu-play'));
+
+    expect(screen.getByTestId('at-play')).toBeInTheDocument();
   });
 });

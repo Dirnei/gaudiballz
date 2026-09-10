@@ -73,6 +73,7 @@ function renderApp(initialRoute = '/') {
 }
 
 beforeEach(() => {
+  localStorage.setItem('puzzle.tutorialSeen', '1');
   game.current = playing();
 });
 

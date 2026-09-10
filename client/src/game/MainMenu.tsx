@@ -7,6 +7,7 @@ import { StatsRibbon } from './StatsRibbon';
 import { ProgressTiles } from './ProgressTiles';
 import { RecentGames } from './RecentGames';
 import { ActivityFeed } from './ActivityFeed';
+import { needsTutorial } from './tutorial';
 
 export function MainMenu() {
   const game = useGameContext();
@@ -15,7 +16,7 @@ export function MainMenu() {
 
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-  const onPlay = useCallback(() => navigate('/play'), [navigate]);
+  const onPlay = useCallback(() => navigate(needsTutorial() ? '/tutorial' : '/play'), [navigate]);
   const onLevelSelect = useCallback(() => navigate('/levels'), [navigate]);
 
   const actions = useMemo(() => [onPlay, onLevelSelect], [onPlay, onLevelSelect]);
