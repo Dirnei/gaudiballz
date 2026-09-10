@@ -292,6 +292,19 @@ export function useGame() {
     [state, selected],
   );
 
+  const pour = useCallback(
+    (from: number, to: number) => {
+      if (state === null) return;
+      const next = play(state, { from, to });
+      if (next !== state) {
+        plan.current = [];
+        setState(next);
+        setSelected(null);
+      }
+    },
+    [state],
+  );
+
   /**
    * Whether the position can still be won, recomputed after every move.
    *
@@ -615,6 +628,7 @@ export function useGame() {
     clearNewAchievements,
     elapsed,
     tapTube,
+    pour,
     undo,
     restart,
     goToLevel,

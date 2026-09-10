@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Tube } from './Tube';
@@ -10,6 +10,10 @@ import { AccountPanel } from './AccountPanel';
 import { FlaskLogo } from './FlaskLogo';
 import { LiveTimer, formatTime } from './LiveTimer';
 import { haptics } from './haptics';
+import { DragOverlay } from './DragOverlay';
+import { useDrag, type Point } from './useDrag';
+import { topColour, topRunLength } from '../engine/board';
+import { validate } from '../engine/rules';
 
 function isComplete(tube: readonly number[], capacity: number): boolean {
   return tube.length === capacity && tube.every((colour) => colour === tube[0]);
@@ -205,6 +209,76 @@ export function GameScreen() {
     },
     [game],
   );
+
+  const [dragSource, setDragSource] = useState<number | null>(null);
+  const [dragPos, setDragPos] = useState<Point>({ x: 0, y: 0 });
+  const dragSourceRef = useRef<number | null>(null);
+
+  const dragColours = useMemo(() => {
+    if (dragSource === null || !board) return [];
+    const tube = board.tubes[dragSource];
+    const colour = topColour(tube);
+    if (colour === 0) return [];
+    const count = topRunLength(tube);
+    return Array.from({ length: count }, () => colour);
+  }, [dragSource, board]);
+
+  const validDropTargets = useMemo(() => {
+    if (dragSource === null || !board) return new Set<number>();
+    const targets = new Set<number>();
+    for (let i = 0; i < board.tubes.length; i++) {
+      if (i === dragSource) continue;
+      if (validate(board, { from: dragSource, to: i }) === 'None') {
+        targets.add(i);
+      }
+    }
+    return targets;
+  }, [dragSource, board]);
+
+  const pendingTubeRef = useRef<number | null>(null);
+
+  const { isDragging, handlers: dragHandlers } = useDrag({
+    onTap: () => {
+      const idx = pendingTubeRef.current;
+      if (idx !== null) handleTubeTap(idx);
+    },
+    onDragStart: () => {
+      const idx = pendingTubeRef.current;
+      if (idx === null || !board || board.tubes[idx].length === 0) return;
+      dragSourceRef.current = idx;
+      setDragSource(idx);
+      if (game.selected !== null && game.selected !== idx) {
+        game.tapTube(game.selected);
+      }
+    },
+    onDragMove: (pos: Point) => {
+      setDragPos(pos);
+    },
+    onDragEnd: (pos: Point) => {
+      const src = dragSourceRef.current;
+      dragSourceRef.current = null;
+      setDragSource(null);
+
+      if (src === null || !board) return;
+
+      const el = document.elementFromPoint(pos.x, pos.y);
+      const tubeButton = el?.closest<HTMLElement>('[data-tube-index]');
+      if (!tubeButton) return;
+
+      const targetIndex = Number(tubeButton.dataset.tubeIndex);
+      if (Number.isNaN(targetIndex) || targetIndex === src) return;
+
+      if (validate(board, { from: src, to: targetIndex }) === 'None') {
+        haptics.move();
+        game.pour(src, targetIndex);
+      }
+    },
+  });
+
+  const handleTubePointerDown = useCallback((index: number, e: React.PointerEvent) => {
+    pendingTubeRef.current = index;
+    dragHandlers.onPointerDown(e);
+  }, [dragHandlers]);
 
   function findVerticalNeighbour(from: number, direction: 'up' | 'down'): number | null {
     const refs = tubeRefs.current;
@@ -460,12 +534,15 @@ export function GameScreen() {
                 <Tube
                   key={index}
                   ref={(el) => { tubeRefs.current[index] = el; }}
-                  items={tube}
+                  items={dragSource === index ? tube.slice(0, tube.length - dragColours.length) : tube}
                   capacity={board.capacity}
                   selected={game.selected === index}
                   focused={focusedTube === index}
                   complete={isComplete(tube, board.capacity)}
+                  dropTarget={validDropTargets.has(index)}
+                  tubeIndex={index}
                   onTap={() => handleTubeTap(index)}
+                  onPointerDown={(e) => handleTubePointerDown(index, e)}
                 />
               ))}
             </div>
@@ -485,6 +562,10 @@ export function GameScreen() {
               </div>
             </div>
           </>
+        )}
+
+        {isDragging && dragSource !== null && dragColours.length > 0 && (
+          <DragOverlay colours={dragColours} position={dragPos} />
         )}
       </main>
 
@@ -659,7 +740,8 @@ export function GameScreen() {
               <p className="text-2xl font-bold tracking-tight">Solved</p>
 
               {game.attemptStars > 0 && (() => {
-                const totalEarned = game.starDelta + game.replayBonus + game.timeBonus;
+                const bonus = game.replayBonus + game.timeBonus;
+                const totalEarned = game.starDelta + bonus;
                 const best = game.levelProgress.get(game.levelId);
                 const bestStars = best?.stars ?? 0;
 
@@ -674,18 +756,18 @@ export function GameScreen() {
                           ★
                         </span>
                       ))}
-                      {totalEarned > 0 && (
-                        <span className="ml-2 text-sm font-medium text-amber-400">
-                          +{totalEarned} pts
-                        </span>
-                      )}
+                      <span className="ml-2 text-sm font-medium text-amber-400">
+                        {game.attemptPoints} pts
+                      </span>
                     </div>
 
-                    <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
-                      {game.starDelta > 0 && <span className="text-amber-400/80">+{game.starDelta} star upgrade</span>}
-                      {game.timeBonus > 0 && <span className="text-amber-400/80">+{game.timeBonus} best time</span>}
-                      {game.replayBonus > 0 && <span>+{game.replayBonus} replay</span>}
-                    </div>
+                    {totalEarned > 0 && (
+                      <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
+                        {game.starDelta > 0 && <span className="text-amber-400/80">+{game.starDelta} star upgrade</span>}
+                        {game.timeBonus > 0 && <span className="text-amber-400/80">+{game.timeBonus} best time</span>}
+                        {game.replayBonus > 0 && <span>+{game.replayBonus} replay</span>}
+                      </div>
+                    )}
 
                     {bestStars > 0 && bestStars > game.attemptStars && (
                       <p className="mt-1 text-xs text-slate-500">

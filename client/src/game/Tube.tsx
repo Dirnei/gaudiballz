@@ -9,7 +9,10 @@ interface TubeProps {
   readonly selected: boolean;
   readonly focused: boolean;
   readonly complete: boolean;
+  readonly dropTarget?: boolean;
+  readonly tubeIndex?: number;
   readonly onTap: () => void;
+  readonly onPointerDown?: (e: React.PointerEvent) => void;
 }
 
 /**
@@ -20,7 +23,7 @@ interface TubeProps {
  * along a path. A spring on entry reads as the ball dropping into place, which is the part
  * that actually makes a pour feel good.
  */
-export function Tube({ ref, items, capacity, selected, focused, complete, onTap }: TubeProps) {
+export function Tube({ ref, items, capacity, selected, focused, complete, dropTarget, tubeIndex, onTap, onPointerDown }: TubeProps) {
   const slots = Array.from({ length: capacity }, (_, i) => items[i]);
 
   // A one-shot celebration the moment a tube fills, rather than a permanent style. The
@@ -42,11 +45,13 @@ export function Tube({ ref, items, capacity, selected, focused, complete, onTap 
     <button
       ref={ref}
       type="button"
-      onClick={onTap}
+      onClick={onPointerDown ? undefined : onTap}
+      onPointerDown={onPointerDown}
+      data-tube-index={tubeIndex}
       aria-label={`Tube holding ${items.length} of ${capacity}${complete ? ', complete' : ''}`}
       aria-pressed={selected}
       className="flex flex-col items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70 focus-visible:ring-offset-0"
-      style={{ padding: 'var(--gap)', borderRadius: '1rem' }}
+      style={{ padding: 'var(--gap)', borderRadius: '1rem', touchAction: 'none' }}
     >
       {/* Reserved space so tubes never shift as the selection moves between them. */}
       <div className="flex h-3 items-center">
@@ -79,11 +84,13 @@ export function Tube({ ref, items, capacity, selected, focused, complete, onTap 
           ...TUBE_STYLE,
           gap: 'var(--gap)',
           padding: 'calc(var(--gap) * 1.4)',
-          ...(focused
-            ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 2px rgba(250,204,21,0.7)` }
-            : complete
-              ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 1px rgba(255,255,255,0.18)` }
-              : null),
+          ...(dropTarget
+            ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 2px rgba(56,189,248,0.6), 0 0 16px rgba(56,189,248,0.25)` }
+            : focused
+              ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 2px rgba(250,204,21,0.7)` }
+              : complete
+                ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 1px rgba(255,255,255,0.18)` }
+                : null),
         }}
       >
         {slots.map((colour, slot) => (
