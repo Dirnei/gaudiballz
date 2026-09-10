@@ -6,6 +6,7 @@ import { AccountPanel } from './AccountPanel';
 import { BackgroundBloom } from './BackgroundBloom';
 import { useGameContext } from './GameContext';
 import { useHeartbeat } from './useHeartbeat';
+import { APP_VERSION } from './version';
 
 export function AppShell() {
   const game = useGameContext();
@@ -107,6 +108,8 @@ export function AppShell() {
           </svg>
           Ko-fi
         </a>
+        <span aria-hidden>·</span>
+        <span className="tabular-nums">{APP_VERSION}</span>
       </footer>
 
       <AccountPanel

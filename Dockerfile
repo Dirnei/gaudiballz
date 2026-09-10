@@ -10,6 +10,8 @@ COPY client/package.json client/package-lock.json ./
 RUN npm ci
 
 COPY client/ ./
+ARG APP_VERSION=local-dev
+ENV VITE_APP_VERSION=$APP_VERSION
 RUN npm run build
 
 # ---------- server ----------

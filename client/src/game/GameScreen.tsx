@@ -14,6 +14,7 @@ import { DragOverlay } from './DragOverlay';
 import { useDrag, type Point } from './useDrag';
 import { topColour, topRunLength } from '../engine/board';
 import { validate } from '../engine/rules';
+import { APP_VERSION } from './version';
 
 function isComplete(tube: readonly number[], capacity: number): boolean {
   return tube.length === capacity && tube.every((colour) => colour === tube[0]);
@@ -616,6 +617,7 @@ export function GameScreen() {
             <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.451a.75.75 0 0 0 0-1.5H4.5a.75.75 0 0 0-.75.75v3.75a.75.75 0 0 0 1.5 0v-2.033l.364.363a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39Zm-10.624-3.85a5.5 5.5 0 0 1 9.201-2.465l.312.31H11.75a.75.75 0 0 0 0 1.5h3.75a.75.75 0 0 0 .75-.75V2.5a.75.75 0 0 0-1.5 0v2.033l-.364-.364A7 7 0 0 0 3.238 7.187a.75.75 0 0 0 1.449.388Z" clipRule="evenodd" />
           </svg>
         </ControlButton>
+        <span className="absolute bottom-1.5 right-3 text-[0.55rem] tabular-nums text-slate-600">{APP_VERSION}</span>
       </footer>
 
       {/* Restart confirmation */}
