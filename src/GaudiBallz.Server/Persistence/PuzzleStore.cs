@@ -124,6 +124,21 @@ public sealed class PuzzleStore
     public Task<PlayerDocument?> FindPlayerAsync(string playerId, CancellationToken token = default) =>
         _players.Find(p => p.Id == playerId).FirstOrDefaultAsync(token)!;
 
+    public async Task<Dictionary<string, int?>> GetProfileBallsAsync(
+        IEnumerable<string> playerIds, CancellationToken token = default)
+    {
+        var ids = playerIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new();
+        }
+        var players = await _players
+            .Find(Builders<PlayerDocument>.Filter.In(p => p.Id, ids))
+            .Project(p => new { p.Id, p.ProfileBall })
+            .ToListAsync(token);
+        return players.ToDictionary(p => p.Id, p => p.ProfileBall);
+    }
+
     public Task TouchPlayerAsync(string playerId, CancellationToken token = default) =>
         _players.UpdateOneAsync(
             p => p.Id == playerId,
@@ -373,7 +388,7 @@ public sealed class PuzzleStore
 
     public Task UpsertLeaderboardAsync(
         string playerId, string? username, int totalPoints, int gamesPlayed, int gamesWon,
-        CancellationToken token = default)
+        int? profileBall = null, CancellationToken token = default)
     {
         var now = DateTime.UtcNow;
 
@@ -382,6 +397,7 @@ public sealed class PuzzleStore
             Builders<LeaderboardDocument>.Update
                 .SetOnInsert(l => l.PlayerId, playerId)
                 .Set(l => l.Username, username)
+                .Set(l => l.ProfileBall, profileBall)
                 .Set(l => l.TotalPoints, totalPoints)
                 .Set(l => l.GamesPlayed, gamesPlayed)
                 .Set(l => l.GamesWon, gamesWon)
@@ -392,7 +408,7 @@ public sealed class PuzzleStore
 
     public Task UpsertPeriodLeaderboardAsync(
         string playerId, string? username, string period, int periodPoints,
-        CancellationToken token = default)
+        int? profileBall = null, CancellationToken token = default)
     {
         var now = DateTime.UtcNow;
 
@@ -401,6 +417,7 @@ public sealed class PuzzleStore
             Builders<LeaderboardDocument>.Update
                 .SetOnInsert(l => l.PlayerId, playerId)
                 .Set(l => l.Username, username)
+                .Set(l => l.ProfileBall, profileBall)
                 .Set(l => l.Period, period)
                 .Inc(l => l.TotalPoints, periodPoints)
                 .Inc(l => l.GamesPlayed, 1)
@@ -423,6 +440,17 @@ public sealed class PuzzleStore
             .Limit(limit)
             .ToListAsync(token);
     }
+
+    /// <summary>
+    /// Updates the profile ball on all leaderboard entries for a player, so a ball change
+    /// is reflected without waiting for the next completion.
+    /// </summary>
+    public Task UpdateLeaderboardBallAsync(
+        string playerId, int? ball, CancellationToken token = default) =>
+        _leaderboard.UpdateManyAsync(
+            l => l.PlayerId == playerId,
+            Builders<LeaderboardDocument>.Update.Set(l => l.ProfileBall, ball),
+            cancellationToken: token);
 
     public async Task<(int Rank, LeaderboardDocument? Entry)> GetPlayerRankAsync(
         string playerId, string? period, CancellationToken token = default)
@@ -468,13 +496,14 @@ public sealed class PuzzleStore
 
     public Task RecordActivityAsync(
         string playerId, string username, string eventType, string detail,
-        CancellationToken token = default)
+        int? profileBall = null, CancellationToken token = default)
     {
         var collection = _database.GetCollection<ActivityFeedDocument>("activity_feed");
         return collection.InsertOneAsync(new ActivityFeedDocument
         {
             PlayerId = playerId,
             Username = username,
+            ProfileBall = profileBall,
             EventType = eventType,
             Detail = detail,
             Timestamp = DateTime.UtcNow,
@@ -489,13 +518,14 @@ public sealed class PuzzleStore
     public Task RecordStructuredActivityAsync(
         string playerId, string username, string eventType, string detail,
         string kind, Dictionary<string, object> parameters,
-        CancellationToken token = default)
+        int? profileBall = null, CancellationToken token = default)
     {
         var collection = _database.GetCollection<ActivityFeedDocument>("activity_feed");
         return collection.InsertOneAsync(new ActivityFeedDocument
         {
             PlayerId = playerId,
             Username = username,
+            ProfileBall = profileBall,
             EventType = eventType,
             Detail = detail,
             Kind = kind,
@@ -525,7 +555,7 @@ public sealed class PuzzleStore
     public async Task<bool> UpsertDailyResultAsync(
         string playerId, string date, string? username,
         int moves, int hints, int stars, int points, int elapsedTimeMs,
-        CancellationToken token = default)
+        int? profileBall = null, CancellationToken token = default)
     {
         var key = DailyResultDocument.KeyFor(playerId, date);
         var existing = await _dailyResults.Find(d => d.Id == key).FirstOrDefaultAsync(token);
@@ -550,6 +580,7 @@ public sealed class PuzzleStore
                 .SetOnInsert(d => d.PlayerId, playerId)
                 .SetOnInsert(d => d.Date, date)
                 .Set(d => d.Username, username)
+                .Set(d => d.ProfileBall, profileBall)
                 .Set(d => d.Moves, moves)
                 .Set(d => d.Hints, hints)
                 .Set(d => d.Stars, stars)
@@ -633,7 +664,8 @@ public sealed class PuzzleStore
             var gamesWon = progress.Levels.Values.Count(r => r.Stars >= 1);
 
             await UpsertLeaderboardAsync(
-                player.Id, player.Username, progress.TotalPoints, gamesPlayed, gamesWon, token);
+                player.Id, player.Username, progress.TotalPoints, gamesPlayed, gamesWon,
+                player.ProfileBall, token);
         }
     }
 }

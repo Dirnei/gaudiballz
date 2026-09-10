@@ -17,7 +17,7 @@ public sealed class HubStoreTests
     public async Task Leaderboard_upsert_creates_and_updates_entry()
     {
         var id = Guid.NewGuid().ToString("N");
-        await _store.UpsertLeaderboardAsync(id, "Alice", 500, 3, 2, Token);
+        await _store.UpsertLeaderboardAsync(id, "Alice", 500, 3, 2, token: Token);
 
         var entries = await _store.QueryLeaderboardAsync(null, 0, 100, Token);
         var alice = entries.Find(e => e.PlayerId == id);
@@ -25,7 +25,7 @@ public sealed class HubStoreTests
         Assert.Equal(500, alice.TotalPoints);
         Assert.Equal("Alice", alice.Username);
 
-        await _store.UpsertLeaderboardAsync(id, "Alice", 1000, 5, 4, Token);
+        await _store.UpsertLeaderboardAsync(id, "Alice", 1000, 5, 4, token: Token);
         entries = await _store.QueryLeaderboardAsync(null, 0, 100, Token);
         alice = entries.Find(e => e.PlayerId == id);
         Assert.NotNull(alice);
@@ -37,8 +37,8 @@ public sealed class HubStoreTests
     {
         var id1 = Guid.NewGuid().ToString("N");
         var id2 = Guid.NewGuid().ToString("N");
-        await _store.UpsertLeaderboardAsync(id1, "Low", 100, 1, 1, Token);
-        await _store.UpsertLeaderboardAsync(id2, "High", 9999, 10, 8, Token);
+        await _store.UpsertLeaderboardAsync(id1, "Low", 100, 1, 1, token: Token);
+        await _store.UpsertLeaderboardAsync(id2, "High", 9999, 10, 8, token: Token);
 
         var entries = await _store.QueryLeaderboardAsync(null, 0, 100, Token);
         var lowIdx = entries.FindIndex(e => e.PlayerId == id1);
@@ -51,8 +51,8 @@ public sealed class HubStoreTests
     {
         var id1 = Guid.NewGuid().ToString("N");
         var id2 = Guid.NewGuid().ToString("N");
-        await _store.UpsertLeaderboardAsync(id1, "Top", 50000, 100, 90, Token);
-        await _store.UpsertLeaderboardAsync(id2, "Second", 40000, 80, 60, Token);
+        await _store.UpsertLeaderboardAsync(id1, "Top", 50000, 100, 90, token: Token);
+        await _store.UpsertLeaderboardAsync(id2, "Second", 40000, 80, 60, token: Token);
 
         var (rank1, _) = await _store.GetPlayerRankAsync(id1, null, Token);
         var (rank2, _) = await _store.GetPlayerRankAsync(id2, null, Token);
@@ -63,8 +63,8 @@ public sealed class HubStoreTests
     public async Task Period_leaderboard_is_separate_from_all_time()
     {
         var id = Guid.NewGuid().ToString("N");
-        await _store.UpsertLeaderboardAsync(id, "Player", 1000, 5, 3, Token);
-        await _store.UpsertPeriodLeaderboardAsync(id, "Player", "2026-W37", 200, Token);
+        await _store.UpsertLeaderboardAsync(id, "Player", 1000, 5, 3, token: Token);
+        await _store.UpsertPeriodLeaderboardAsync(id, "Player", "2026-W37", 200, token: Token);
 
         var allTime = await _store.QueryLeaderboardAsync(null, 0, 100, Token);
         var weekly = await _store.QueryLeaderboardAsync("2026-W37", 0, 100, Token);
@@ -86,8 +86,8 @@ public sealed class HubStoreTests
         await _store.EnsureActivityFeedCollectionAsync(Token);
 
         var id = Guid.NewGuid().ToString("N");
-        await _store.RecordActivityAsync(id, "TestUser", "level_clear", "cleared Level 5", Token);
-        await _store.RecordActivityAsync(id, "TestUser", "achievement", "earned First Steps", Token);
+        await _store.RecordActivityAsync(id, "TestUser", "level_clear", "cleared Level 5", token: Token);
+        await _store.RecordActivityAsync(id, "TestUser", "achievement", "earned First Steps", token: Token);
 
         var events = await _store.GetRecentActivityAsync(10, Token);
         Assert.True(events.Count >= 2);
@@ -101,7 +101,7 @@ public sealed class HubStoreTests
         await _store.EnsureActivityFeedCollectionAsync(Token);
 
         var id = Guid.NewGuid().ToString("N");
-        await _store.RecordActivityAsync(id, "PrivacyTest", "level_clear", "cleared Level 10", Token);
+        await _store.RecordActivityAsync(id, "PrivacyTest", "level_clear", "cleared Level 10", token: Token);
 
         var events = await _store.GetRecentActivityAsync(100, Token);
         var entry = events.Find(e => e.Username == "PrivacyTest");
@@ -123,7 +123,7 @@ public sealed class HubStoreTests
             id, "StructTest", "level_clear", "cleared Level 7 in 15 moves",
             "level-cleared",
             new Dictionary<string, object> { ["level"] = 7, ["moves"] = 15 },
-            Token);
+            token: Token);
 
         var events = await _store.GetRecentActivityAsync(50, Token);
         var entry = events.Find(e => e.Username == "StructTest" && e.PlayerId == id);
@@ -143,7 +143,7 @@ public sealed class HubStoreTests
         await _store.EnsureActivityFeedCollectionAsync(Token);
 
         var id = Guid.NewGuid().ToString("N");
-        await _store.RecordActivityAsync(id, "LegacyTest", "level_clear", "cleared Level 3", Token);
+        await _store.RecordActivityAsync(id, "LegacyTest", "level_clear", "cleared Level 3", token: Token);
 
         var events = await _store.GetRecentActivityAsync(50, Token);
         var entry = events.Find(e => e.Username == "LegacyTest" && e.PlayerId == id);
@@ -164,7 +164,7 @@ public sealed class HubStoreTests
             id, "AchTest", "achievement", "earned First Steps",
             "achievement-earned",
             new Dictionary<string, object> { ["achievementId"] = "milestone-1", ["achievementName"] = "First Steps" },
-            Token);
+            token: Token);
 
         var events = await _store.GetRecentActivityAsync(50, Token);
         var entry = events.Find(e => e.Username == "AchTest" && e.PlayerId == id);

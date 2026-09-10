@@ -75,10 +75,12 @@ public sealed class DailySlice : ISlice
 
                 var player = await store.FindPlayerAsync(playerId);
                 var username = player is { IsAnonymous: false } ? player.Username : null;
+                var ball = player?.ProfileBall;
 
                 var isNewBest = await store.UpsertDailyResultAsync(
                     playerId, dateStr, username,
-                    request.Moves, request.Hints, stars, points, request.ElapsedTimeMs ?? 0);
+                    request.Moves, request.Hints, stars, points, request.ElapsedTimeMs ?? 0,
+                    ball);
 
                 // Record for streak tracking
                 await store.RecordDailyPlayAsync(playerId, DateTime.UtcNow);
@@ -99,7 +101,8 @@ public sealed class DailySlice : ISlice
                                     ["date"] = dateStr,
                                     ["moves"] = request.Moves,
                                     ["stars"] = stars,
-                                });
+                                },
+                                ball);
                         }
                         catch
                         {
@@ -132,26 +135,41 @@ public sealed class DailySlice : ISlice
                 }
 
                 var entries = await store.GetDailyLeaderboardAsync(dateStr);
+                var playerIds = entries.Select(e => e.PlayerId);
 
-                var shaped = entries.Select((e, i) => new
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is not null)
                 {
-                    rank = i + 1,
-                    username = e.Username,
-                    stars = e.Stars,
-                    moves = e.Moves,
-                    elapsedTimeMs = e.ElapsedTimeMs,
-                    points = e.Points,
+                    playerIds = playerIds.Append(playerId);
+                }
+
+                var balls = await store.GetProfileBallsAsync(playerIds);
+
+                var shaped = entries.Select((e, i) =>
+                {
+                    balls.TryGetValue(e.PlayerId, out var ball);
+                    return new
+                    {
+                        rank = i + 1,
+                        username = e.Username,
+                        ball,
+                        stars = e.Stars,
+                        moves = e.Moves,
+                        elapsedTimeMs = e.ElapsedTimeMs,
+                        points = e.Points,
+                    };
                 }).ToArray();
 
                 object? viewer = null;
-                var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is not null)
                 {
                     var result = await store.FindDailyResultAsync(playerId, dateStr);
                     if (result is not null)
                     {
+                        balls.TryGetValue(playerId, out var viewerBall);
                         viewer = new
                         {
+                            ball = viewerBall,
                             stars = result.Stars,
                             moves = result.Moves,
                             elapsedTimeMs = result.ElapsedTimeMs,

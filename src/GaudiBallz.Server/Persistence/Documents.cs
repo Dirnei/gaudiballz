@@ -138,6 +138,7 @@ public sealed class LeaderboardDocument
     public string Id { get; set; } = string.Empty;
     public string PlayerId { get; set; } = string.Empty;
     public string? Username { get; set; }
+    public int? ProfileBall { get; set; }
     public int TotalPoints { get; set; }
     public int GamesPlayed { get; set; }
     public int GamesWon { get; set; }
@@ -166,6 +167,7 @@ public sealed class ActivityFeedDocument
     public ObjectId Id { get; set; }
     public string PlayerId { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
+    public int? ProfileBall { get; set; }
     public string EventType { get; set; } = string.Empty;
     public string Detail { get; set; } = string.Empty;
     public DateTime Timestamp { get; set; }
@@ -190,6 +192,7 @@ public sealed class DailyResultDocument
     public string PlayerId { get; set; } = string.Empty;
     public string Date { get; set; } = string.Empty;
     public string? Username { get; set; }
+    public int? ProfileBall { get; set; }
     public int Moves { get; set; }
     public int Hints { get; set; }
     public int Stars { get; set; }
@@ -273,6 +276,7 @@ public static class BsonRegistration
                 map.MapIdMember(l => l.Id).SetSerializer(new StringSerializer(BsonType.String));
                 map.SetIgnoreExtraElements(true);
                 map.GetMemberMap(l => l.Username).SetIgnoreIfNull(true);
+                map.GetMemberMap(l => l.ProfileBall).SetIgnoreIfNull(true);
                 map.GetMemberMap(l => l.Period).SetIgnoreIfNull(true);
             });
 
@@ -281,6 +285,7 @@ public static class BsonRegistration
                 map.AutoMap();
                 map.SetIgnoreExtraElements(true);
                 map.GetMemberMap(a => a.Kind).SetIgnoreIfNull(true);
+                map.GetMemberMap(a => a.ProfileBall).SetIgnoreIfNull(true);
                 map.GetMemberMap(a => a.Params).SetIgnoreIfNull(true);
             });
 
@@ -290,6 +295,7 @@ public static class BsonRegistration
                 map.MapIdMember(d => d.Id).SetSerializer(new StringSerializer(BsonType.String));
                 map.SetIgnoreExtraElements(true);
                 map.GetMemberMap(d => d.Username).SetIgnoreIfNull(true);
+                map.GetMemberMap(d => d.ProfileBall).SetIgnoreIfNull(true);
             });
 
             _registered = true;

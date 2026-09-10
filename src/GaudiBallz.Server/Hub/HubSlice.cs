@@ -41,6 +41,7 @@ public sealed class HubSlice : ISlice
                 rank = skip + i + 1,
                 playerId = e.PlayerId,
                 username = e.Username,
+                ball = e.ProfileBall,
                 totalPoints = e.TotalPoints,
                 gamesPlayed = e.GamesPlayed,
                 gamesWon = e.GamesWon,
@@ -58,6 +59,7 @@ public sealed class HubSlice : ISlice
                         rank,
                         playerId = entry.PlayerId,
                         username = entry.Username,
+                        ball = entry.ProfileBall,
                         totalPoints = entry.TotalPoints,
                         gamesPlayed = entry.GamesPlayed,
                         gamesWon = entry.GamesWon,
@@ -165,24 +167,32 @@ public sealed class HubSlice : ISlice
                 events = [];
             }
 
-            return Results.Ok(events.Select(e => e.Kind is not null
-                ? (object)new
-                {
-                    username = e.Username,
-                    eventType = e.EventType,
-                    kind = e.Kind,
-                    @params = e.Params,
-                    detail = e.Detail,
-                    timestamp = e.Timestamp,
-                }
-                : new
-                {
-                    username = e.Username,
-                    eventType = e.EventType,
-                    kind = "legacy",
-                    text = e.Detail,
-                    timestamp = e.Timestamp,
-                }));
+            var balls = await store.GetProfileBallsAsync(events.Select(e => e.PlayerId));
+
+            return Results.Ok(events.Select(e =>
+            {
+                balls.TryGetValue(e.PlayerId, out var ball);
+                return e.Kind is not null
+                    ? (object)new
+                    {
+                        username = e.Username,
+                        ball,
+                        eventType = e.EventType,
+                        kind = e.Kind,
+                        @params = e.Params,
+                        detail = e.Detail,
+                        timestamp = e.Timestamp,
+                    }
+                    : new
+                    {
+                        username = e.Username,
+                        ball,
+                        eventType = e.EventType,
+                        kind = "legacy",
+                        text = e.Detail,
+                        timestamp = e.Timestamp,
+                    };
+            }));
         });
 
         group.MapPost("/heartbeat", (

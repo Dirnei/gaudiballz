@@ -76,6 +76,7 @@ public sealed class ProfileBallSlice : ISlice
                     if (request.Colour is null)
                     {
                         await store.SetProfileBallAsync(playerId, null, token);
+                        await store.UpdateLeaderboardBallAsync(playerId, null, token);
                         return Results.Ok(new { ball = (int?)null });
                     }
 
@@ -98,6 +99,7 @@ public sealed class ProfileBallSlice : ISlice
                     }
 
                     await store.SetProfileBallAsync(playerId, colour, token);
+                    await store.UpdateLeaderboardBallAsync(playerId, colour, token);
                     return Results.Ok(new { ball = (int?)colour });
                 })
             .WithTags("Profile")

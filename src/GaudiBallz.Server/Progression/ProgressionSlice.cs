@@ -123,26 +123,30 @@ public sealed class ProgressionSlice : ISlice
                     {
                         try
                         {
+                            var ball = player.ProfileBall;
+
                             await store.UpsertLeaderboardAsync(
                                 playerId, player.Username,
                                 updatedProgress.TotalPoints + replayBonus + timeBonus,
                                 updatedProgress.LevelsCompleted,
-                                updatedProgress.Levels.Values.Count(r => r.Stars > 0));
+                                updatedProgress.Levels.Values.Count(r => r.Stars > 0),
+                                ball);
 
                             if (attemptPoints > 0)
                             {
                                 var weekPeriod = $"{DateTime.UtcNow.Year}-W{System.Globalization.CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(DateTime.UtcNow, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday):D2}";
                                 var dayPeriod = DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
-                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, weekPeriod, attemptPoints);
-                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, attemptPoints);
+                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, weekPeriod, attemptPoints, ball);
+                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, attemptPoints, ball);
                             }
 
                             await store.RecordStructuredActivityAsync(
                                 playerId, player.Username, "level_clear",
                                 $"cleared Level {request.Level} in {request.Moves} moves",
                                 "level-cleared",
-                                new Dictionary<string, object> { ["level"] = request.Level, ["moves"] = request.Moves });
+                                new Dictionary<string, object> { ["level"] = request.Level, ["moves"] = request.Moves },
+                                ball);
 
                             if (starDelta > 0 && !isReplay)
                             {
@@ -150,7 +154,8 @@ public sealed class ProgressionSlice : ISlice
                                     playerId, player.Username, "new_record",
                                     $"set a new record on Level {request.Level}",
                                     "new-record",
-                                    new Dictionary<string, object> { ["level"] = request.Level });
+                                    new Dictionary<string, object> { ["level"] = request.Level },
+                                    ball);
                             }
 
                             foreach (var ach in newAchievements)
@@ -161,7 +166,8 @@ public sealed class ProgressionSlice : ISlice
                                     playerId, player.Username, "achievement",
                                     $"earned {achName}",
                                     "achievement-earned",
-                                    new Dictionary<string, object> { ["achievementId"] = achId, ["achievementName"] = achName });
+                                    new Dictionary<string, object> { ["achievementId"] = achId, ["achievementName"] = achName },
+                                    ball);
                             }
                         }
                         catch

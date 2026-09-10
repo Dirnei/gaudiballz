@@ -3,11 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { API, authHeaders } from './identity';
 import { useGameContext } from './GameContext';
+import { ballForAccount } from './profileBall';
+import { ballStyle } from '../skins';
 
 interface LeaderboardEntry {
   readonly rank: number;
   readonly playerId: string;
   readonly username: string;
+  readonly ball: number | null;
   readonly totalPoints: number;
   readonly gamesPlayed: number;
   readonly gamesWon: number;
@@ -20,23 +23,6 @@ interface LeaderboardResponse {
 }
 
 type Period = 'alltime' | 'week' | 'today';
-
-const BALL_COLORS = [
-  'linear-gradient(135deg,#3B82F6,#2563EB)',
-  'linear-gradient(135deg,#EF4444,#DC2626)',
-  'linear-gradient(135deg,#10B981,#059669)',
-  'linear-gradient(135deg,#F59E0B,#D97706)',
-  'linear-gradient(135deg,#A855F7,#7C3AED)',
-  'linear-gradient(135deg,#EC4899,#DB2777)',
-  'linear-gradient(135deg,#06B6D4,#0891B2)',
-  'linear-gradient(135deg,#F97316,#EA580C)',
-];
-
-function ballColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  return BALL_COLORS[Math.abs(hash) % BALL_COLORS.length];
-}
 
 export function LeaderboardPage() {
   const { t } = useTranslation();
@@ -136,7 +122,7 @@ export function LeaderboardPage() {
                       <td className="rounded-l-xl bg-white/4 py-2.5 px-3 font-bold tabular-nums text-slate-500" style={fredoka}>{e.rank}</td>
                       <td className="bg-white/4 py-2.5 px-3">
                         <div className="flex items-center gap-2">
-                          <span className="h-3.5 w-3.5 rounded-full flex-shrink-0" style={{ background: ballColor(e.username) }} />
+                          <span className="h-3.5 w-3.5 rounded-full flex-shrink-0" style={ballStyle(ballForAccount(e.ball, e.username))} />
                           <span className="font-semibold" style={{ ...fredoka, color: isMe ? '#A855F7' : undefined }}>
                             {e.username}{isMe ? ` ${t('leaderboard.you')}` : ''}
                           </span>
@@ -203,7 +189,7 @@ function PodiumSlot({
       <div
         className={`mx-auto flex items-center justify-center rounded-full font-bold text-white ${size}`}
         style={{
-          background: ballColor(entry.username),
+          ...ballStyle(ballForAccount(entry.ball, entry.username)),
           boxShadow: first ? '0 0 24px rgba(250,204,21,0.3)' : undefined,
           border: first ? '2px solid #FACC15' : undefined,
         }}

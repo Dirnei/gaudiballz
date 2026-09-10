@@ -153,6 +153,17 @@ export function lockedBallStyle(colour: number): React.CSSProperties {
   };
 }
 
+/**
+ * A CSS background value for a small coloured dot representing a player.
+ *
+ * This is the flat palette colour — no specular highlight, no swirl, no shadow. It is meant
+ * for the 14 px circles next to names on leaderboards and activity feeds, where the full
+ * `ballStyle` would be wasted and its box-shadow would interfere with row layout.
+ */
+export function ballDotStyle(colour: number): string {
+  return PALETTE[colour] ?? PALETTE[1];
+}
+
 /** True when this colour is told apart by pattern as well as hue. */
 export function hasSwirl(colour: number): boolean {
   return colour in SWIRL;

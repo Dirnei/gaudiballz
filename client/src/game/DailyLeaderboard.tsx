@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { API, authHeaders } from './identity';
+import { ballForAccount } from './profileBall';
+import { ballStyle } from '../skins';
 
 interface DailyLeaderboardEntry {
   readonly rank: number;
   readonly playerId: string;
   readonly username: string;
+  readonly ball: number | null;
   readonly moves: number;
   readonly elapsedTimeMs: number;
   readonly stars: number;
@@ -14,23 +17,6 @@ interface DailyLeaderboardEntry {
 interface DailyLeaderboardResponse {
   readonly entries: DailyLeaderboardEntry[];
   readonly viewer: DailyLeaderboardEntry | null;
-}
-
-const BALL_COLORS = [
-  'linear-gradient(135deg,#3B82F6,#2563EB)',
-  'linear-gradient(135deg,#EF4444,#DC2626)',
-  'linear-gradient(135deg,#10B981,#059669)',
-  'linear-gradient(135deg,#F59E0B,#D97706)',
-  'linear-gradient(135deg,#A855F7,#7C3AED)',
-  'linear-gradient(135deg,#EC4899,#DB2777)',
-  'linear-gradient(135deg,#06B6D4,#0891B2)',
-  'linear-gradient(135deg,#F97316,#EA580C)',
-];
-
-function ballColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  return BALL_COLORS[Math.abs(hash) % BALL_COLORS.length];
 }
 
 function formatElapsed(ms: number): string {
@@ -89,7 +75,7 @@ export function DailyLeaderboard() {
                 </span>
                 <span
                   className="h-3.5 w-3.5 flex-shrink-0 rounded-full"
-                  style={{ background: ballColor(e.username) }}
+                  style={ballStyle(ballForAccount(e.ball, e.username))}
                 />
                 <span
                   className="flex-1 truncate text-sm font-semibold"
