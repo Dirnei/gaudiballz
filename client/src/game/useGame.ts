@@ -19,6 +19,7 @@ import {
   type NewAchievement, type Progress,
 } from './progress';
 import {
+  AFTER_EACH_MOVE,
   ON_REQUEST,
   legalMoves,
   canUndo as canUndoState,
@@ -312,20 +313,16 @@ export function useGame() {
    * rather than being deferred. An undecided search reports `unknown`, which the interface
    * must never render as lost.
    */
-  /**
-   * Whether the board offers anything at all.
-   *
-   * The only thing the player is told about. A proved-unwinnable position with moves still
-   * on it is deliberately left unannounced: saying so the moment it happens turns the puzzle
-   * into trial and error with perfect feedback, and makes the undo budget pointless because
-   * the move to undo is obvious. Nor is a repeated board pointed out — going round in a
-   * circle is there on the board to see, and remarking on it reads as the game watching over
-   * the player's shoulder.
-   */
   const noMoves = useMemo(
     () => state !== null && !isSolved(state.board) && legalMoves(state.board).length === 0,
     [state],
   );
+
+  const dead = useMemo(() => {
+    if (state === null || noMoves || isSolved(state.board)) return false;
+    const result = solve(state.board, AFTER_EACH_MOVE);
+    return result.verdict === 'dead' && result.positionsReached <= 2;
+  }, [state, noMoves]);
 
   useEffect(() => {
     if (state === null) {
@@ -360,7 +357,20 @@ export function useGame() {
     }
 
     if (planned === null) {
-      return;
+      const fallback = legalMoves(state.board)[0] ?? null;
+      if (fallback !== null) {
+        planned = fallback;
+      } else if (canUndoState(state)) {
+        setSelected(null);
+        setHinted(null);
+        plan.current = [];
+        setAttempt(spendHint(attempt));
+        setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
+        setState(undoState(state));
+        return;
+      } else {
+        return;
+      }
     }
 
     const suggestion = planned;
@@ -607,13 +617,14 @@ export function useGame() {
     ensureAchievements,
     chooseBall,
     solved: state !== null && isSolved(state.board),
-    stuck: noMoves,
+    stuck: noMoves || dead,
     undosRemaining: attempt.undosRemaining,
     hintsRemaining: attempt.hintsRemaining,
     hintCooldownEnd: cooldownEnd,
     canHint:
-      state !== null && !noMoves && !isSolved(state.board) && canHintBudget(attempt)
-      && cooldownEnd === null,
+      state !== null && !isSolved(state.board) && canHintBudget(attempt)
+      && cooldownEnd === null
+      && (!noMoves || canUndoState(state)),
     hintsUsed,
     hinted,
     useHint,

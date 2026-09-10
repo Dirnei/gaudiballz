@@ -19,14 +19,15 @@ function isComplete(tube: readonly number[], capacity: number): boolean {
   return tube.length === capacity && tube.every((colour) => colour === tube[0]);
 }
 
-function hintLabel(remaining: number, cooldownEnd: number | null): string {
+function hintLabel(remaining: number, cooldownEnd: number | null, stuck: boolean): string {
   if (remaining === 0) {
     return 'No hints left this attempt';
   }
+  const action = stuck ? 'Take back a move' : 'Show me a move';
   if (cooldownEnd !== null) {
-    return `Show me a move, ${remaining} left — available shortly`;
+    return `${action}, ${remaining} left — available shortly`;
   }
-  return `Show me a move, ${remaining} left`;
+  return `${action}, ${remaining} left`;
 }
 
 function CooldownSweep({ end, duration }: { end: number; duration: number }) {
@@ -595,7 +596,7 @@ export function GameScreen() {
             <CooldownSweep key={game.hintCooldownEnd} end={game.hintCooldownEnd} duration={HINT_COOLDOWN_MS} />
           )}
           <ControlButton
-            label={hintLabel(game.hintsRemaining, game.hintCooldownEnd)}
+            label={hintLabel(game.hintsRemaining, game.hintCooldownEnd, game.stuck)}
             text="Hint"
             onClick={() => { haptics.move(); game.useHint(); }}
             disabled={!game.canHint}

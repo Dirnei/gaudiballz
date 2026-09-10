@@ -54,6 +54,8 @@ export interface SolveResult {
    */
   readonly path: readonly Move[];
   readonly nodesExamined: number;
+  /** Unique board positions reached during the search (including the start). */
+  readonly positionsReached: number;
 }
 
 /**
@@ -137,7 +139,7 @@ export function solve(
   previous: Move | null = null,
 ): SolveResult {
   if (isSolved(board)) {
-    return { verdict: 'winnable', move: null, path: [], nodesExamined: 0 };
+    return { verdict: 'winnable', move: null, path: [], nodesExamined: 0, positionsReached: 1 };
   }
 
   const deadline = Date.now() + budget.maxMillis;
@@ -176,7 +178,7 @@ export function solve(
     if (isSolved(applied.board)) {
       // Every frame's current move, root first, is the winning sequence.
       const path = stack.map((f) => f.moves[f.index - 1]);
-      return { verdict: 'winnable', move: path[0], path, nodesExamined: nodes };
+      return { verdict: 'winnable', move: path[0], path, nodesExamined: nodes, positionsReached: visited.size };
     }
 
     const key = canonicalKey(applied.board);
@@ -200,6 +202,7 @@ export function solve(
     move: null,
     path: [],
     nodesExamined: nodes,
+    positionsReached: visited.size,
   };
 }
 
