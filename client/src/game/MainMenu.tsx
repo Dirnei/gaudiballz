@@ -10,6 +10,18 @@ import { RecentGames } from './RecentGames';
 import { ActivityFeed } from './ActivityFeed';
 import { needsTutorial } from './tutorial';
 
+function isDailyDone(): boolean {
+  try {
+    const stored = localStorage.getItem('puzzle.dailyDone');
+    if (stored === null) return false;
+    const now = new Date();
+    const todayUTC = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+    return stored === todayUTC;
+  } catch {
+    return false;
+  }
+}
+
 export function MainMenu() {
   const { t } = useTranslation();
   const game = useGameContext();
@@ -20,8 +32,9 @@ export function MainMenu() {
 
   const onPlay = useCallback(() => navigate(needsTutorial() ? '/tutorial' : '/play'), [navigate]);
   const onLevelSelect = useCallback(() => navigate('/levels'), [navigate]);
+  const onDaily = useCallback(() => navigate('/daily'), [navigate]);
 
-  const actions = useMemo(() => [onPlay, onLevelSelect], [onPlay, onLevelSelect]);
+  const actions = useMemo(() => [onPlay, onDaily, onLevelSelect], [onPlay, onDaily, onLevelSelect]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -57,7 +70,9 @@ export function MainMenu() {
   }
 
   const playIdx = 0;
-  const levelSelectIdx = 1;
+  const dailyIdx = 1;
+  const levelSelectIdx = 2;
+  const dailyDone = isDailyDone();
 
   return (
     <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pb-4">
@@ -97,6 +112,22 @@ export function MainMenu() {
               data-testid="menu-play"
             >
               {t('menu.play')}
+            </motion.button>
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={onDaily}
+              onPointerDown={handlePointerDown}
+              className={`relative rounded-2xl border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-sm text-amber-300 transition-colors hover:bg-amber-500/20 hover:text-amber-200${fc(dailyIdx)}`}
+              style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
+              data-testid="menu-daily"
+            >
+              {t('menu.dailyChallenge')}
+              {dailyDone && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[0.6rem] font-bold text-white shadow">
+                  ✓
+                </span>
+              )}
             </motion.button>
             <motion.button
               type="button"

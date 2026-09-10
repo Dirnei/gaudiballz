@@ -112,6 +112,7 @@ export function useGame() {
   });
 
   const [state, setState] = useState<GameState | null>(null);
+  const [loadKey, setLoadKey] = useState(0);
   const [info, setInfo] = useState<LevelInfo | null>(null);
   const [levelCode, setLevelCode] = useState<string | null>(null);
   const [load, setLoad] = useState<LoadState>('loading');
@@ -254,7 +255,7 @@ export function useGame() {
     return () => {
       cancelled = true;
     };
-  }, [levelId]);
+  }, [levelId, loadKey]);
 
   /**
    * Tap to pick up, tap again to pour. The same gesture works under touch and mouse, which
@@ -493,6 +494,7 @@ export function useGame() {
     }
     setState(null);
     setLevelId(clamped);
+    setLoadKey((k) => k + 1);
   }, [levelCeiling]);
 
   /**

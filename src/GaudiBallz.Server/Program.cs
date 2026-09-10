@@ -1,6 +1,7 @@
 using Akka.Actor;
 using Fido2NetLib;
 using GaudiBallz.Server.Achievements;
+using GaudiBallz.Server.Daily;
 using GaudiBallz.Server.Hub;
 using GaudiBallz.Server.Legal;
 using GaudiBallz.Server.Levels;
@@ -57,6 +58,7 @@ LevelsSlice.AddServices(builder.Services);
 ProfileBallSlice.AddServices(builder.Services);
 AchievementsSlice.AddServices(builder.Services);
 HubSlice.AddServices(builder.Services);
+DailySlice.AddServices(builder.Services);
 LegalSlice.AddServices(builder.Services);
 
 builder.Services.AddOutputCache();
@@ -86,6 +88,7 @@ LevelsSlice.MapEndpoints(app);
 ProfileBallSlice.MapEndpoints(app);
 AchievementsSlice.MapEndpoints(app);
 HubSlice.MapEndpoints(app);
+DailySlice.MapEndpoints(app);
 LegalSlice.MapEndpoints(app);
 
 // Anything that is not an API route or a real file is the SPA: the client owns its own

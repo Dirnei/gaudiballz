@@ -178,6 +178,29 @@ public sealed class ActivityFeedDocument
 }
 
 /// <summary>
+/// One daily challenge result for one player on one day.
+///
+/// Composite id: "{playerId}#{yyyy-MM-dd}". An upsert keeps the better result, so a player
+/// who replays the daily sees their best attempt rather than their latest.
+/// </summary>
+public sealed class DailyResultDocument
+{
+    /// <summary>"{playerId}#{yyyy-MM-dd}"</summary>
+    public string Id { get; set; } = string.Empty;
+    public string PlayerId { get; set; } = string.Empty;
+    public string Date { get; set; } = string.Empty;
+    public string? Username { get; set; }
+    public int Moves { get; set; }
+    public int Hints { get; set; }
+    public int Stars { get; set; }
+    public int Points { get; set; }
+    public int ElapsedTimeMs { get; set; }
+    public DateTime Timestamp { get; set; }
+
+    public static string KeyFor(string playerId, string date) => $"{playerId}#{date}";
+}
+
+/// <summary>
 /// Registers class maps explicitly rather than relying on automatic mapping, which changes
 /// behaviour silently when a property is renamed or reordered.
 /// </summary>
@@ -259,6 +282,14 @@ public static class BsonRegistration
                 map.SetIgnoreExtraElements(true);
                 map.GetMemberMap(a => a.Kind).SetIgnoreIfNull(true);
                 map.GetMemberMap(a => a.Params).SetIgnoreIfNull(true);
+            });
+
+            BsonClassMap.RegisterClassMap<DailyResultDocument>(map =>
+            {
+                map.AutoMap();
+                map.MapIdMember(d => d.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+                map.GetMemberMap(d => d.Username).SetIgnoreIfNull(true);
             });
 
             _registered = true;

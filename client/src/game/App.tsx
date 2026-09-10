@@ -7,6 +7,7 @@ import { LevelSelect } from './LevelSelect';
 import { AchievementsScreen } from './AchievementsScreen';
 import { GameScreen } from './GameScreen';
 import { TutorialScreen } from './TutorialScreen';
+import { DailyScreen } from './DailyScreen';
 import { Impressum } from './Impressum';
 import { Datenschutz } from './Datenschutz';
 import { LeaderboardPage } from './LeaderboardPage';
@@ -33,6 +34,7 @@ export const routes: RouteObject[] = [
     children: [
       { path: 'play', element: <GameScreen /> },
       { path: 'tutorial', element: <TutorialScreen /> },
+      { path: 'daily', element: <DailyScreen /> },
     ],
   },
   {

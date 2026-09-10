@@ -45,6 +45,7 @@
   "menu": {
     "play": "Spielen",
     "levelSelect": "Levelauswahl",
+    "dailyChallenge": "Tägliche Herausforderung",
     "points": "★ {{points}} Pkt.",
     "supportOnKofi": "Unterstütze auf Ko-fi"
   },
@@ -180,7 +181,8 @@
     "title": "Aktivitäten",
     "levelCleared": "hat Level {{level}} in {{moves}} Zügen gelöst",
     "newRecord": "hat einen neuen Rekord auf Level {{level}} aufgestellt",
-    "achievementEarned": "hat {{name}} erreicht"
+    "achievementEarned": "hat {{name}} erreicht",
+    "dailyCompleted": "hat die tägliche Herausforderung mit {{stars}} Sternen abgeschlossen"
   },
   "chapterNote": {
     "spare-tube": "Ab hier ein Röhrchen weniger — aber die Röhrchen sind tiefer.",
@@ -216,6 +218,20 @@
     "all-hints-used": { "name": "Tipps-Lehrling", "description": "Verwende alle Tipps in einem Level und schließe es trotzdem ab" },
     "deep-diver": { "name": "Tiefseetaucher", "description": "Schließe ein Level mit 6 oder mehr Farben ab" },
     "marathon": { "name": "Marathon", "description": "Schließe 10 Levels in einer Sitzung ab" }
+  },
+  "daily": {
+    "title": "Tägliche Herausforderung",
+    "date": "{{date}}",
+    "loading": "Lade heutige Herausforderung…",
+    "solved": "Tagesrätsel gelöst!",
+    "viewLeaderboard": "Bestenliste ansehen",
+    "playAgain": "Nochmal spielen",
+    "nextIn": "Nächste Herausforderung in {{time}}",
+    "leaderboardTitle": "Heutige Bestenliste",
+    "newBest": "Neuer Bestwert!",
+    "yourResult": "Dein Ergebnis",
+    "notPlayed": "Noch nicht gespielt",
+    "completed": "Abgeschlossen"
   },
   "error": {
     "title": "Etwas ist schiefgelaufen",

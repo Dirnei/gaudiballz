@@ -45,6 +45,7 @@
   "menu": {
     "play": "Play",
     "levelSelect": "Level Select",
+    "dailyChallenge": "Daily Challenge",
     "points": "★ {{points}} pts",
     "supportOnKofi": "Support on Ko-fi"
   },
@@ -180,7 +181,8 @@
     "title": "Live Activity",
     "levelCleared": "cleared Level {{level}} in {{moves}} moves",
     "newRecord": "set a new record on Level {{level}}",
-    "achievementEarned": "earned {{name}}"
+    "achievementEarned": "earned {{name}}",
+    "dailyCompleted": "completed the daily challenge with {{stars}} stars"
   },
   "chapterNote": {
     "spare-tube": "One spare tube from here — but the tubes are deeper.",
@@ -216,6 +218,20 @@
     "all-hints-used": { "name": "Hint Apprentice", "description": "Use all hints in a single level and still complete it" },
     "deep-diver": { "name": "Deep Diver", "description": "Complete a level with 6 or more colours" },
     "marathon": { "name": "Marathon", "description": "Complete 10 levels in a single session" }
+  },
+  "daily": {
+    "title": "Daily Challenge",
+    "date": "{{date}}",
+    "loading": "Loading today's challenge...",
+    "solved": "Daily Complete!",
+    "viewLeaderboard": "View Leaderboard",
+    "playAgain": "Play Again",
+    "nextIn": "Next challenge in {{time}}",
+    "leaderboardTitle": "Today's Leaderboard",
+    "newBest": "New best!",
+    "yourResult": "Your result",
+    "notPlayed": "Not played yet",
+    "completed": "Completed"
   },
   "error": {
     "title": "Something went wrong",

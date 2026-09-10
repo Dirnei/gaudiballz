@@ -82,7 +82,7 @@ public static class LevelCatalogue
     /// with plenty of options is relaxing; a short one with almost none is vicious, because
     /// every tap is a decision that can lose the board.
     /// </summary>
-    private static double Tightness(Level level)
+    internal static double Tightness(Level level)
     {
         var board = level.Board;
         var total = 0;

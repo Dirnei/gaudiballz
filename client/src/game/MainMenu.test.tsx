@@ -40,12 +40,16 @@ describe('MainMenu keyboard navigation', () => {
     expect(screen.getByTestId('menu-play')).toHaveClass('kb-focus');
 
     press('ArrowDown');
-    expect(screen.getByTestId('menu-level-select')).toHaveClass('kb-focus');
+    expect(screen.getByTestId('menu-daily')).toHaveClass('kb-focus');
     expect(screen.getByTestId('menu-play')).not.toHaveClass('kb-focus');
+
+    press('ArrowDown');
+    expect(screen.getByTestId('menu-level-select')).toHaveClass('kb-focus');
   });
 
   it('wraps from last to first', () => {
     setup();
+    press('ArrowDown');
     press('ArrowDown');
     press('ArrowDown');
     press('ArrowDown');

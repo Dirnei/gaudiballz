@@ -26,6 +26,7 @@ public sealed class PuzzleStore
     private readonly IMongoCollection<AchievementDocument> _achievements;
     private readonly IMongoCollection<DailyPlayDocument> _dailyPlay;
     private readonly IMongoCollection<LeaderboardDocument> _leaderboard;
+    private readonly IMongoCollection<DailyResultDocument> _dailyResults;
     private readonly IMongoDatabase _database;
 
     public PuzzleStore(MongoOptions options)
@@ -56,6 +57,7 @@ public sealed class PuzzleStore
         _achievements = _database.GetCollection<AchievementDocument>("player_achievements", durable);
         _dailyPlay = _database.GetCollection<DailyPlayDocument>("daily_play", durable);
         _leaderboard = _database.GetCollection<LeaderboardDocument>("leaderboard", durable);
+        _dailyResults = _database.GetCollection<DailyResultDocument>("daily_results", durable);
     }
 
     /// <summary>Idempotent: creating an index that already exists is a no-op.</summary>
@@ -90,6 +92,16 @@ public sealed class PuzzleStore
             new CreateIndexModel<LeaderboardDocument>(
                 Builders<LeaderboardDocument>.IndexKeys.Descending(l => l.TotalPoints),
                 new CreateIndexOptions { Name = "leaderboard_by_points" }),
+            cancellationToken: token);
+
+        await _dailyResults.Indexes.CreateOneAsync(
+            new CreateIndexModel<DailyResultDocument>(
+                Builders<DailyResultDocument>.IndexKeys
+                    .Ascending(d => d.Date)
+                    .Descending(d => d.Stars)
+                    .Ascending(d => d.Moves)
+                    .Ascending(d => d.ElapsedTimeMs),
+                new CreateIndexOptions { Name = "daily_results_by_date" }),
             cancellationToken: token);
     }
 
@@ -502,6 +514,71 @@ public sealed class PuzzleStore
             .Limit(limit)
             .ToListAsync(token);
     }
+
+    // ---- daily challenge ----------------------------------------------------
+
+    /// <summary>
+    /// Upserts a daily challenge result, keeping the better attempt: highest stars, then
+    /// fewest moves, then fastest time. The comparison is in code rather than <c>$min</c>
+    /// because a single operator cannot express a three-tier preference.
+    /// </summary>
+    public async Task<bool> UpsertDailyResultAsync(
+        string playerId, string date, string? username,
+        int moves, int hints, int stars, int points, int elapsedTimeMs,
+        CancellationToken token = default)
+    {
+        var key = DailyResultDocument.KeyFor(playerId, date);
+        var existing = await _dailyResults.Find(d => d.Id == key).FirstOrDefaultAsync(token);
+
+        if (existing is not null)
+        {
+            var dominated = stars > existing.Stars
+                || (stars == existing.Stars && moves < existing.Moves)
+                || (stars == existing.Stars && moves == existing.Moves && elapsedTimeMs < existing.ElapsedTimeMs);
+
+            if (!dominated)
+            {
+                return false;
+            }
+        }
+
+        var now = DateTime.UtcNow;
+
+        await _dailyResults.UpdateOneAsync(
+            d => d.Id == key,
+            Builders<DailyResultDocument>.Update
+                .SetOnInsert(d => d.PlayerId, playerId)
+                .SetOnInsert(d => d.Date, date)
+                .Set(d => d.Username, username)
+                .Set(d => d.Moves, moves)
+                .Set(d => d.Hints, hints)
+                .Set(d => d.Stars, stars)
+                .Set(d => d.Points, points)
+                .Set(d => d.ElapsedTimeMs, elapsedTimeMs)
+                .Set(d => d.Timestamp, now),
+            new UpdateOptions { IsUpsert = true },
+            token);
+
+        return true;
+    }
+
+    public async Task<DailyResultDocument?> FindDailyResultAsync(
+        string playerId, string date, CancellationToken token = default) =>
+        await _dailyResults
+            .Find(d => d.Id == DailyResultDocument.KeyFor(playerId, date))
+            .FirstOrDefaultAsync(token);
+
+    public async Task<List<DailyResultDocument>> GetDailyLeaderboardAsync(
+        string date, int limit = 10, CancellationToken token = default) =>
+        await _dailyResults
+            .Find(Builders<DailyResultDocument>.Filter.And(
+                Builders<DailyResultDocument>.Filter.Eq(d => d.Date, date),
+                Builders<DailyResultDocument>.Filter.Ne(d => d.Username, null)))
+            .SortByDescending(d => d.Stars)
+            .ThenBy(d => d.Moves)
+            .ThenBy(d => d.ElapsedTimeMs)
+            .Limit(limit)
+            .ToListAsync(token);
 
     // ---- community stats ----------------------------------------------------
 

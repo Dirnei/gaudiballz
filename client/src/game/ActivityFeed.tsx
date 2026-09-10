@@ -51,6 +51,8 @@ function formatEvent(ev: FeedEvent, t: (key: string, opts?: Record<string, unkno
         return t('activityFeed.newRecord', { level: ev.params.level });
       case 'achievement-earned':
         return t('activityFeed.achievementEarned', { name: ev.params.achievementName ?? ev.params.achievementId });
+      case 'daily-completed':
+        return t('activityFeed.dailyCompleted', { stars: ev.params.stars });
     }
   }
   return ev.detail ?? ev.text ?? '';
