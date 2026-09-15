@@ -155,7 +155,7 @@ function LevelBadge({ levelId, code }: { levelId: number; code: string | null })
       onClick={copy}
       className="group flex items-center gap-2.5 rounded-full bg-white/8 py-1.5 pl-3.5 pr-3 ring-1 ring-white/10"
     >
-      <span className="text-sm font-semibold">{t('game.level', { id: levelId })}</span>
+      <span className={`text-sm font-semibold${levelId === 88 ? ' blur-sm' : ''}`}>{t('game.level', { id: levelId })}</span>
       {code !== null && (
         <span className="rounded-md bg-white/6 px-1.5 py-0.5 font-mono text-[0.65rem] tracking-widest text-slate-400 transition-colors group-active:bg-sky-500/20 group-active:text-sky-300">
           {copied ? '✓' : code}

@@ -171,7 +171,7 @@ export function LevelSelect() {
               data-testid={`tile-${level}`}
               className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl text-center transition-colors ${tileClasses(state)}${focusedIndex === i ? ' kb-focus' : ''}`}
             >
-              <span className={`text-base font-semibold tabular-nums ${state === 'locked' ? 'text-slate-600' : state === 'current' ? 'text-sky-100' : 'text-slate-200'}`}>
+              <span className={`text-base font-semibold tabular-nums ${state === 'locked' ? 'text-slate-600' : state === 'current' ? 'text-sky-100' : 'text-slate-200'}${level === 88 ? ' blur-sm' : ''}`}>
                 {level}
               </span>
               {state === 'completed' && entry && entry.stars > 0 && (
