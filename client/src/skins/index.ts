@@ -90,11 +90,24 @@ export function colourName(colour: number): string {
  * there, and dark alone reads as dirt — pairing them gives the swirl definition without
  * either problem, and the ball still looks lit rather than marked.
  */
-const SWIRL: Readonly<Record<number, { arms: number; phase: number }>> = {
+const SWIRL: Readonly<
+  Record<number, { arms: number; phase: number; light?: string; dark?: string }>
+> = {
   4: { arms: 6, phase: 0 }, // yellow
   8: { arms: 4, phase: 22 }, // light blue
-  9: { arms: 7, phase: 12 }, // light green
   12: { arms: 5, phase: 40 }, // white
+};
+
+/**
+ * Rings: concentric circular bands in a second colour, like latitude lines on a globe.
+ *
+ * A repeating-radial-gradient from an off-centre origin produces rings that curve with
+ * the sphere. The band width and gap are percentages of the ball radius.
+ */
+const RINGS: Readonly<
+  Record<number, { colour: string; band: number; gap: number }>
+> = {
+  9: { colour: 'rgba(0,100,55,0.50)', band: 5, gap: 10 },
 };
 
 /**
@@ -105,6 +118,7 @@ const SWIRL: Readonly<Record<number, { arms: number; phase: number }>> = {
 export function ballStyle(colour: number): React.CSSProperties {
   const fill = PALETTE[colour] ?? PALETTE[1];
   const swirl = SWIRL[colour];
+  const rings = RINGS[colour];
 
   const layers = [
     'radial-gradient(circle at 33% 27%, rgba(255,255,255,0.34), rgba(255,255,255,0) 42%)',
@@ -114,14 +128,28 @@ export function ballStyle(colour: number): React.CSSProperties {
   if (swirl !== undefined) {
     const step = 360 / (swirl.arms * 2);
 
-    // Inserted beneath the specular highlight so the swirl looks like it is in the ball
-    // rather than painted on the front of it.
+    const light = swirl.light ?? 'rgba(255,255,255,0.26)';
+    const dark = swirl.dark ?? 'rgba(0,0,0,0.13)';
+
     layers.splice(
       1,
       0,
       `repeating-conic-gradient(from ${swirl.phase}deg at 38% 34%,` +
-        ` rgba(255,255,255,0.26) 0deg, rgba(255,255,255,0.26) ${step}deg,` +
-        ` rgba(0,0,0,0.13) ${step}deg, rgba(0,0,0,0.13) ${step * 2}deg)`,
+        ` ${light} 0deg, ${light} ${step}deg,` +
+        ` ${dark} ${step}deg, ${dark} ${step * 2}deg)`,
+    );
+  }
+
+  if (rings !== undefined) {
+    const step = rings.band + rings.gap;
+    const f = 1.5; // feather: smooth the edges to avoid pixelation
+    layers.splice(
+      1,
+      0,
+      `repeating-radial-gradient(circle at 38% 34%,` +
+        ` transparent 0, transparent ${rings.gap - f}%,` +
+        ` ${rings.colour} ${rings.gap + f}%, ${rings.colour} ${step - f}%,` +
+        ` transparent ${step + f}%)`,
     );
   }
 
@@ -166,7 +194,7 @@ export function ballDotStyle(colour: number): string {
 
 /** True when this colour is told apart by pattern as well as hue. */
 export function hasSwirl(colour: number): boolean {
-  return colour in SWIRL;
+  return colour in SWIRL || colour in RINGS;
 }
 
 /** The glass tube: a bright left edge, a dim body, a softer right edge. */
