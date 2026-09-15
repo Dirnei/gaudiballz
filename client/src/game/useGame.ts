@@ -150,6 +150,7 @@ export function useGame() {
 
   const restartedLevels = useRef(new Set<number>());
   const undosUsed = useRef(0);
+  const totalMoves = useRef(0);
   const [colourCount, setColourCount] = useState(0);
   const [newAchievements, setNewAchievements] = useState<NewAchievement[]>([]);
   const [newBadges, setNewBadges] = useState<NewBadge[]>([]);
@@ -214,6 +215,7 @@ export function useGame() {
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
     plan.current = [];
     undosUsed.current = 0;
+    totalMoves.current = 0;
     restartedLevels.current.delete(levelId);
     elapsed.reset();
     setAttemptStars(0);
@@ -288,6 +290,7 @@ export function useGame() {
       if (next !== state) {
         // The player moved for themselves; whatever line was planned no longer applies.
         plan.current = [];
+        totalMoves.current += 1;
         setState(next);
         setSelected(null);
       } else {
@@ -305,6 +308,7 @@ export function useGame() {
       const next = play(state, { from, to });
       if (next !== state) {
         plan.current = [];
+        totalMoves.current += 1;
         setState(next);
         setSelected(null);
       }
@@ -336,7 +340,7 @@ export function useGame() {
     }
     if (isSolved(state.board)) {
       elapsed.stop();
-    } else if (selected !== null || state.moves.length > 0) {
+    } else if (selected !== null || totalMoves.current > 0) {
       elapsed.start();
     }
   }, [state, selected, elapsed]);
@@ -391,6 +395,7 @@ export function useGame() {
 
     const next = play(state, suggestion);
     if (next !== state) {
+      totalMoves.current += 1;
       setState(next);
     }
 
@@ -438,6 +443,7 @@ export function useGame() {
     setAttempt(restartLevel());
     setHintsUsed(0);
     undosUsed.current = 0;
+    totalMoves.current = 0;
     restartedLevels.current.add(levelId);
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
     elapsed.reset();
@@ -465,14 +471,14 @@ export function useGame() {
       return;
     }
 
-    const attempt = `${levelId}:${state.moves.length}:${hintsUsed}`;
+    const attempt = `${levelId}:${totalMoves.current}:${hintsUsed}`;
     if (recorded.current === attempt) {
       return;
     }
     recorded.current = attempt;
 
     void (async () => {
-      const result = await recordCompletion(levelId, state.moves.length, hintsUsed, {
+      const result = await recordCompletion(levelId, totalMoves.current, hintsUsed, {
         elapsedTimeMs: elapsed.elapsedMs(),
         undoCount: undosUsed.current,
         restarted: restartedLevels.current.has(levelId),
@@ -653,7 +659,7 @@ export function useGame() {
     hinted,
     useHint,
     canUndo: state !== null && canUndoState(state) && canUndoBudget(attempt),
-    moveCount: state?.moves.length ?? 0,
+    moveCount: totalMoves.current,
     attemptStars,
     attemptPoints,
     starDelta,

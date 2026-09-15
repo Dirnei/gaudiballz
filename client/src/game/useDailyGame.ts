@@ -73,6 +73,7 @@ export function useDailyGame() {
   const [alreadyDone, setAlreadyDone] = useState(isDailyDoneToday);
 
   const plan = useRef<Move[]>([]);
+  const totalMoves = useRef(0);
   const elapsed = useElapsedTime();
 
   /** Fetch today's puzzle on mount. */
@@ -121,7 +122,7 @@ export function useDailyGame() {
     if (state === null) return;
     if (isSolved(state.board)) {
       elapsed.stop();
-    } else if (selected !== null || state.moves.length > 0) {
+    } else if (selected !== null || totalMoves.current > 0) {
       elapsed.start();
     }
   }, [state, selected, elapsed]);
@@ -151,6 +152,7 @@ export function useDailyGame() {
       const next = play(state, { from: selected, to: index });
       if (next !== state) {
         plan.current = [];
+        totalMoves.current += 1;
         setState(next);
         setSelected(null);
       } else {
@@ -166,6 +168,7 @@ export function useDailyGame() {
       const next = play(state, { from, to });
       if (next !== state) {
         plan.current = [];
+        totalMoves.current += 1;
         setState(next);
         setSelected(null);
       }
@@ -211,7 +214,10 @@ export function useDailyGame() {
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
 
     const next = play(state, suggestion);
-    if (next !== state) setState(next);
+    if (next !== state) {
+      totalMoves.current += 1;
+      setState(next);
+    }
 
     setTimeout(() => setHinted(null), 700);
   }, [state, attempt, cooldownEnd]);
@@ -231,6 +237,7 @@ export function useDailyGame() {
     plan.current = [];
     setAttempt(restartLevel());
     setHintsUsed(0);
+    totalMoves.current = 0;
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
     elapsed.reset();
     setCompletion(null);
@@ -242,7 +249,7 @@ export function useDailyGame() {
   useEffect(() => {
     if (state === null || !isSolved(state.board)) return;
 
-    const key = `${state.moves.length}:${hintsUsed}`;
+    const key = `${totalMoves.current}:${hintsUsed}`;
     if (recorded.current === key) return;
     recorded.current = key;
 
@@ -252,7 +259,7 @@ export function useDailyGame() {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            moves: state.moves.length,
+            moves: totalMoves.current,
             hints: hintsUsed,
             elapsedTimeMs: elapsed.elapsedMs(),
           }),
@@ -281,7 +288,7 @@ export function useDailyGame() {
     alreadyDone,
     completion,
     elapsed,
-    moveCount: state?.moves.length ?? 0,
+    moveCount: totalMoves.current,
     hintsUsed,
     undosRemaining: attempt.undosRemaining,
     hintsRemaining: attempt.hintsRemaining,
