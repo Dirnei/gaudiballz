@@ -69,7 +69,7 @@ describe('the whole set is visible', () => {
   it('names an earned ball without a level', () => {
     renderPicker({ highestCompleted: 200 });
 
-    expect(screen.getByTestId('ball-13')).toHaveAttribute('aria-label', 'Gray');
+    expect(screen.getByTestId('ball-13')).toHaveAttribute('aria-label', 'Camo');
   });
 });
 
