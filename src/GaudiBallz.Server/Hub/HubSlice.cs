@@ -1,7 +1,9 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using Akka.Actor;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.DependencyInjection;
+using GaudiBallz.Server.Achievements;
 using GaudiBallz.Server.Persistence;
 using GaudiBallz.Server.PlayerIdentity;
 using GaudiBallz.Server.Progression;
@@ -134,6 +136,32 @@ public sealed class HubSlice : ISlice
 
             var achievements = await store.LoadAchievementsAsync(playerId);
 
+            var (rankTier, rankSubLevel) = RankTier.FromXp(progress.TotalPoints);
+            var nextThreshold = RankTier.NextThreshold(progress.TotalPoints);
+
+            var badges = await store.LoadBadgesAsync(playerId);
+            var earnedBadgeIds = badges.Select(b => b.BadgeId).ToHashSet();
+
+            var catchUp = BadgeCatalogue.Evaluate(
+                progress, earnedBadgeIds.ToImmutableHashSet());
+            foreach (var badgeId in catchUp)
+            {
+                await store.AwardBadgeAsync(playerId, badgeId);
+                earnedBadgeIds.Add(badgeId);
+            }
+
+            var badgeShelf = BadgeCatalogue.All.Select(b => new
+            {
+                id = b.Id,
+                name = b.Name,
+                description = b.Description,
+                category = b.Category.ToString().ToLowerInvariant(),
+                earned = earnedBadgeIds.Contains(b.Id),
+                progress = earnedBadgeIds.Contains(b.Id) ? (int?)null : BadgeCatalogue.ProgressFor(b.Id, progress),
+                threshold = b.Threshold,
+                isRare = b.IsRare,
+            }).ToArray();
+
             return Results.Ok(new
             {
                 totalPoints = progress.TotalPoints,
@@ -150,6 +178,14 @@ public sealed class HubSlice : ISlice
                 totalLevels = 50,
                 achievementsEarned = achievements.Count,
                 username = player.Username,
+                rank = new
+                {
+                    tier = rankTier.ToString().ToLowerInvariant(),
+                    subLevel = rankSubLevel,
+                    currentXp = progress.TotalPoints,
+                    nextThreshold,
+                },
+                badges = badgeShelf,
             });
         });
 

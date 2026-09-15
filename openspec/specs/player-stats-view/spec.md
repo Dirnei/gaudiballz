@@ -7,28 +7,19 @@ Gives a registered player a dedicated view of their own performance — points, 
 
 ### Requirement: Player stats view shows aggregated personal statistics
 
-The player stats view SHALL display the following for the authenticated player: total points, games played, games won, win rate (percentage), highest level completed, best moves on any single level (with which level), current day streak, and global leaderboard rank.
+The player stats view SHALL display the following for the authenticated player: total XP, games played, games won, win rate (percentage), highest level completed, best moves on any single level (with which level), current day streak, and global leaderboard rank.
 
 All numeric values SHALL be computed server-side and served in a single response.
 
 #### Scenario: A registered player views their stats
 
 - **WHEN** a registered player opens the stats view
-- **THEN** they see their total points, games played, win count, win rate, highest level, best moves, current streak, and global rank
+- **THEN** they see their total XP, games played, win count, win rate, highest level, best moves, current streak, and global rank
 
 #### Scenario: Win rate computation
 
 - **WHEN** a player has played 167 games and won 110
 - **THEN** their win rate is displayed as 66%
-
-### Requirement: Player stats view shows level progress
-
-The stats view SHALL show the player's progress through the available levels as a fraction and a visual indicator (e.g., "23 of 50 levels completed").
-
-#### Scenario: Level progress display
-
-- **WHEN** a player has completed 23 out of 50 available levels
-- **THEN** the stats view shows "23 of 50" and a corresponding progress indicator
 
 ### Requirement: Player stats view shows achievements summary
 
@@ -85,3 +76,28 @@ The comparisons SHALL be computed server-side. If comparison data is unavailable
 
 - **WHEN** the server cannot compute a comparison for a stat
 - **THEN** the stat is shown without a comparison note
+
+### Requirement: Player stats view shows rank progress
+
+The stats view SHALL show the player's current rank (tier and sub-level), a visual progress indicator toward the next rank boundary, and the XP values for the current and next threshold.
+
+This SHALL replace the previous level-progress display.
+
+#### Scenario: Rank progress display
+
+- **WHEN** a player with 100,000 XP (Silver 1) opens the stats view
+- **THEN** the stats view shows "Silver 1", a progress bar toward Silver 2, and "100,000 / 120,000 XP"
+
+#### Scenario: Maximum rank display
+
+- **WHEN** a Diamond 5 player opens the stats view
+- **THEN** the rank progress shows "Diamond 5" with no further threshold
+
+### Requirement: Player stats view shows badge shelf
+
+The stats view SHALL include the badge shelf section as specified in the badge-shelf capability.
+
+#### Scenario: Badge shelf visible on stats page
+
+- **WHEN** a registered player opens the stats view
+- **THEN** the badge shelf is visible below the stats summary

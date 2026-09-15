@@ -16,7 +16,7 @@ import {
 import { ceilingFor, forgetUnlocked, readUnlocked, rememberUnlocked } from './ceiling';
 import {
   drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion,
-  type NewAchievement, type Progress,
+  type NewAchievement, type NewBadge, type Progress, type RankUpEvent,
 } from './progress';
 import {
   AFTER_EACH_MOVE,
@@ -152,11 +152,16 @@ export function useGame() {
   const undosUsed = useRef(0);
   const [colourCount, setColourCount] = useState(0);
   const [newAchievements, setNewAchievements] = useState<NewAchievement[]>([]);
+  const [newBadges, setNewBadges] = useState<NewBadge[]>([]);
   const [attemptStars, setAttemptStars] = useState(0);
   const [attemptPoints, setAttemptPoints] = useState(0);
   const [starDelta, setStarDelta] = useState(0);
   const [replayBonus, setReplayBonus] = useState(0);
   const [timeBonus, setTimeBonus] = useState(0);
+  const [noHintBonus, setNoHintBonus] = useState(0);
+  const [firstClearBonus, setFirstClearBonus] = useState(0);
+  const [streakBonus, setStreakBonus] = useState(0);
+  const [rankUp, setRankUp] = useState<RankUpEvent | null>(null);
   const elapsed = useElapsedTime();
 
   /**
@@ -441,6 +446,10 @@ export function useGame() {
     setStarDelta(0);
     setReplayBonus(0);
     setTimeBonus(0);
+    setNoHintBonus(0);
+    setFirstClearBonus(0);
+    setStreakBonus(0);
+    setRankUp(null);
     setState((current) => (current === null ? current : restartState(current)));
   }, [levelId]);
 
@@ -473,11 +482,18 @@ export function useGame() {
       if (result.newAchievements.length > 0) {
         setNewAchievements(result.newAchievements);
       }
+      if (result.newBadges.length > 0) {
+        setNewBadges(result.newBadges);
+      }
       setAttemptStars(result.attemptStars);
       setAttemptPoints(result.attemptPoints);
       setStarDelta(result.starDelta);
       setReplayBonus(result.replayBonus);
       setTimeBonus(result.timeBonus);
+      setNoHintBonus(result.noHintBonus);
+      setFirstClearBonus(result.firstClearBonus);
+      setStreakBonus(result.streakBonus);
+      setRankUp(result.rankUp);
       const refreshed = await loadProgress();
       if (refreshed !== null) {
         setProgress(refreshed);
@@ -637,7 +653,12 @@ export function useGame() {
     starDelta,
     replayBonus,
     timeBonus,
+    noHintBonus,
+    firstClearBonus,
+    streakBonus,
+    rankUp,
     newAchievements,
+    newBadges,
     clearNewAchievements,
     elapsed,
     tapTube,

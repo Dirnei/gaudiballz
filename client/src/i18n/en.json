@@ -46,7 +46,7 @@
     "play": "Play",
     "levelSelect": "Level Select",
     "dailyChallenge": "Daily Challenge",
-    "points": "★ {{points}} pts",
+    "points": "★ {{points}} XP",
     "supportOnKofi": "Support on Ko-fi"
   },
   "game": {
@@ -71,10 +71,13 @@
     "restartCancel": "Cancel",
     "stuckNoMoves": "No moves left.",
     "solved": "Solved",
-    "points": "{{points}} pts",
+    "points": "{{points}} XP",
     "starUpgrade": "+{{points}} star upgrade",
     "bestTime": "+{{points}} best time",
     "replay": "+{{points}} replay",
+    "noHint": "+{{points}} no-hint",
+    "firstClear": "+{{points}} first clear",
+    "streak": "+{{points}} streak",
     "bestStars": "Best:",
     "moves_one": "{{count}} move",
     "moves_other": "{{count}} moves",
@@ -137,21 +140,21 @@
     "today": "Today",
     "rank": "Rank",
     "player": "Player",
-    "points": "Points",
+    "points": "XP",
     "games": "Games",
     "winRate": "Win Rate",
     "you": "(you)",
     "loading": "Loading leaderboard...",
     "empty": "No leaderboard data for this period yet.",
     "yourRank": "Your rank: #{{rank}}",
-    "pts": "{{points}} pts",
+    "pts": "{{points}} XP",
     "winPct": "{{pct}}% win"
   },
   "stats": {
     "title": "Your Stats",
     "registerPrompt": "Register an account to track your statistics and compete on the leaderboard.",
     "loading": "Loading stats...",
-    "totalPoints": "Total Points",
+    "totalPoints": "XP",
     "gamesPlayed": "Games Played",
     "highestLevel": "Highest Level",
     "bestMoves": "Best Moves",
@@ -161,8 +164,24 @@
     "wonAndRate": "{{won}} won · {{rate}}% win rate",
     "levelN": "Level {{level}}",
     "bestDays": "Best: {{days}} days",
-    "levelProgress": "Level Progress",
-    "levelsCompleted": "{{completed}} of {{total}} levels completed"
+    "rankProgress": "Rank Progress",
+    "rankLabel": "{{tier}} {{sub}}"
+  },
+  "rank": {
+    "bronze": "Bronze",
+    "silver": "Silver",
+    "gold": "Gold",
+    "platinum": "Platinum",
+    "diamond": "Diamond",
+    "subLevelUp": "{{tier}} {{sub}}",
+    "tierPromotion": "{{tier}}"
+  },
+  "badges": {
+    "title": "Badges",
+    "starMilestones": "Star Milestones",
+    "colourMastery": "Colour Mastery",
+    "achievements": "Achievements",
+    "progress": "{{current}} / {{total}}"
   },
   "community": {
     "playingNow": "{{count}} playing now",
@@ -175,7 +194,7 @@
     "lost": "Lost",
     "level": "Level {{level}}",
     "moves": "{{count}} moves",
-    "points": "{{points}} pts"
+    "points": "{{points}} XP"
   },
   "activityFeed": {
     "title": "Live Activity",

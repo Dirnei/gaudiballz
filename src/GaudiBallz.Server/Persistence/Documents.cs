@@ -89,6 +89,7 @@ public sealed class ProgressDocument
     public int BestPoints { get; set; }
     public int BestTimeMs { get; set; }
     public int BonusPoints { get; set; }
+    public DateTime? LastReplayBonusDate { get; set; }
     public DateTime FirstCompletedAt { get; set; }
     public DateTime LastCompletedAt { get; set; }
 
@@ -110,6 +111,21 @@ public sealed class AchievementDocument
 
     public static string KeyFor(string playerId, string achievementId) =>
         $"{playerId}#{achievementId}";
+}
+
+/// <summary>
+/// One badge awarded to one player. Same lifecycle as achievements: evaluated on completion,
+/// awarded once, never revoked.
+/// </summary>
+public sealed class BadgeDocument
+{
+    public string Id { get; set; } = string.Empty;
+    public string PlayerId { get; set; } = string.Empty;
+    public string BadgeId { get; set; } = string.Empty;
+    public DateTime AwardedAt { get; set; }
+
+    public static string KeyFor(string playerId, string badgeId) =>
+        $"{playerId}#{badgeId}";
 }
 
 /// <summary>
@@ -253,6 +269,7 @@ public static class BsonRegistration
             {
                 map.AutoMap();
                 map.MapIdMember(p => p.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.GetMemberMap(p => p.LastReplayBonusDate).SetIgnoreIfNull(true);
                 map.SetIgnoreExtraElements(true);
             });
 
@@ -260,6 +277,13 @@ public static class BsonRegistration
             {
                 map.AutoMap();
                 map.MapIdMember(a => a.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+            });
+
+            BsonClassMap.RegisterClassMap<BadgeDocument>(map =>
+            {
+                map.AutoMap();
+                map.MapIdMember(b => b.Id).SetSerializer(new StringSerializer(BsonType.String));
                 map.SetIgnoreExtraElements(true);
             });
 

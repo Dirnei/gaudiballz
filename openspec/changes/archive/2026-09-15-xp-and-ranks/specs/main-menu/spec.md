@@ -19,11 +19,11 @@ For anonymous players, the rank tile SHALL show rank without a ring (since there
 - **THEN** progress tiles for XP, rank, level, and streak are displayed
 - **AND** the leaderboard rank tile is not shown
 
-### Requirement: Main menu displays player XP
+### Requirement: Main menu displays player points
 
 When the player has earned XP, the main menu SHALL display the total XP count, matching the previous total-points display.
 
-#### Scenario: XP displayed for a returning player
+#### Scenario: Points displayed for a returning player
 
 - **WHEN** a player with 1,250 total XP opens the main menu
 - **THEN** the XP total is displayed on the menu

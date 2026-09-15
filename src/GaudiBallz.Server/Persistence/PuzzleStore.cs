@@ -24,6 +24,7 @@ public sealed class PuzzleStore
     private readonly IMongoCollection<CredentialDocument> _credentials;
     private readonly IMongoCollection<ProgressDocument> _progress;
     private readonly IMongoCollection<AchievementDocument> _achievements;
+    private readonly IMongoCollection<BadgeDocument> _badges;
     private readonly IMongoCollection<DailyPlayDocument> _dailyPlay;
     private readonly IMongoCollection<LeaderboardDocument> _leaderboard;
     private readonly IMongoCollection<DailyResultDocument> _dailyResults;
@@ -55,6 +56,7 @@ public sealed class PuzzleStore
         _credentials = _database.GetCollection<CredentialDocument>("credentials", durable);
         _progress = _database.GetCollection<ProgressDocument>("progress", durable);
         _achievements = _database.GetCollection<AchievementDocument>("player_achievements", durable);
+        _badges = _database.GetCollection<BadgeDocument>("player_badges", durable);
         _dailyPlay = _database.GetCollection<DailyPlayDocument>("daily_play", durable);
         _leaderboard = _database.GetCollection<LeaderboardDocument>("leaderboard", durable);
         _dailyResults = _database.GetCollection<DailyResultDocument>("daily_results", durable);
@@ -208,51 +210,77 @@ public sealed class PuzzleStore
         return progress;
     }
 
-    public async Task<(int ReplayBonus, int TimeBonus)> RecordCompletionBonusAsync(
-        string playerId, int level, int? elapsedTimeMs, bool isReplay, CancellationToken token = default)
+    public async Task<CompletionBonusResult> RecordCompletionBonusAsync(
+        string playerId, int level, int? elapsedTimeMs, bool isReplay, int hints,
+        CancellationToken token = default)
     {
         var key = ProgressDocument.KeyFor(playerId, level);
-        var replayBonus = isReplay ? 10 : 0;
-        var timeBonus = 0;
+        var today = DateTime.UtcNow.Date;
+        var doc = await _progress.Find(p => p.Id == key).FirstOrDefaultAsync(token);
 
+        var replayBonus = 0;
+        if (isReplay)
+        {
+            var lastReplayDate = doc?.LastReplayBonusDate?.Date;
+            if (lastReplayDate != today)
+            {
+                replayBonus = 10;
+            }
+        }
+
+        var timeBonus = 0;
         if (elapsedTimeMs is > 0)
         {
-            var doc = await _progress.Find(p => p.Id == key).FirstOrDefaultAsync(token);
             var currentBest = doc?.BestTimeMs ?? 0;
-
             if (currentBest > 0 && elapsedTimeMs.Value < currentBest)
             {
                 timeBonus = 40;
             }
+        }
 
-            var update = Builders<ProgressDocument>.Update.Combine();
+        var noHintBonus = hints == 0 ? 50 : 0;
+        var firstClearBonus = !isReplay ? 75 : 0;
 
+        var streakBonus = 0;
+        var dailyPlayKey = DailyPlayDocument.KeyFor(playerId, today);
+        var dailyDoc = await _dailyPlay.Find(d => d.Id == dailyPlayKey).FirstOrDefaultAsync(token);
+        if (dailyDoc is null)
+        {
+            streakBonus = 25;
+        }
+
+        var totalBonus = replayBonus + timeBonus + noHintBonus + firstClearBonus + streakBonus;
+
+        var updates = new List<UpdateDefinition<ProgressDocument>>();
+
+        if (elapsedTimeMs is > 0)
+        {
+            var currentBest = doc?.BestTimeMs ?? 0;
             if (currentBest == 0 || elapsedTimeMs.Value < currentBest)
             {
-                update = Builders<ProgressDocument>.Update.Set(p => p.BestTimeMs, elapsedTimeMs.Value);
-            }
-
-            var totalBonus = replayBonus + timeBonus;
-            if (totalBonus > 0)
-            {
-                update = Builders<ProgressDocument>.Update.Combine(
-                    update, Builders<ProgressDocument>.Update.Inc(p => p.BonusPoints, totalBonus));
-            }
-
-            if (totalBonus > 0 || currentBest == 0 || elapsedTimeMs.Value < currentBest)
-            {
-                await _progress.UpdateOneAsync(p => p.Id == key, update, cancellationToken: token);
+                updates.Add(Builders<ProgressDocument>.Update.Set(p => p.BestTimeMs, elapsedTimeMs.Value));
             }
         }
-        else if (replayBonus > 0)
+
+        if (replayBonus > 0)
+        {
+            updates.Add(Builders<ProgressDocument>.Update.Set(p => p.LastReplayBonusDate, today));
+        }
+
+        if (totalBonus > 0)
+        {
+            updates.Add(Builders<ProgressDocument>.Update.Inc(p => p.BonusPoints, totalBonus));
+        }
+
+        if (updates.Count > 0)
         {
             await _progress.UpdateOneAsync(
                 p => p.Id == key,
-                Builders<ProgressDocument>.Update.Inc(p => p.BonusPoints, replayBonus),
+                Builders<ProgressDocument>.Update.Combine(updates),
                 cancellationToken: token);
         }
 
-        return (replayBonus, timeBonus);
+        return new CompletionBonusResult(replayBonus, timeBonus, noHintBonus, firstClearBonus, streakBonus);
     }
 
     /// <summary>
@@ -382,6 +410,27 @@ public sealed class PuzzleStore
             .Find(Builders<DailyPlayDocument>.Filter.And(
                 Builders<DailyPlayDocument>.Filter.Gte(d => d.Id, $"{playerId}#"),
                 Builders<DailyPlayDocument>.Filter.Lt(d => d.Id, $"{playerId}$")))
+            .ToListAsync(token);
+
+    // ---- badges -------------------------------------------------------------
+
+    public Task AwardBadgeAsync(
+        string playerId, string badgeId, CancellationToken token = default) =>
+        _badges.UpdateOneAsync(
+            b => b.Id == BadgeDocument.KeyFor(playerId, badgeId),
+            Builders<BadgeDocument>.Update
+                .SetOnInsert(b => b.PlayerId, playerId)
+                .SetOnInsert(b => b.BadgeId, badgeId)
+                .SetOnInsert(b => b.AwardedAt, DateTime.UtcNow),
+            new UpdateOptions { IsUpsert = true },
+            token);
+
+    public async Task<List<BadgeDocument>> LoadBadgesAsync(
+        string playerId, CancellationToken token = default) =>
+        await _badges
+            .Find(Builders<BadgeDocument>.Filter.And(
+                Builders<BadgeDocument>.Filter.Gte(b => b.Id, $"{playerId}#"),
+                Builders<BadgeDocument>.Filter.Lt(b => b.Id, $"{playerId}$")))
             .ToListAsync(token);
 
     // ---- leaderboard --------------------------------------------------------
@@ -668,4 +717,10 @@ public sealed class PuzzleStore
                 player.ProfileBall, token);
         }
     }
+}
+
+public readonly record struct CompletionBonusResult(
+    int ReplayBonus, int TimeBonus, int NoHintBonus, int FirstClearBonus, int StreakBonus)
+{
+    public int Total => ReplayBonus + TimeBonus + NoHintBonus + FirstClearBonus + StreakBonus;
 }

@@ -84,12 +84,12 @@ Each star rating SHALL map to a fixed XP value. The mapping SHALL be:
 - 2 stars → 250 XP
 - 3 stars → 500 XP
 
-#### Scenario: 3-star XP award
+#### Scenario: 3-star point award
 
 - **WHEN** a player earns 3 stars on a level
 - **THEN** 500 XP is awarded for that level
 
-#### Scenario: 1-star XP award
+#### Scenario: 1-star point award
 
 - **WHEN** a player earns 1 star on a level
 - **THEN** 100 XP is awarded for that level
@@ -98,10 +98,15 @@ Each star rating SHALL map to a fixed XP value. The mapping SHALL be:
 
 The player's total XP SHALL be the sum of the best XP award across all completed levels, plus all accumulated bonus XP (no-hint, first-clear, streak-day, replay, and time-beat bonuses).
 
-#### Scenario: Total across multiple levels with bonuses
+#### Scenario: Total across multiple levels
 
 - **WHEN** a player has completed 3 levels with best ratings of 3, 2, and 1 stars, earned 2 first-clear bonuses (150 XP), and 1 no-hint bonus (50 XP)
 - **THEN** their total XP is 500 + 250 + 100 + 150 + 50 = 1,050
+
+#### Scenario: Improving a level increases total
+
+- **WHEN** a player improves level 5 from 1 star (100 XP) to 3 stars (500 XP)
+- **THEN** their total increases by 400
 
 ### Requirement: Win screen shows star rating
 
@@ -113,7 +118,7 @@ If the attempt did not improve the best rating, the win screen SHALL show the at
 
 The win screen SHALL itemise bonus XP earned (no-hint bonus, first-clear bonus, streak bonus, replay bonus, time-beat bonus) as separate line items.
 
-#### Scenario: First completion with bonuses
+#### Scenario: First completion
 
 - **WHEN** a player completes a level for the first time with 3 stars and no hints
 - **THEN** the win screen shows 3 stars, 500 XP, +75 XP first-clear bonus, and +50 XP no-hint bonus

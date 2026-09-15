@@ -4,6 +4,26 @@ import { motion } from 'motion/react';
 import { API, authHeaders } from './identity';
 import { useGameContext } from './GameContext';
 import { AchievementsSection } from './AchievementsSection';
+import { currentThreshold, TIER_COLOURS, type TierName } from './rank';
+import { BadgeShelf } from './BadgeShelf';
+
+interface RankInfo {
+  readonly tier: TierName;
+  readonly subLevel: number;
+  readonly currentXp: number;
+  readonly nextThreshold: number | null;
+}
+
+interface BadgeInfo {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly category: string;
+  readonly earned: boolean;
+  readonly progress: number | null;
+  readonly threshold: number | null;
+  readonly isRare: boolean;
+}
 
 interface PlayerStats {
   readonly totalPoints: number;
@@ -19,6 +39,8 @@ interface PlayerStats {
   readonly totalLevels: number;
   readonly levelsCompleted: number;
   readonly comparisons?: Record<string, string>;
+  readonly rank?: RankInfo;
+  readonly badges?: readonly BadgeInfo[];
 }
 
 const fredoka = { fontFamily: "'Fredoka', system-ui, sans-serif" } as const;
@@ -60,7 +82,7 @@ export function StatsPage() {
     );
   }
 
-  const progressPct = stats ? Math.round((stats.levelsCompleted / Math.max(stats.totalLevels, 1)) * 100) : 0;
+  const rankInfo = stats?.rank;
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-6">
@@ -86,35 +108,53 @@ export function StatsPage() {
               <StatCard value={`#${stats.globalRank}`} label={t('stats.globalRank')} color="text-slate-200" sub={stats.comparisons?.['rank']} icon="rank" iconBg="bg-white/6" />
             </div>
 
-            {/* Level progress */}
-            <div
-              className="mt-5 rounded-2xl p-5"
-              style={{
-                backgroundImage:
-                  'linear-gradient(160deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 30%, rgba(255,255,255,0.02) 70%, rgba(255,255,255,0.06) 100%),' +
-                  'radial-gradient(120% 90% at 50% -10%, #1B2748 0%, #131C36 45%, #0B1122 100%)',
-                border: '1px solid rgba(255,255,255,0.14)',
-                borderTopColor: 'rgba(255,255,255,0.22)',
-              }}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-white" style={fredoka}>{t('stats.levelProgress')}</div>
-                  <div className="mt-0.5 text-xs text-slate-500">{t('stats.levelsCompleted', { completed: stats.levelsCompleted, total: stats.totalLevels })}</div>
+            {/* Rank progress */}
+            {rankInfo && (
+              <div
+                className="mt-5 rounded-2xl p-5"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(160deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 30%, rgba(255,255,255,0.02) 70%, rgba(255,255,255,0.06) 100%),' +
+                    'radial-gradient(120% 90% at 50% -10%, #1B2748 0%, #131C36 45%, #0B1122 100%)',
+                  border: '1px solid rgba(255,255,255,0.14)',
+                  borderTopColor: 'rgba(255,255,255,0.22)',
+                }}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-bold" style={{ ...fredoka, color: TIER_COLOURS[rankInfo.tier] }}>
+                      {t(`rank.${rankInfo.tier}`)} {rankInfo.subLevel}
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-500">{t('stats.rankProgress')}</div>
+                  </div>
+                  {rankInfo.nextThreshold != null && (
+                    <div className="text-right text-xs tabular-nums text-slate-500">
+                      {rankInfo.currentXp.toLocaleString()} / {rankInfo.nextThreshold.toLocaleString()} XP
+                    </div>
+                  )}
                 </div>
-                <div className="text-xl font-bold text-violet-400" style={fredoka}>{progressPct}%</div>
+                {rankInfo.nextThreshold != null && (() => {
+                  const floor = currentThreshold(rankInfo.currentXp);
+                  const range = rankInfo.nextThreshold - floor;
+                  const pct = range > 0 ? Math.min(100, Math.round(((rankInfo.currentXp - floor) / range) * 100)) : 100;
+                  return (
+                    <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/6">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, backgroundColor: TIER_COLOURS[rankInfo.tier] }}
+                      />
+                    </div>
+                  );
+                })()}
               </div>
-              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-white/6">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #9333EA, #3B82F6)' }}
-                />
+            )}
+
+            {/* Badge shelf */}
+            {stats.badges && stats.badges.length > 0 && (
+              <div className="mt-6">
+                <BadgeShelf badges={stats.badges} />
               </div>
-              <div className="mt-1.5 flex justify-between text-[0.7rem] tabular-nums text-slate-600">
-                <span>{t('stats.levelN', { level: 1 })}</span>
-                <span>{t('stats.levelN', { level: stats.totalLevels })}</span>
-              </div>
-            </div>
+            )}
 
             {/* Achievements */}
             {achievementsReady && (

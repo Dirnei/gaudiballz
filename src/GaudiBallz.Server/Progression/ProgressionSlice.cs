@@ -82,10 +82,15 @@ public sealed class ProgressionSlice : ISlice
                     new RecordCompletion(playerId, request.Level, levelResult),
                     AskTimeout);
 
-                var (replayBonus, timeBonus) = await store.RecordCompletionBonusAsync(
-                    playerId, request.Level, request.ElapsedTimeMs, isReplay);
+                var bonus = await store.RecordCompletionBonusAsync(
+                    playerId, request.Level, request.ElapsedTimeMs, isReplay, request.Hints);
+
+                var oldXp = before.Progress.TotalPoints;
+                var newXp = snapshot.Progress.TotalPoints + bonus.Total;
+                var rankUp = RankTier.DetectRankUp(oldXp, newXp);
 
                 var newAchievements = Array.Empty<object>();
+                var newBadges = Array.Empty<object>();
 
                 var player = await store.FindPlayerAsync(playerId);
                 if (player is { IsAnonymous: false })
@@ -108,6 +113,10 @@ public sealed class ProgressionSlice : ISlice
                         newAchievements = result.NewAwards
                             .Select(a => (object)new { id = a.Id, name = a.Name })
                             .ToArray();
+
+                        newBadges = result.NewBadges
+                            .Select(b => (object)new { id = b.Id, name = b.Name })
+                            .ToArray();
                     }
                     catch (TaskCanceledException)
                     {
@@ -127,12 +136,12 @@ public sealed class ProgressionSlice : ISlice
 
                             await store.UpsertLeaderboardAsync(
                                 playerId, player.Username,
-                                updatedProgress.TotalPoints + replayBonus + timeBonus,
+                                updatedProgress.TotalPoints + bonus.Total,
                                 updatedProgress.LevelsCompleted,
                                 updatedProgress.Levels.Values.Count(r => r.Stars > 0),
                                 ball);
 
-                            var earnedThisAttempt = starDelta + replayBonus + timeBonus;
+                            var earnedThisAttempt = starDelta + bonus.Total;
                             if (earnedThisAttempt > 0)
                             {
                                 var weekPeriod = $"{DateTime.UtcNow.Year}-W{System.Globalization.CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(DateTime.UtcNow, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday):D2}";
@@ -179,7 +188,8 @@ public sealed class ProgressionSlice : ISlice
                 }
 
                 return Results.Ok(ShapeCompletion(
-                    snapshot, attemptStars, attemptPoints, starDelta, replayBonus, timeBonus, newAchievements));
+                    snapshot, attemptStars, attemptPoints, starDelta, bonus,
+                    rankUp, newAchievements, newBadges));
             });
 
         // Used once, when a device with local progress signs in to an existing account.
@@ -208,31 +218,46 @@ public sealed class ProgressionSlice : ISlice
             });
     }
 
-    private static object Shape(ProgressSnapshot snapshot) => new
+    private static object Shape(ProgressSnapshot snapshot)
     {
-        levelsCompleted = snapshot.Progress.LevelsCompleted,
-        highestCompleted = snapshot.Progress.HighestCompleted,
-        totalPoints = snapshot.Progress.TotalPoints,
-        levels = snapshot.Progress.Levels
-            .OrderBy(pair => pair.Key)
-            .Select(pair => new
+        var totalPoints = snapshot.Progress.TotalPoints;
+        var (tier, subLevel) = RankTier.FromXp(totalPoints);
+        var nextThreshold = RankTier.NextThreshold(totalPoints);
+
+        return new
+        {
+            levelsCompleted = snapshot.Progress.LevelsCompleted,
+            highestCompleted = snapshot.Progress.HighestCompleted,
+            totalPoints,
+            rank = new
             {
-                level = pair.Key,
-                moves = pair.Value.Moves,
-                hints = pair.Value.Hints,
-                stars = pair.Value.Stars,
-                points = pair.Value.Points,
-            })
-            .ToArray(),
-    };
+                tier = tier.ToString().ToLowerInvariant(),
+                subLevel,
+                currentXp = totalPoints,
+                nextThreshold,
+            },
+            levels = snapshot.Progress.Levels
+                .OrderBy(pair => pair.Key)
+                .Select(pair => new
+                {
+                    level = pair.Key,
+                    moves = pair.Value.Moves,
+                    hints = pair.Value.Hints,
+                    stars = pair.Value.Stars,
+                    points = pair.Value.Points,
+                })
+                .ToArray(),
+        };
+    }
 
     private static object ShapeCompletion(
         ProgressSnapshot snapshot, int attemptStars, int attemptPoints,
-        int starDelta, int replayBonus, int timeBonus, object[] newAchievements) => new
+        int starDelta, CompletionBonusResult bonus, RankUpEvent rankUp,
+        object[] newAchievements, object[] newBadges) => new
     {
         levelsCompleted = snapshot.Progress.LevelsCompleted,
         highestCompleted = snapshot.Progress.HighestCompleted,
-        totalPoints = snapshot.Progress.TotalPoints + replayBonus + timeBonus,
+        totalPoints = snapshot.Progress.TotalPoints + bonus.Total,
         levels = snapshot.Progress.Levels
             .OrderBy(pair => pair.Key)
             .Select(pair => new
@@ -247,9 +272,21 @@ public sealed class ProgressionSlice : ISlice
         attemptStars,
         attemptPoints,
         starDelta,
-        replayBonus,
-        timeBonus,
+        replayBonus = bonus.ReplayBonus,
+        timeBonus = bonus.TimeBonus,
+        noHintBonus = bonus.NoHintBonus,
+        firstClearBonus = bonus.FirstClearBonus,
+        streakBonus = bonus.StreakBonus,
+        rankUp = rankUp.Kind == RankUpKind.None ? null : new
+        {
+            kind = rankUp.Kind == RankUpKind.TierPromotion ? "tierPromotion" : "subLevel",
+            oldTier = rankUp.OldTier.ToString().ToLowerInvariant(),
+            oldSubLevel = rankUp.OldSubLevel,
+            newTier = rankUp.NewTier.ToString().ToLowerInvariant(),
+            newSubLevel = rankUp.NewSubLevel,
+        },
         newAchievements,
+        newBadges,
     };
 
     private static string? BearerFrom(HttpContext http)

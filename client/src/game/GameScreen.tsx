@@ -747,7 +747,7 @@ export function GameScreen() {
               <p className="text-2xl font-bold tracking-tight">{t('game.solved')}</p>
 
               {game.attemptStars > 0 && (() => {
-                const bonus = game.replayBonus + game.timeBonus;
+                const bonus = game.replayBonus + game.timeBonus + game.noHintBonus + game.firstClearBonus + game.streakBonus;
                 const totalEarned = game.starDelta + bonus;
                 const best = game.levelProgress.get(game.levelId);
                 const bestStars = best?.stars ?? 0;
@@ -771,6 +771,9 @@ export function GameScreen() {
                     {totalEarned > 0 && (
                       <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
                         {game.starDelta > 0 && <span className="text-amber-400/80">{t('game.starUpgrade', { points: game.starDelta })}</span>}
+                        {game.noHintBonus > 0 && <span className="text-emerald-400/80">{t('game.noHint', { points: game.noHintBonus })}</span>}
+                        {game.firstClearBonus > 0 && <span className="text-sky-400/80">{t('game.firstClear', { points: game.firstClearBonus })}</span>}
+                        {game.streakBonus > 0 && <span className="text-orange-400/80">{t('game.streak', { points: game.streakBonus })}</span>}
                         {game.timeBonus > 0 && <span className="text-amber-400/80">{t('game.bestTime', { points: game.timeBonus })}</span>}
                         {game.replayBonus > 0 && <span>{t('game.replay', { points: game.replayBonus })}</span>}
                       </div>
@@ -780,6 +783,23 @@ export function GameScreen() {
                       <p className="mt-1 text-xs text-slate-500">
                         {t('game.bestStars')} {'★'.repeat(bestStars)}{'☆'.repeat(3 - bestStars)}
                       </p>
+                    )}
+
+                    {game.rankUp && (
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ delay: 0.4, type: 'spring', stiffness: 300, damping: 20 }}
+                        className={`mt-3 rounded-xl px-3 py-2 text-center ${
+                          game.rankUp.kind === 'tierPromotion'
+                            ? 'bg-gradient-to-r from-amber-500/20 to-violet-500/20 ring-1 ring-amber-400/30'
+                            : 'bg-white/5 ring-1 ring-white/10'
+                        }`}
+                      >
+                        <p className={`text-sm font-semibold ${game.rankUp.kind === 'tierPromotion' ? 'text-amber-300' : 'text-slate-300'}`}>
+                          {t(`rank.${game.rankUp.newTier}`)} {game.rankUp.newSubLevel}
+                        </p>
+                      </motion.div>
                     )}
                   </>
                 );

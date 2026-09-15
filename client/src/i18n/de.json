@@ -46,7 +46,7 @@
     "play": "Spielen",
     "levelSelect": "Levelauswahl",
     "dailyChallenge": "Tägliche Herausforderung",
-    "points": "★ {{points}} Pkt.",
+    "points": "★ {{points}} XP",
     "supportOnKofi": "Unterstütze auf Ko-fi"
   },
   "game": {
@@ -71,10 +71,13 @@
     "restartCancel": "Abbrechen",
     "stuckNoMoves": "Keine Züge mehr.",
     "solved": "Gelöst",
-    "points": "{{points}} Pkt.",
+    "points": "{{points}} XP",
     "starUpgrade": "+{{points}} Sternaufwertung",
     "bestTime": "+{{points}} Bestzeit",
     "replay": "+{{points}} Wiederholung",
+    "noHint": "+{{points}} ohne Tipp",
+    "firstClear": "+{{points}} Erstabschluss",
+    "streak": "+{{points}} Serie",
     "bestStars": "Bester:",
     "moves_one": "{{count}} Zug",
     "moves_other": "{{count}} Züge",
@@ -137,21 +140,21 @@
     "today": "Heute",
     "rank": "Rang",
     "player": "Spieler",
-    "points": "Punkte",
+    "points": "XP",
     "games": "Spiele",
     "winRate": "Siegquote",
     "you": "(du)",
     "loading": "Bestenliste wird geladen…",
     "empty": "Noch keine Daten für diesen Zeitraum.",
     "yourRank": "Dein Rang: #{{rank}}",
-    "pts": "{{points}} Pkt.",
+    "pts": "{{points}} XP",
     "winPct": "{{pct}} % Sieg"
   },
   "stats": {
     "title": "Deine Statistik",
     "registerPrompt": "Registriere ein Konto, um deine Statistiken zu verfolgen und in der Bestenliste mitzumachen.",
     "loading": "Statistik wird geladen…",
-    "totalPoints": "Gesamtpunkte",
+    "totalPoints": "XP",
     "gamesPlayed": "Spiele gespielt",
     "highestLevel": "Höchstes Level",
     "bestMoves": "Beste Züge",
@@ -161,8 +164,24 @@
     "wonAndRate": "{{won}} gewonnen · {{rate}} % Siegquote",
     "levelN": "Level {{level}}",
     "bestDays": "Bester: {{days}} Tage",
-    "levelProgress": "Levelfortschritt",
-    "levelsCompleted": "{{completed}} von {{total}} Levels abgeschlossen"
+    "rankProgress": "Rangfortschritt",
+    "rankLabel": "{{tier}} {{sub}}"
+  },
+  "rank": {
+    "bronze": "Bronze",
+    "silver": "Silber",
+    "gold": "Gold",
+    "platinum": "Platin",
+    "diamond": "Diamant",
+    "subLevelUp": "{{tier}} {{sub}}",
+    "tierPromotion": "{{tier}}"
+  },
+  "badges": {
+    "title": "Abzeichen",
+    "starMilestones": "Stern-Meilensteine",
+    "colourMastery": "Farbmeisterschaft",
+    "achievements": "Erfolge",
+    "progress": "{{current}} / {{total}}"
   },
   "community": {
     "playingNow": "{{count}} spielen gerade",
@@ -175,7 +194,7 @@
     "lost": "Niederlage",
     "level": "Level {{level}}",
     "moves": "{{count}} Züge",
-    "points": "{{points}} Pkt."
+    "points": "{{points}} XP"
   },
   "activityFeed": {
     "title": "Aktivitäten",

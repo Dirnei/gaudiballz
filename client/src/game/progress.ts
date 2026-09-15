@@ -27,13 +27,31 @@ export interface NewAchievement {
   readonly name: string;
 }
 
+export interface RankUpEvent {
+  readonly kind: 'subLevel' | 'tierPromotion';
+  readonly oldTier: string;
+  readonly oldSubLevel: number;
+  readonly newTier: string;
+  readonly newSubLevel: number;
+}
+
+export interface NewBadge {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface CompletionResult {
   readonly newAchievements: NewAchievement[];
+  readonly newBadges: NewBadge[];
   readonly attemptStars: number;
   readonly attemptPoints: number;
   readonly starDelta: number;
   readonly replayBonus: number;
   readonly timeBonus: number;
+  readonly noHintBonus: number;
+  readonly firstClearBonus: number;
+  readonly streakBonus: number;
+  readonly rankUp: RankUpEvent | null;
 }
 
 export interface CompletionMetadata {
@@ -92,7 +110,7 @@ export async function recordCompletion(
  *
  * Returns any newly earned achievements from the last successful response.
  */
-const EMPTY_RESULT: CompletionResult = { newAchievements: [], attemptStars: 0, attemptPoints: 0, starDelta: 0, replayBonus: 0, timeBonus: 0 };
+const EMPTY_RESULT: CompletionResult = { newAchievements: [], newBadges: [], attemptStars: 0, attemptPoints: 0, starDelta: 0, replayBonus: 0, timeBonus: 0, noHintBonus: 0, firstClearBonus: 0, streakBonus: 0, rankUp: null };
 
 export async function drain(): Promise<CompletionResult> {
   let waiting: PendingCompletion[];
@@ -126,19 +144,29 @@ export async function drain(): Promise<CompletionResult> {
         try {
           const body = (await response.json()) as {
             newAchievements?: NewAchievement[];
+            newBadges?: NewBadge[];
             attemptStars?: number;
             attemptPoints?: number;
             starDelta?: number;
             replayBonus?: number;
             timeBonus?: number;
+            noHintBonus?: number;
+            firstClearBonus?: number;
+            streakBonus?: number;
+            rankUp?: RankUpEvent | null;
           };
           lastResult = {
             newAchievements: body.newAchievements ?? [],
+            newBadges: body.newBadges ?? [],
             attemptStars: body.attemptStars ?? 0,
             attemptPoints: body.attemptPoints ?? 0,
             starDelta: body.starDelta ?? 0,
             replayBonus: body.replayBonus ?? 0,
             timeBonus: body.timeBonus ?? 0,
+            noHintBonus: body.noHintBonus ?? 0,
+            firstClearBonus: body.firstClearBonus ?? 0,
+            streakBonus: body.streakBonus ?? 0,
+            rankUp: body.rankUp ?? null,
           };
         } catch {
           lastResult = EMPTY_RESULT;

@@ -1,6 +1,6 @@
 ## MODIFIED Requirements
 
-### Requirement: Leaderboard ranks players by total XP
+### Requirement: Leaderboard ranks players by total points
 
 The system SHALL provide a leaderboard that ranks all registered players in descending order of total XP. Anonymous players SHALL NOT appear on the leaderboard.
 
@@ -8,7 +8,7 @@ Players with equal total XP SHALL be ordered by who reached that total first.
 
 Each leaderboard entry SHALL display the player's rank badge (tier icon or label) and rank ring around their profile ball, alongside rank number, player name, total XP, games played, and win rate.
 
-#### Scenario: Players ranked by XP
+#### Scenario: Players ranked by points
 
 - **WHEN** a player views the leaderboard
 - **THEN** players are listed in descending order of total XP

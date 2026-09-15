@@ -22,9 +22,13 @@ public sealed record EvaluateRetroactive(string PlayerId) : IPlayerCommand
     string IPlayerCommand.PlayerId => PlayerId;
 }
 
-public sealed record AchievementResult(IReadOnlyList<AwardedAchievement> NewAwards);
+public sealed record AchievementResult(
+    IReadOnlyList<AwardedAchievement> NewAwards,
+    IReadOnlyList<AwardedBadge> NewBadges);
 
 public sealed record AwardedAchievement(string Id, string Name);
+
+public sealed record AwardedBadge(string Id, string Name);
 
 internal sealed record AchievementPassivate(string PlayerId);
 
@@ -44,7 +48,7 @@ public sealed class AchievementEvaluatorActor : ReceiveActor
 
             if (command.IsAnonymous)
             {
-                sender.Tell(new AchievementResult([]));
+                sender.Tell(new AchievementResult([], []));
                 return;
             }
 
@@ -96,11 +100,32 @@ public sealed class AchievementEvaluatorActor : ReceiveActor
                     }
                 }
 
-                sender.Tell(new AchievementResult(newAwards));
+                var newBadges = new List<AwardedBadge>();
+                try
+                {
+                    var existingBadgeDocs = await store.LoadBadgesAsync(command.PlayerId);
+                    var alreadyAwardedBadges = existingBadgeDocs
+                        .Select(b => b.BadgeId)
+                        .ToImmutableHashSet();
+
+                    var newBadgeIds = BadgeCatalogue.Evaluate(progress, alreadyAwardedBadges);
+                    foreach (var badgeId in newBadgeIds)
+                    {
+                        await store.AwardBadgeAsync(command.PlayerId, badgeId);
+                        var badgeDef = BadgeCatalogue.All.First(b => b.Id == badgeId);
+                        newBadges.Add(new AwardedBadge(badgeId, badgeDef.Name));
+                    }
+                }
+                catch
+                {
+                    // Badge evaluation failure is non-blocking
+                }
+
+                sender.Tell(new AchievementResult(newAwards, newBadges));
             }
             catch
             {
-                sender.Tell(new AchievementResult([]));
+                sender.Tell(new AchievementResult([], []));
             }
         });
 

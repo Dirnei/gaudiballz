@@ -5,6 +5,9 @@ import { API, authHeaders } from './identity';
 import { useGameContext } from './GameContext';
 import { ballForAccount } from './profileBall';
 import { ballStyle } from '../skins';
+import { rankFromXp } from './rank';
+import { RankBadge } from './RankBadge';
+import { RankRing } from './RankRing';
 
 interface LeaderboardEntry {
   readonly rank: number;
@@ -122,10 +125,13 @@ export function LeaderboardPage() {
                       <td className="rounded-l-xl bg-white/4 py-2.5 px-3 font-bold tabular-nums text-slate-500" style={fredoka}>{e.rank}</td>
                       <td className="bg-white/4 py-2.5 px-3">
                         <div className="flex items-center gap-2">
-                          <span className="h-3.5 w-3.5 rounded-full flex-shrink-0" style={ballStyle(ballForAccount(e.ball, e.username))} />
+                          <RankRing tier={rankFromXp(e.totalPoints).tier} size={14}>
+                            <span className="h-3.5 w-3.5 rounded-full flex-shrink-0" style={ballStyle(ballForAccount(e.ball, e.username))} />
+                          </RankRing>
                           <span className="font-semibold" style={{ ...fredoka, color: isMe ? '#A855F7' : undefined }}>
                             {e.username}{isMe ? ` ${t('leaderboard.you')}` : ''}
                           </span>
+                          <RankBadge tier={rankFromXp(e.totalPoints).tier} subLevel={rankFromXp(e.totalPoints).subLevel} />
                         </div>
                       </td>
                       <td className="bg-white/4 py-2.5 px-3 font-bold tabular-nums text-amber-400">{e.totalPoints.toLocaleString()}</td>

@@ -16,6 +16,8 @@ All numeric values SHALL be computed server-side and served in a single response
 - **WHEN** a player has played 167 games and won 110
 - **THEN** their win rate is displayed as 66%
 
+## ADDED Requirements
+
 ### Requirement: Player stats view shows rank progress
 
 The stats view SHALL show the player's current rank (tier and sub-level), a visual progress indicator toward the next rank boundary, and the XP values for the current and next threshold.
