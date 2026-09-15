@@ -11,6 +11,9 @@ function account(overrides: Partial<Identity> = {}): Identity {
     isAnonymous: false,
     username: 'dirnei',
     ball: null,
+    email: null,
+    emailVerified: false,
+    emailEnabled: false,
     ...overrides,
   };
 }

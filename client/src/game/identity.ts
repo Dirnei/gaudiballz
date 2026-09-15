@@ -20,6 +20,9 @@ export interface Identity {
    * which case the colour is derived from the username, exactly as it always was.
    */
   readonly ball: number | null;
+  readonly email: string | null;
+  readonly emailVerified: boolean;
+  readonly emailEnabled: boolean;
 }
 
 export const API =
@@ -79,26 +82,14 @@ export async function ensureIdentity(): Promise<Identity | null> {
     try {
       const response = await fetch(`${API}/api/v1/players/me`, { headers: authHeaders() });
       if (response.ok) {
-        const me = (await response.json()) as {
-          playerId: string;
-          isAnonymous: boolean;
-          username: string | null;
-          ball: number | null;
-        };
-        return {
-          playerId: me.playerId,
-          token,
-          isAnonymous: me.isAnonymous,
-          username: me.username ?? null,
-          ball: me.ball ?? null,
-        };
+        return parseIdentityResponse((await response.json()) as IdentityResponse, token);
       }
     } catch {
       // Offline. Keep playing as whoever this browser already was.
       const playerId = read(PLAYER_KEY);
       return playerId === null
         ? null
-        : { playerId, token, isAnonymous: true, username: null, ball: null };
+        : { playerId, token, isAnonymous: true, username: null, ball: null, email: null, emailVerified: false, emailEnabled: false };
     }
   }
 
@@ -109,14 +100,40 @@ export async function ensureIdentity(): Promise<Identity | null> {
     }
 
     // A brand-new anonymous player has no name and no ball; the server sends neither.
-    const created = (await response.json()) as Omit<Identity, 'username' | 'ball'>;
-    const identity: Identity = { ...created, username: null, ball: null };
+    const created = (await response.json()) as Omit<Identity, 'username' | 'ball' | 'email' | 'emailVerified' | 'emailEnabled'>;
+    const identity: Identity = { ...created, username: null, ball: null, email: null, emailVerified: false, emailEnabled: false };
     remember(identity);
     return identity;
   } catch {
     // No network on a first ever launch: play anyway, and pick up an identity later.
     return null;
   }
+}
+
+export interface IdentityResponse {
+  readonly playerId: string;
+  readonly token: string;
+  readonly isAnonymous: boolean;
+  readonly username: string | null;
+  readonly ball: number | null;
+  readonly email: string | null;
+  readonly emailVerified: boolean;
+  readonly emailEnabled: boolean;
+}
+
+export function parseIdentityResponse(data: IdentityResponse, tokenOverride?: string): Identity {
+  const identity: Identity = {
+    playerId: data.playerId,
+    token: tokenOverride ?? data.token,
+    isAnonymous: data.isAnonymous,
+    username: data.username ?? null,
+    ball: data.ball ?? null,
+    email: data.email ?? null,
+    emailVerified: data.emailVerified ?? false,
+    emailEnabled: data.emailEnabled ?? false,
+  };
+  remember(identity);
+  return identity;
 }
 
 /**

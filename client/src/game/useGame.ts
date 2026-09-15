@@ -581,6 +581,11 @@ export function useGame() {
       current === null ? current : { ...current, isAnonymous: false, username });
   }, []);
 
+  const emailChanged = useCallback((email: string | null, verified: boolean) => {
+    setIdentity((current) =>
+      current === null ? current : { ...current, email, emailVerified: verified });
+  }, []);
+
   /**
    * Fetches the unlock table, once, the first time anything needs it.
    *
@@ -628,6 +633,7 @@ export function useGame() {
     loggedIn: signedIn,
     logOut: signOut,
     registered,
+    emailChanged,
     unlockWithCode,
     ballUnlocks,
     ensureBallUnlocks,

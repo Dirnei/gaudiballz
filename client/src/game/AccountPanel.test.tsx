@@ -26,6 +26,9 @@ const ACCOUNT: Identity = {
   isAnonymous: false,
   username: 'dirnei',
   ball: null,
+  email: null,
+  emailVerified: false,
+  emailEnabled: false,
 };
 
 const ANONYMOUS: Identity = {
@@ -34,6 +37,9 @@ const ANONYMOUS: Identity = {
   isAnonymous: true,
   username: null,
   ball: null,
+  email: null,
+  emailVerified: false,
+  emailEnabled: false,
 };
 
 function renderPanel(identity: Identity | null, highestCompleted = 30) {
@@ -45,10 +51,10 @@ function renderPanel(identity: Identity | null, highestCompleted = 30) {
       onLoggedIn={vi.fn()}
       onRegistered={vi.fn()}
       onLogOut={vi.fn()}
+      onEmailChanged={vi.fn()}
       ballUnlocks={UNLOCKS}
       highestCompleted={highestCompleted}
       onChooseBall={vi.fn().mockResolvedValue(true)}
-
     />,
   );
 }
@@ -106,10 +112,10 @@ describe('nothing announces a newly earned ball', () => {
         onLoggedIn={vi.fn()}
         onRegistered={vi.fn()}
         onLogOut={vi.fn()}
+        onEmailChanged={vi.fn()}
         ballUnlocks={UNLOCKS}
         highestCompleted={1}
         onChooseBall={vi.fn().mockResolvedValue(true)}
-  
       />,
     );
     const beforeButtons = screen.getAllByRole('button').length;

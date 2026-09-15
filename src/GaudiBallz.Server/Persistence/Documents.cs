@@ -41,6 +41,12 @@ public sealed class PlayerDocument
     /// to the derived ball keeps following its username afterwards.
     /// </summary>
     public int? ProfileBall { get; set; }
+
+    public string? Email { get; set; }
+
+    public string? EmailKey { get; set; }
+
+    public bool EmailVerified { get; set; }
 }
 
 /// <summary>
@@ -256,6 +262,8 @@ public static class BsonRegistration
                 // that never chose a ball should look on disk exactly like one from before
                 // the picker existed.
                 map.GetMemberMap(p => p.ProfileBall).SetIgnoreIfNull(true);
+                map.GetMemberMap(p => p.Email).SetIgnoreIfNull(true);
+                map.GetMemberMap(p => p.EmailKey).SetIgnoreIfNull(true);
             });
 
             BsonClassMap.RegisterClassMap<CredentialDocument>(map =>

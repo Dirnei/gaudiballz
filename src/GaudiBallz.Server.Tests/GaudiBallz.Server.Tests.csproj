@@ -13,6 +13,7 @@
     <PackageReference Include="Akka.TestKit.Xunit" />
     <PackageReference Include="Testcontainers.MongoDb" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
   <ItemGroup>

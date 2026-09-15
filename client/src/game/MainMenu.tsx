@@ -30,7 +30,8 @@ export function MainMenu() {
 
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-  const onPlay = useCallback(() => navigate(needsTutorial() ? '/tutorial' : '/play'), [navigate]);
+  const hasProgress = (game.progress?.highestCompleted ?? 0) > 0;
+  const onPlay = useCallback(() => navigate(!hasProgress && needsTutorial() ? '/tutorial' : '/play'), [navigate, hasProgress]);
   const onLevelSelect = useCallback(() => navigate('/levels'), [navigate]);
   const onDaily = useCallback(() => navigate('/daily'), [navigate]);
 

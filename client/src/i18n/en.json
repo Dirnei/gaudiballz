@@ -38,9 +38,45 @@
       "couldNotCheck": "Could not check that name just now."
     }
   },
+  "email": {
+    "useEmail": "Use email instead",
+    "enterEmail": "Enter your email",
+    "emailPlaceholder": "Email address",
+    "sendCode": "Send code",
+    "enterCode": "Enter the code we sent",
+    "codePlaceholder": "6-digit code",
+    "verifyCode": "Verify",
+    "codeSent": "Code sent — check your email.",
+    "codeExpired": "That code has expired. Request a new one.",
+    "codeInvalid": "That code isn't right.",
+    "tooManyAttempts": "Too many attempts. Request a new code.",
+    "cooldown": "Wait a moment before requesting another code.",
+    "emailTaken": "That email is already linked to another account.",
+    "linked": "Email linked.",
+    "removed": "Email removed.",
+    "addEmail": "Add email",
+    "removeEmail": "Remove email",
+    "recoveryNote": "Your email can be used to recover this account.",
+    "addRecoveryHint": "Add an email to recover your account if you lose your passkey.",
+    "registerViaEmail": "Register with email",
+    "resendCode": "Resend code",
+    "recoverAccount": "Lost your passkey? Sign in with email"
+  },
   "passkey": {
-    "unsupported": "This browser can't do passkeys, so there's nothing to set up here.",
-    "insecureContext": "Passkeys need a secure connection. This works on the computer running the game, but not over a plain network address."
+    "unsupported": "This browser can't do passkeys.",
+    "unsupportedWithEmail": "This browser can't do passkeys, but you can register with email instead.",
+    "insecureContext": "Passkeys need a secure connection. This works on the computer running the game, but not over a plain network address.",
+    "insecureContextWithEmail": "Passkeys need a secure connection, but you can use email instead.",
+    "passkeyLossWarning": "Losing your passkey means losing this account.",
+    "passkeyLossWithEmail": "If you lose your passkey, you can recover this account with your email.",
+    "managePasskeys": "Passkeys",
+    "addPasskey": "Add passkey",
+    "deletePasskey": "Delete",
+    "cantDeleteLast": "Can't delete your only passkey without an email linked.",
+    "passkeyAdded": "Passkey added.",
+    "passkeyDeleted": "Passkey deleted.",
+    "createdAt": "Added {{date}}",
+    "noPasskeys": "No passkeys linked."
   },
   "menu": {
     "play": "Play",

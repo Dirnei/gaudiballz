@@ -50,6 +50,25 @@ builder.Services.AddSingleton(new LevelCodes(
     builder.Configuration["LevelCodes:Secret"]
     ?? "local-development-level-code-secret"));
 
+// ---- email (conditional) -------------------------------------------------
+
+var smtpHost = builder.Configuration["Smtp:Host"];
+if (!string.IsNullOrEmpty(smtpHost))
+{
+    var smtp = new SmtpOptions
+    {
+        Host = smtpHost,
+        Port = int.TryParse(builder.Configuration["Smtp:Port"], out var p) ? p : 587,
+        Username = builder.Configuration["Smtp:Username"],
+        Password = builder.Configuration["Smtp:Password"],
+        From = builder.Configuration["Smtp:From"] ?? "noreply@example.com",
+    };
+    builder.Services.AddSingleton(smtp);
+    builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+}
+
+builder.Services.AddSingleton<EmailCodeStore>();
+
 // ---- slices ---------------------------------------------------------------
 
 PlayerIdentitySlice.AddServices(builder.Services);

@@ -22,6 +22,9 @@ describe('signing out', () => {
       isAnonymous: true,
       username: null,
       ball: null,
+      email: null,
+      emailVerified: false,
+      emailEnabled: false,
     });
     expect(storedToken()).toBe('a.token');
 

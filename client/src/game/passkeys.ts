@@ -6,7 +6,7 @@
  * from it.
  */
 
-import { API, authHeaders, remember, type Identity } from './identity';
+import { API, authHeaders, parseIdentityResponse, type Identity, type IdentityResponse } from './identity';
 import i18n from '../i18n/i18n';
 
 /** Why passkeys cannot be used here, or null when they can. */
@@ -183,22 +183,39 @@ export async function signIn(): Promise<Identity | null> {
     return null;
   }
 
-  const account = (await finish.json()) as {
-    playerId: string;
-    token: string;
-    isAnonymous: boolean;
-    username: string | null;
-    ball: number | null;
-  };
+  return parseIdentityResponse((await finish.json()) as IdentityResponse);
+}
 
-  const identity: Identity = {
-    playerId: account.playerId,
-    token: account.token,
-    isAnonymous: account.isAnonymous,
-    username: account.username ?? null,
-    ball: account.ball ?? null,
-  };
+export interface PasskeyInfo {
+  readonly id: string;
+  readonly createdAt: string;
+  readonly lastUsedAt: string;
+}
 
-  remember(identity);
-  return identity;
+export async function listPasskeys(): Promise<PasskeyInfo[]> {
+  try {
+    const response = await fetch(`${API}/api/v1/players/passkeys`, {
+      headers: authHeaders(),
+    });
+    if (!response.ok) return [];
+    return (await response.json()) as PasskeyInfo[];
+  } catch {
+    return [];
+  }
+}
+
+export async function deletePasskey(credentialId: string): Promise<{ deleted: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${API}/api/v1/players/passkeys/${encodeURIComponent(credentialId)}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    if (!response.ok) {
+      const data = (await response.json()) as { error?: string; code?: string };
+      return { deleted: false, error: data.code ?? data.error };
+    }
+    return { deleted: true };
+  } catch {
+    return { deleted: false, error: 'network' };
+  }
 }

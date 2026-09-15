@@ -87,6 +87,12 @@ public sealed class PuzzleStore
                 new CreateIndexOptions { Name = "players_by_username", Unique = true, Sparse = true }),
             cancellationToken: token);
 
+        await _players.Indexes.CreateOneAsync(
+            new CreateIndexModel<PlayerDocument>(
+                Builders<PlayerDocument>.IndexKeys.Ascending(p => p.EmailKey),
+                new CreateIndexOptions { Name = "players_by_email", Unique = true, Sparse = true }),
+            cancellationToken: token);
+
         // Progress, achievements and daily_play need no secondary index: their composite ids
         // serve the per-player range scan off the primary key.
 
@@ -309,6 +315,15 @@ public sealed class PuzzleStore
         string playerId, CancellationToken token = default) =>
         _credentials.Find(c => c.PlayerId == playerId).ToListAsync(token);
 
+    public async Task<bool> DeleteCredentialAsync(
+        string credentialId, string playerId, CancellationToken token = default)
+    {
+        var result = await _credentials.DeleteOneAsync(
+            c => c.Id == credentialId && c.PlayerId == playerId,
+            cancellationToken: token);
+        return result.DeletedCount > 0;
+    }
+
     public Task UpdateSignCountAsync(
         string credentialId, uint signCount, CancellationToken token = default) =>
         _credentials.UpdateOneAsync(
@@ -318,13 +333,12 @@ public sealed class PuzzleStore
                 .Set(c => c.LastUsedAt, DateTime.UtcNow),
             cancellationToken: token);
 
-    /// <summary>Lowercased for comparison; the display form keeps what the player typed.</summary>
-    public static string NormaliseUsername(string username) => username.Trim().ToLowerInvariant();
+    public static string NormaliseKey(string value) => value.Trim().ToLowerInvariant();
 
     public Task<PlayerDocument?> FindByUsernameAsync(
         string username, CancellationToken token = default)
     {
-        var key = NormaliseUsername(username);
+        var key = NormaliseKey(username);
         return _players.Find(p => p.UsernameKey == key).FirstOrDefaultAsync(token)!;
     }
 
@@ -344,7 +358,7 @@ public sealed class PuzzleStore
                 p => p.Id == playerId,
                 Builders<PlayerDocument>.Update
                     .Set(p => p.Username, username.Trim())
-                    .Set(p => p.UsernameKey, NormaliseUsername(username)),
+                    .Set(p => p.UsernameKey, NormaliseKey(username)),
                 cancellationToken: token);
 
             return result.MatchedCount > 0;
@@ -354,6 +368,55 @@ public sealed class PuzzleStore
             return false;
         }
     }
+
+
+    public Task<PlayerDocument?> FindByEmailAsync(string email, CancellationToken token = default)
+    {
+        var key = NormaliseKey(email);
+        return _players.Find(p => p.EmailKey == key).FirstOrDefaultAsync(token)!;
+    }
+
+    public Task<PlayerDocument?> FindByVerifiedEmailAsync(string email, CancellationToken token = default)
+    {
+        var key = NormaliseKey(email);
+        return _players.Find(p => p.EmailKey == key && p.EmailVerified).FirstOrDefaultAsync(token)!;
+    }
+
+    public async Task<bool> LinkEmailAsync(
+        string playerId, string email, CancellationToken token = default)
+    {
+        try
+        {
+            var result = await _players.UpdateOneAsync(
+                p => p.Id == playerId,
+                Builders<PlayerDocument>.Update
+                    .Set(p => p.Email, email.Trim())
+                    .Set(p => p.EmailKey, NormaliseKey(email))
+                    .Set(p => p.EmailVerified, false),
+                cancellationToken: token);
+
+            return result.MatchedCount > 0;
+        }
+        catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
+        {
+            return false;
+        }
+    }
+
+    public Task VerifyEmailAsync(string playerId, CancellationToken token = default) =>
+        _players.UpdateOneAsync(
+            p => p.Id == playerId,
+            Builders<PlayerDocument>.Update.Set(p => p.EmailVerified, true),
+            cancellationToken: token);
+
+    public Task RemoveEmailAsync(string playerId, CancellationToken token = default) =>
+        _players.UpdateOneAsync(
+            p => p.Id == playerId,
+            Builders<PlayerDocument>.Update
+                .Unset(p => p.Email)
+                .Unset(p => p.EmailKey)
+                .Set(p => p.EmailVerified, false),
+            cancellationToken: token);
 
     public Task MarkEnrolledAsync(string playerId, CancellationToken token = default) =>
         _players.UpdateOneAsync(

@@ -133,6 +133,7 @@ export function AppShell() {
           setAccountOpen(false);
           void game.logOut();
         }}
+        onEmailChanged={game.emailChanged}
         ballUnlocks={game.ballUnlocks}
         highestCompleted={game.progress?.highestCompleted ?? 0}
         onChooseBall={game.chooseBall}

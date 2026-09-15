@@ -38,9 +38,45 @@
       "couldNotCheck": "Der Name konnte gerade nicht geprüft werden."
     }
   },
+  "email": {
+    "useEmail": "Stattdessen E-Mail nutzen",
+    "enterEmail": "Gib deine E-Mail-Adresse ein",
+    "emailPlaceholder": "E-Mail-Adresse",
+    "sendCode": "Code senden",
+    "enterCode": "Gib den Code ein, den wir geschickt haben",
+    "codePlaceholder": "6-stelliger Code",
+    "verifyCode": "Bestätigen",
+    "codeSent": "Code gesendet — schau in dein Postfach.",
+    "codeExpired": "Dieser Code ist abgelaufen. Fordere einen neuen an.",
+    "codeInvalid": "Dieser Code stimmt nicht.",
+    "tooManyAttempts": "Zu viele Versuche. Fordere einen neuen Code an.",
+    "cooldown": "Warte einen Moment, bevor du einen neuen Code anforderst.",
+    "emailTaken": "Diese E-Mail ist bereits mit einem anderen Konto verknüpft.",
+    "linked": "E-Mail verknüpft.",
+    "removed": "E-Mail entfernt.",
+    "addEmail": "E-Mail hinzufügen",
+    "removeEmail": "E-Mail entfernen",
+    "recoveryNote": "Deine E-Mail kann verwendet werden, um dieses Konto wiederherzustellen.",
+    "addRecoveryHint": "Füge eine E-Mail hinzu, um dein Konto wiederherzustellen, falls du deinen Passkey verlierst.",
+    "registerViaEmail": "Mit E-Mail registrieren",
+    "resendCode": "Code erneut senden",
+    "recoverAccount": "Passkey verloren? Per E-Mail anmelden"
+  },
   "passkey": {
-    "unsupported": "Dieser Browser unterstützt keine Passkeys, es gibt hier also nichts einzurichten.",
-    "insecureContext": "Passkeys brauchen eine sichere Verbindung. Das funktioniert auf dem Computer, auf dem das Spiel läuft, aber nicht über eine einfache Netzwerkadresse."
+    "unsupported": "Dieser Browser unterstützt keine Passkeys.",
+    "unsupportedWithEmail": "Dieser Browser unterstützt keine Passkeys, aber du kannst dich stattdessen mit E-Mail registrieren.",
+    "insecureContext": "Passkeys brauchen eine sichere Verbindung. Das funktioniert auf dem Computer, auf dem das Spiel läuft, aber nicht über eine einfache Netzwerkadresse.",
+    "insecureContextWithEmail": "Passkeys brauchen eine sichere Verbindung, aber du kannst stattdessen E-Mail nutzen.",
+    "passkeyLossWarning": "Wenn du deinen Passkey verlierst, verlierst du dieses Konto.",
+    "passkeyLossWithEmail": "Wenn du deinen Passkey verlierst, kannst du dieses Konto mit deiner E-Mail wiederherstellen.",
+    "managePasskeys": "Passkeys",
+    "addPasskey": "Passkey hinzufügen",
+    "deletePasskey": "Löschen",
+    "cantDeleteLast": "Der letzte Passkey kann nicht ohne verknüpfte E-Mail gelöscht werden.",
+    "passkeyAdded": "Passkey hinzugefügt.",
+    "passkeyDeleted": "Passkey gelöscht.",
+    "createdAt": "Hinzugefügt am {{date}}",
+    "noPasskeys": "Keine Passkeys verknüpft."
   },
   "menu": {
     "play": "Spielen",

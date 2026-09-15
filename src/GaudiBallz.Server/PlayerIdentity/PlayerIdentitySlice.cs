@@ -10,11 +10,11 @@ using GaudiBallz.Server.Persistence;
 namespace GaudiBallz.Server.PlayerIdentity;
 
 /// <summary>
-/// Who a player is: an anonymous record from first launch, and passkeys they can attach and
-/// sign in with later.
+/// Who a player is: an anonymous record from first launch, passkeys they can attach, and
+/// optionally an email address for signing in with a one-time code.
 ///
 /// Everything this capability needs lives in this folder. There is no password anywhere in
-/// it, no email field, and nothing that prompts — the endpoints exist and wait to be called.
+/// it, and nothing that prompts — the endpoints exist and wait to be called.
 /// </summary>
 public sealed class PlayerIdentitySlice : ISlice
 {
@@ -42,7 +42,8 @@ public sealed class PlayerIdentitySlice : ISlice
             });
         });
 
-        group.MapGet("/me", async (HttpContext http, PuzzleStore store, PlayerTokens tokens, CancellationToken token) =>
+        group.MapGet("/me", async (HttpContext http, PuzzleStore store, PlayerTokens tokens,
+                                    IServiceProvider services, CancellationToken token) =>
         {
             var playerId = tokens.Verify(BearerFrom(http));
             if (playerId is null)
@@ -63,10 +64,10 @@ public sealed class PlayerIdentitySlice : ISlice
                 playerId = player.Id,
                 isAnonymous = player.IsAnonymous,
                 username = player.Username,
-
-                // Null when the player never chose one, which is what tells the client to
-                // fall back to the colour derived from the username.
                 ball = player.ProfileBall,
+                email = player.Email,
+                emailVerified = player.EmailVerified,
+                emailEnabled = IsEmailEnabled(services),
             });
         });
 
@@ -91,6 +92,7 @@ public sealed class PlayerIdentitySlice : ISlice
 
         MapEnrolment(group);
         MapSignIn(group);
+        MapEmailEndpoints(group);
     }
 
     /// <summary>
@@ -203,6 +205,48 @@ public sealed class PlayerIdentitySlice : ISlice
 
                 return Results.Ok(new { enrolled = true });
             });
+
+        group.MapGet("/passkeys", async (HttpContext http, PuzzleStore store,
+                   PlayerTokens tokens, CancellationToken token) =>
+            {
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var credentials = await store.CredentialsForAsync(playerId, token);
+                return Results.Ok(credentials.Select(c => new
+                {
+                    id = c.Id,
+                    createdAt = c.CreatedAt,
+                    lastUsedAt = c.LastUsedAt,
+                }));
+            });
+
+        group.MapDelete("/passkeys/{credentialId}", async (HttpContext http, string credentialId,
+                   PuzzleStore store, PlayerTokens tokens, CancellationToken token) =>
+            {
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var credentials = await store.CredentialsForAsync(playerId, token);
+                var player = await store.FindPlayerAsync(playerId, token);
+                var hasEmail = player?.Email is not null;
+
+                if (credentials.Count <= 1 && !hasEmail)
+                {
+                    return Results.BadRequest(new { error = "Cannot delete your only passkey without an email linked.", code = "last-passkey" });
+                }
+
+                var deleted = await store.DeleteCredentialAsync(credentialId, playerId, token);
+                return deleted
+                    ? Results.Ok(new { deleted = true })
+                    : Results.NotFound();
+            });
     }
 
     /// <summary>
@@ -228,7 +272,7 @@ public sealed class PlayerIdentitySlice : ISlice
 
         group.MapPost("/passkey/signin/finish",
             async (AuthenticatorAssertionRawResponse response, IFido2 fido2, PuzzleStore store,
-                   PlayerTokens tokens, CancellationToken token) =>
+                   PlayerTokens tokens, IServiceProvider services, CancellationToken token) =>
             {
                 // Fido2 v4 hands the credential id back already base64url-encoded, which
                 // is the same form the credential is stored under.
@@ -265,21 +309,252 @@ public sealed class PlayerIdentitySlice : ISlice
 
                 var account = await store.FindPlayerAsync(credential.PlayerId, token);
 
-                return Results.Ok(new
-                {
-                    playerId = credential.PlayerId,
-                    token = tokens.Issue(credential.PlayerId),
-                    isAnonymous = false,
-                    username = account?.Username,
-
-                    // Signing in on a second device is exactly where the chosen ball has to
-                    // arrive with the account rather than being derived again locally.
-                    ball = account?.ProfileBall,
-                });
+                return Results.Ok(ToPlayerResponse(
+                    account!, tokens.Issue(credential.PlayerId), IsEmailEnabled(services)));
             });
     }
 
+    private static void MapEmailEndpoints(RouteGroupBuilder group)
+    {
+        group.MapGet("/email/enabled", (IServiceProvider services) =>
+            Results.Ok(new { enabled = IsEmailEnabled(services) }));
+
+        group.MapPost("/email/add/begin",
+            async (HttpContext http, EmailRequest request, PuzzleStore store,
+                   PlayerTokens tokens, EmailCodeStore codes, IServiceProvider services,
+                   CancellationToken token) =>
+            {
+                var sender = services.GetService<IEmailSender>();
+                if (sender is null)
+                {
+                    return Results.BadRequest(new { error = "Email is not configured.", code = "email-disabled" });
+                }
+
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                if (!IsValidEmail(request.Email))
+                {
+                    return Results.BadRequest(new { error = "Invalid email address.", code = "email-invalid" });
+                }
+
+                var player = await store.FindPlayerAsync(playerId, token);
+                var changingEmail = player?.Email is not null
+                    && PuzzleStore.NormaliseKey(player.Email) != PuzzleStore.NormaliseKey(request.Email);
+
+                if (changingEmail || player?.Email is null)
+                {
+                    var linked = await store.LinkEmailAsync(playerId, request.Email, token);
+                    if (!linked)
+                    {
+                        return Results.Conflict(new { error = "That email is already in use.", code = "email-taken" });
+                    }
+                }
+
+                return SendCodeOrCooldown(codes, sender, request.Email);
+            });
+
+        group.MapPost("/email/add/verify",
+            async (HttpContext http, CodeRequest request, PuzzleStore store,
+                   PlayerTokens tokens, EmailCodeStore codes, CancellationToken token) =>
+            {
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var player = await store.FindPlayerAsync(playerId, token);
+                if (player?.Email is null)
+                {
+                    return Results.BadRequest(new { error = "No email to verify.", code = "no-pending" });
+                }
+
+                if (player.EmailVerified)
+                {
+                    return Results.Ok(new { verified = true });
+                }
+
+                var result = codes.Verify(player.Email, request.Code);
+                if (!result.Valid)
+                {
+                    return Results.Ok(new { verified = false, error = CodeErrorMessage(result.Error), code = result.Error });
+                }
+
+                await store.VerifyEmailAsync(playerId, token);
+
+                return Results.Ok(new { verified = true });
+            });
+
+        group.MapPost("/email/remove",
+            async (HttpContext http, PuzzleStore store, PlayerTokens tokens, CancellationToken token) =>
+            {
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                await store.RemoveEmailAsync(playerId, token);
+                return Results.Ok(new { removed = true });
+            });
+
+        group.MapPost("/email/signin/begin",
+            async (EmailRequest request, PuzzleStore store, EmailCodeStore codes,
+                   IServiceProvider services, CancellationToken token) =>
+            {
+                var sender = services.GetService<IEmailSender>();
+                if (sender is null)
+                {
+                    return Results.BadRequest(new { error = "Email is not configured.", code = "email-disabled" });
+                }
+
+                var player = await store.FindByVerifiedEmailAsync(request.Email, token);
+                if (player is not null)
+                {
+                    var codeResult = codes.Create(request.Email);
+                    if (codeResult.Created)
+                    {
+                        _ = sender.SendCodeAsync(request.Email, codeResult.Code, CancellationToken.None);
+                    }
+                }
+
+                return Results.Ok(new { sent = true });
+            });
+
+        group.MapPost("/email/signin/finish",
+            async (EmailSignInRequest request, PuzzleStore store,
+                   PlayerTokens tokens, EmailCodeStore codes, IServiceProvider services,
+                   CancellationToken token) =>
+            {
+                var result = codes.Verify(request.Email, request.Code);
+                if (!result.Valid)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var player = await store.FindByVerifiedEmailAsync(request.Email, token);
+                if (player is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                return Results.Ok(ToPlayerResponse(
+                    player, tokens.Issue(player.Id), IsEmailEnabled(services)));
+            });
+
+        group.MapPost("/email/register",
+            async (HttpContext http, EmailRegisterRequest request, PuzzleStore store,
+                   PlayerTokens tokens, EmailCodeStore codes, IServiceProvider services,
+                   CancellationToken token) =>
+            {
+                var sender = services.GetService<IEmailSender>();
+                if (sender is null)
+                {
+                    return Results.BadRequest(new { error = "Email is not configured.", code = "email-disabled" });
+                }
+
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var problem = UsernameProblem(request.Username);
+                if (problem is not null)
+                {
+                    return Results.BadRequest(new { error = problem.Message, code = problem.Code });
+                }
+
+                if (!IsValidEmail(request.Email))
+                {
+                    return Results.BadRequest(new { error = "Invalid email address.", code = "email-invalid" });
+                }
+
+                var existingEmail = await store.FindByEmailAsync(request.Email, token);
+                if (existingEmail is not null)
+                {
+                    return Results.Conflict(new { error = "That email is already in use.", code = "email-taken" });
+                }
+
+                if (!await store.TryClaimUsernameAsync(playerId, request.Username, token))
+                {
+                    return Results.Conflict(new { error = "That name is taken.", code = "username-taken" });
+                }
+
+                var linked = await store.LinkEmailAsync(playerId, request.Email, token);
+                if (!linked)
+                {
+                    return Results.Conflict(new { error = "That email is already in use.", code = "email-taken" });
+                }
+
+                return SendCodeOrCooldown(codes, sender, request.Email);
+            });
+
+        group.MapPost("/email/register/verify",
+            async (HttpContext http, CodeRequest request, PuzzleStore store,
+                   PlayerTokens tokens, EmailCodeStore codes, AchievementRegistry achievements,
+                   CancellationToken token) =>
+            {
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                var player = await store.FindPlayerAsync(playerId, token);
+                if (player?.Email is null)
+                {
+                    return Results.BadRequest(new { error = "No email to verify.", code = "no-pending" });
+                }
+
+                var result = codes.Verify(player.Email, request.Code);
+                if (!result.Valid)
+                {
+                    return Results.Ok(new { enrolled = false, error = CodeErrorMessage(result.Error), code = result.Error });
+                }
+
+                await store.VerifyEmailAsync(playerId, token);
+                await store.MarkEnrolledAsync(playerId, token);
+                achievements.Actor.Tell(new EvaluateRetroactive(playerId), ActorRefs.NoSender);
+
+                return Results.Ok(new { enrolled = true });
+            });
+    }
+
+    private static string CodeErrorMessage(string? error) => error switch
+    {
+        "expired" => "That code has expired. Please request a new one.",
+        "too-many-attempts" => "Too many attempts. Please request a new code.",
+        "invalid" => "Incorrect code.",
+        "no-pending" => "No code was requested for this email.",
+        _ => "Verification failed.",
+    };
+
+    private static bool IsValidEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return false;
+        }
+
+        var trimmed = email.Trim();
+        var at = trimmed.IndexOf('@', StringComparison.Ordinal);
+        return at > 0 && at < trimmed.Length - 1 && trimmed.IndexOf('@', at + 1) < 0;
+    }
+
     public sealed record RegisterRequest(string Username);
+
+    public sealed record EmailRequest(string Email);
+
+    public sealed record CodeRequest(string Code);
+
+    public sealed record EmailSignInRequest(string Email, string Code);
+
+    public sealed record EmailRegisterRequest(string Username, string Email);
 
     /// <summary>A validation problem with a human-readable message and a stable machine code.</summary>
     private sealed record ValidationProblem(string Message, string Code);
@@ -321,4 +596,34 @@ public sealed class PlayerIdentitySlice : ISlice
     private static readonly ConcurrentDictionary<string, string> Pending = new();
 
     private static readonly ConcurrentDictionary<string, string> PendingAssertions = new();
+
+    private static bool IsEmailEnabled(IServiceProvider services) =>
+        services.GetService<IEmailSender>() is not null;
+
+    private static IResult SendCodeOrCooldown(EmailCodeStore codes, IEmailSender sender, string email)
+    {
+        var result = codes.Create(email);
+        if (!result.Created)
+        {
+            return Results.Ok(new { sent = false, error = "Please wait before requesting another code.", code = "cooldown" });
+        }
+
+        _ = sender.SendCodeAsync(email, result.Code, CancellationToken.None);
+        return Results.Ok(new { sent = true });
+    }
+
+    private static PlayerResponse ToPlayerResponse(
+        PlayerDocument player, string token, bool emailEnabled) =>
+        new(player.Id, token, player.IsAnonymous, player.Username, player.ProfileBall,
+            player.Email, player.EmailVerified, emailEnabled);
+
+    internal sealed record PlayerResponse(
+        string PlayerId,
+        string Token,
+        bool IsAnonymous,
+        string? Username,
+        int? Ball,
+        string? Email,
+        bool EmailVerified,
+        bool EmailEnabled);
 }
