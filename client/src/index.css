@@ -95,6 +95,15 @@ button {
   100% { translate: 0 0;        scale: 1;    }
 }
 
+@media (pointer: fine) {
+  .bloom-animate {
+    animation: bloom-drift 20s ease-in-out infinite;
+    will-change: transform;
+    contain: strict;
+    filter: blur(72px);
+  }
+}
+
 /* Keyboard focus indicator, matching the play-screen tube focus (yellow ring). */
 .kb-focus {
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.7);
