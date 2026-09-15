@@ -145,7 +145,10 @@
     "title": "Level Select",
     "codePlaceholder": "Level code",
     "unlock": "Unlock",
-    "invalidCode": "Invalid code."
+    "invalidCode": "Invalid code.",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "pageOf": "Page {{current}} of {{total}}"
   },
   "ballPicker": {
     "cantReach": "Can't reach the server, so there's nothing to choose from right now.",

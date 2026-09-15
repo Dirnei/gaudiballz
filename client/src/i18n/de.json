@@ -145,7 +145,10 @@
     "title": "Levelauswahl",
     "codePlaceholder": "Level-Code",
     "unlock": "Freischalten",
-    "invalidCode": "Ungültiger Code."
+    "invalidCode": "Ungültiger Code.",
+    "prevPage": "Vorherige Seite",
+    "nextPage": "Nächste Seite",
+    "pageOf": "Seite {{current}} von {{total}}"
   },
   "ballPicker": {
     "cantReach": "Server nicht erreichbar, daher gibt es gerade nichts zur Auswahl.",

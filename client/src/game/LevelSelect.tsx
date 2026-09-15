@@ -7,6 +7,8 @@ import { PageLayout } from './PageLayout';
 
 type TileState = 'completed' | 'current' | 'unlocked' | 'locked';
 
+const PAGE_SIZE = 50;
+
 function tileState(
   level: number,
   currentLevel: number,
@@ -46,8 +48,19 @@ export function LevelSelect() {
   const previewEnd = Math.ceil((levelCeiling + 5) / 5) * 5;
   const totalTiles = Math.max(previewEnd, levelCeiling + 5);
 
+  const pageCount = Math.ceil(totalTiles / PAGE_SIZE);
+
+  const [page, setPage] = useState(() => {
+    if (levelId <= 0) return 0;
+    const index = totalTiles - levelId;
+    if (index < 0) return 0;
+    return Math.min(Math.floor(index / PAGE_SIZE), pageCount - 1);
+  });
+
+  const pageStart = totalTiles - page * PAGE_SIZE;
+  const pageEnd = Math.max(1, pageStart - PAGE_SIZE + 1);
   const tiles: number[] = [];
-  for (let i = 1; i <= totalTiles; i++) {
+  for (let i = pageStart; i >= pageEnd; i--) {
     tiles.push(i);
   }
 
@@ -109,8 +122,8 @@ export function LevelSelect() {
             return idx >= 0 ? idx : 0;
           }
 
-          if (e.key === 'ArrowRight') return (prev + 1) % tiles.length;
-          if (e.key === 'ArrowLeft') return (prev - 1 + tiles.length) % tiles.length;
+          if (e.key === 'ArrowRight') return Math.min(prev + 1, tiles.length - 1);
+          if (e.key === 'ArrowLeft') return Math.max(prev - 1, 0);
           if (e.key === 'ArrowDown') return findVerticalNeighbour(prev, 'down');
           if (e.key === 'ArrowUp') return findVerticalNeighbour(prev, 'up');
           return prev;
@@ -138,6 +151,16 @@ export function LevelSelect() {
       tileRefs.current[focusedIndex]?.scrollIntoView?.({ block: 'nearest' });
     }
   }, [focusedIndex]);
+
+  function prevPage() {
+    setPage(p => Math.max(0, p - 1));
+    setFocusedIndex(null);
+  }
+
+  function nextPage() {
+    setPage(p => Math.min(pageCount - 1, p + 1));
+    setFocusedIndex(null);
+  }
 
   function handlePointerDown() {
     setFocusedIndex(null);
@@ -185,6 +208,34 @@ export function LevelSelect() {
           );
         })}
       </div>
+
+      {pageCount > 1 && (
+        <div className="mx-auto mt-4 flex max-w-xs items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={prevPage}
+            disabled={page === 0}
+            data-testid="page-prev"
+            aria-label={t('levels.prevPage')}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-sm text-slate-300 ring-1 ring-white/10 transition-colors hover:bg-white/15 disabled:opacity-30 disabled:cursor-default"
+          >
+            ‹
+          </button>
+          <span data-testid="page-indicator" className="text-sm tabular-nums text-slate-400">
+            {t('levels.pageOf', { current: page + 1, total: pageCount })}
+          </span>
+          <button
+            type="button"
+            onClick={nextPage}
+            disabled={page === pageCount - 1}
+            data-testid="page-next"
+            aria-label={t('levels.nextPage')}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-sm text-slate-300 ring-1 ring-white/10 transition-colors hover:bg-white/15 disabled:opacity-30 disabled:cursor-default"
+          >
+            ›
+          </button>
+        </div>
+      )}
 
       {/* Level code entry — always visible */}
       <div className="mx-auto mt-6 flex max-w-xs items-center gap-2">

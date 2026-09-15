@@ -244,6 +244,6 @@ describe('the level select can scroll', () => {
     const scroller = document.querySelector('.overflow-y-auto');
 
     expect(scroller).not.toBeNull();
-    expect(scroller!.querySelectorAll('.aspect-square').length).toBeGreaterThan(100);
+    expect(scroller!.querySelectorAll('.aspect-square').length).toBe(50);
   });
 });
