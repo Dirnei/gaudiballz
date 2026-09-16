@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
 const game = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
@@ -25,6 +25,7 @@ function playing(overrides: Record<string, unknown> = {}) {
       moves: [],
       history: [],
     },
+    pour: vi.fn(),
     selected: null,
     identity: null,
     progress: null,
@@ -99,5 +100,103 @@ describe('drag-and-drop integration', () => {
     expect(tubes[0]).toHaveAttribute('data-tube-index', '0');
     expect(tubes[1]).toHaveAttribute('data-tube-index', '1');
     expect(tubes[2]).toHaveAttribute('data-tube-index', '2');
+  });
+});
+
+describe('hover feedback', () => {
+  function renderWithMultipleTargets() {
+    localStorage.setItem('puzzle.tutorialSeen', '1');
+    game.current = playing({
+      state: {
+        board: {
+          tubes: [[1, 2, 1], [2, 1, 2], [1], []],
+          capacity: 3,
+          colourCount: 2,
+        },
+        moves: [],
+        history: [],
+      },
+    });
+    const router = createMemoryRouter(routes, { initialEntries: ['/play'] });
+    render(
+      <GameProvider>
+        <RouterProvider router={router} />
+      </GameProvider>,
+    );
+  }
+
+  function startDrag(source: HTMLElement) {
+    fireEvent.pointerDown(source, { clientX: 100, clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(source, { clientX: 100, clientY: 130, pointerId: 1 });
+  }
+
+  function tubeBody(tube: HTMLElement): HTMLElement {
+    return tube.querySelector('.flex.flex-col-reverse')!;
+  }
+
+  const HOVER_SHADOW = '0 0 0 3px rgba(74,222,128,0.85)';
+  const TARGET_SHADOW = '0 0 0 2px rgba(56,189,248,0.6)';
+
+  let originalEfp: typeof document.elementFromPoint;
+
+  beforeEach(() => {
+    originalEfp = document.elementFromPoint;
+  });
+
+  afterEach(() => {
+    document.elementFromPoint = originalEfp;
+  });
+
+  function mockElementFromPoint(el: Element | null) {
+    document.elementFromPoint = vi.fn().mockReturnValue(el);
+  }
+
+  it('pointer over valid target sets dropHover', () => {
+    renderWithMultipleTargets();
+    const tubes = screen.getAllByRole('button', { name: /tube/i });
+
+    mockElementFromPoint(tubes[2]);
+    startDrag(tubes[0]);
+
+    expect(tubeBody(tubes[2]).style.boxShadow).toContain(HOVER_SHADOW);
+    expect(tubeBody(tubes[3]).style.boxShadow).not.toContain(HOVER_SHADOW);
+  });
+
+  it('pointer over invalid target does not set dropHover', () => {
+    renderWithMultipleTargets();
+    const tubes = screen.getAllByRole('button', { name: /tube/i });
+
+    mockElementFromPoint(tubes[1]);
+    startDrag(tubes[0]);
+
+    expect(tubeBody(tubes[1]).style.boxShadow).not.toContain(HOVER_SHADOW);
+  });
+
+  it('pointer leaving target clears dropHover', () => {
+    renderWithMultipleTargets();
+    const tubes = screen.getAllByRole('button', { name: /tube/i });
+
+    mockElementFromPoint(tubes[2]);
+    startDrag(tubes[0]);
+    expect(tubeBody(tubes[2]).style.boxShadow).toContain(HOVER_SHADOW);
+
+    mockElementFromPoint(null);
+    fireEvent.pointerMove(tubes[0], { clientX: 300, clientY: 300, pointerId: 1 });
+    expect(tubeBody(tubes[2]).style.boxShadow).not.toContain(HOVER_SHADOW);
+  });
+
+  it('moving between valid targets transfers dropHover', () => {
+    renderWithMultipleTargets();
+    const tubes = screen.getAllByRole('button', { name: /tube/i });
+
+    mockElementFromPoint(tubes[2]);
+    startDrag(tubes[0]);
+    expect(tubeBody(tubes[2]).style.boxShadow).toContain(HOVER_SHADOW);
+
+    mockElementFromPoint(tubes[3]);
+    fireEvent.pointerMove(tubes[0], { clientX: 250, clientY: 200, pointerId: 1 });
+    expect(tubeBody(tubes[3]).style.boxShadow).toContain(HOVER_SHADOW);
+    expect(tubeBody(tubes[2]).style.boxShadow).not.toContain(HOVER_SHADOW);
+    expect(tubeBody(tubes[2]).style.boxShadow).toContain(TARGET_SHADOW);
   });
 });

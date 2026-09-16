@@ -24,9 +24,9 @@ On each `onDragMove`, use the same `document.elementFromPoint` + `closest('[data
 
 ### Visual treatment: brighter glow + subtle scale
 
-The hover state intensifies the existing sky-blue drop-target ring: wider ring, stronger glow, and a small `scale(1.04)` on the tube body. This layers on top of the static `dropTarget` style without replacing it.
+The hover state uses a green ring and glow (`rgba(74,222,128)`) with a small `scale(1.04)` on the tube body, distinct from the sky-blue drop-target ring. This makes the hovered target immediately obvious even among multiple highlighted tubes.
 
-**Why not a different colour?** Using the same hue keeps the visual language consistent—"blue means valid"—and avoids introducing a third colour state players have to learn. Intensity is the differentiator.
+**Why green?** Blue already means "valid target". Adding a second colour for "valid and aimed at" gives a stronger signal than intensity alone, especially on mobile where fingers obscure the tube.
 
 ## Risks / Trade-offs
 

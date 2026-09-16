@@ -11,6 +11,7 @@ interface TubeProps {
   readonly focused: boolean;
   readonly complete: boolean;
   readonly dropTarget?: boolean;
+  readonly dropHover?: boolean;
   readonly tubeIndex?: number;
   readonly onTap: () => void;
   readonly onPointerDown?: (e: React.PointerEvent) => void;
@@ -24,7 +25,7 @@ interface TubeProps {
  * along a path. A spring on entry reads as the ball dropping into place, which is the part
  * that actually makes a pour feel good.
  */
-export function Tube({ ref, items, capacity, selected, focused, complete, dropTarget, tubeIndex, onTap, onPointerDown }: TubeProps) {
+export function Tube({ ref, items, capacity, selected, focused, complete, dropTarget, dropHover, tubeIndex, onTap, onPointerDown }: TubeProps) {
   const { t } = useTranslation();
   const slots = Array.from({ length: capacity }, (_, i) => items[i]);
 
@@ -73,7 +74,7 @@ export function Tube({ ref, items, capacity, selected, focused, complete, dropTa
       <motion.div
         animate={{
           y: selected ? -6 : 0,
-          scale: justCompleted ? [1, 1.09, 1] : 1,
+          scale: justCompleted ? [1, 1.09, 1] : dropHover ? 1.04 : 1,
           opacity: complete && !justCompleted ? 0.66 : 1,
         }}
         transition={
@@ -86,13 +87,15 @@ export function Tube({ ref, items, capacity, selected, focused, complete, dropTa
           ...TUBE_STYLE,
           gap: 'var(--gap)',
           padding: 'calc(var(--gap) * 1.4)',
-          ...(dropTarget
-            ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 2px rgba(56,189,248,0.6), 0 0 16px rgba(56,189,248,0.25)` }
-            : focused
-              ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 2px rgba(250,204,21,0.7)` }
-              : complete
-                ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 1px rgba(255,255,255,0.18)` }
-                : null),
+          ...(dropHover
+            ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 3px rgba(74,222,128,0.85), 0 0 24px rgba(74,222,128,0.4)` }
+            : dropTarget
+              ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 2px rgba(56,189,248,0.6), 0 0 16px rgba(56,189,248,0.25)` }
+              : focused
+                ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 2px rgba(250,204,21,0.7)` }
+                : complete
+                  ? { boxShadow: `${TUBE_STYLE.boxShadow}, 0 0 0 1px rgba(255,255,255,0.18)` }
+                  : null),
         }}
       >
         {slots.map((colour, slot) => (

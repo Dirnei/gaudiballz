@@ -218,6 +218,7 @@ export function GameScreen() {
 
   const [dragSource, setDragSource] = useState<number | null>(null);
   const [dragPos, setDragPos] = useState<Point>({ x: 0, y: 0 });
+  const [dragHoverTarget, setDragHoverTarget] = useState<number | null>(null);
   const dragSourceRef = useRef<number | null>(null);
 
   const dragColours = useMemo(() => {
@@ -259,11 +260,27 @@ export function GameScreen() {
     },
     onDragMove: (pos: Point) => {
       setDragPos(pos);
+      const src = dragSourceRef.current;
+      if (src === null || !board) {
+        setDragHoverTarget(null);
+        return;
+      }
+      const el = document.elementFromPoint(pos.x, pos.y);
+      const tubeButton = el?.closest<HTMLElement>('[data-tube-index]');
+      if (tubeButton) {
+        const idx = Number(tubeButton.dataset.tubeIndex);
+        if (!Number.isNaN(idx) && idx !== src && validate(board, { from: src, to: idx }) === 'None') {
+          setDragHoverTarget(idx);
+          return;
+        }
+      }
+      setDragHoverTarget(null);
     },
     onDragEnd: (pos: Point) => {
       const src = dragSourceRef.current;
       dragSourceRef.current = null;
       setDragSource(null);
+      setDragHoverTarget(null);
 
       if (src === null || !board) return;
 
@@ -546,6 +563,7 @@ export function GameScreen() {
                   focused={focusedTube === index}
                   complete={isComplete(tube, board.capacity)}
                   dropTarget={validDropTargets.has(index)}
+                  dropHover={dragHoverTarget === index}
                   tubeIndex={index}
                   onTap={() => handleTubeTap(index)}
                   onPointerDown={(e) => handleTubePointerDown(index, e)}
