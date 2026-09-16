@@ -34,6 +34,8 @@ The player's total XP as reported by the progress API, rank computation, and lea
 
 The system SHALL NOT derive total XP from stored per-level point fields. The ledger balance SHALL be the single source of truth.
 
+When the ledger is temporarily unavailable, the system SHALL fall back to the total derived from stored progress rather than failing the request. The fallback SHALL be transparent to the client.
+
 #### Scenario: Balance matches sum of credits
 
 - **WHEN** a player has ledger entries totalling 1,250 XP in credits and 0 in adjustments
@@ -53,6 +55,13 @@ The system SHALL NOT derive total XP from stored per-level point fields. The led
 
 - **WHEN** two registered players have wallet balances of 10,000 and 8,000 XP
 - **THEN** the global leaderboard ranks the first player above the second
+
+#### Scenario: Ledger unavailable falls back gracefully
+
+- **WHEN** a player's ledger cannot be read
+- **THEN** the progress API reports the total derived from stored progress instead
+- **AND** the global leaderboard records that same total
+- **AND** no error is returned to the client
 
 ### Requirement: Star-rating improvements issue an adjustment
 
