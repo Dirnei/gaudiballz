@@ -20,6 +20,20 @@ function mockFetch(data: object) {
   } as Response);
 }
 
+/** The shared setup reports "not narrow"; these tests say which they mean. */
+function setViewport(narrow: boolean) {
+  vi.spyOn(window, 'matchMedia').mockImplementation(((query: string) => ({
+    matches: narrow,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia);
+}
+
 describe('LevelLeaderboard', () => {
   it('renders entries with usernames', async () => {
     mockFetch({ entries, viewer: null });
@@ -100,6 +114,7 @@ describe('LevelLeaderboard', () => {
     });
 
     it('keeps ball, badge and three glyphs per entry at full width', async () => {
+      setViewport(false);
       mockFetch({ entries, viewer: null });
 
       const { container } = render(<LevelLeaderboard level={5} />);
@@ -108,6 +123,31 @@ describe('LevelLeaderboard', () => {
       expect(screen.getByText(/Silver/)).toBeTruthy();
       expect(container.querySelector('[style*="box-shadow"]')).toBeTruthy();
       expect(container.textContent!.match(/★/g)!.length).toBe(entries.length * 3);
+    });
+
+    it('goes compact on a narrow viewport without being asked', async () => {
+      // Level select passes no prop; on a phone it should still drop the wide-only columns.
+      setViewport(true);
+      mockFetch({ entries, viewer: null });
+
+      const { container } = render(<LevelLeaderboard level={5} />);
+      await screen.findByText('Alice');
+
+      expect(screen.queryByText(/Silver/)).toBeNull();
+      expect(container.querySelector('[style*="box-shadow"]')).toBeNull();
+      expect(container.textContent!.match(/★/g)!.length).toBe(entries.length);
+    });
+
+    it('stays compact when forced, even on a wide viewport', async () => {
+      // The completion dialog is narrow whatever the screen is doing.
+      setViewport(false);
+      mockFetch({ entries, viewer: null });
+
+      const { container } = render(<LevelLeaderboard level={5} compact />);
+      await screen.findByText('Alice');
+
+      expect(screen.queryByText(/Silver/)).toBeNull();
+      expect(container.querySelector('[style*="box-shadow"]')).toBeNull();
     });
 
     it('lays the rows out as table columns so they cannot wobble', async () => {

@@ -6,6 +6,7 @@ import { ballStyle } from '../skins';
 import { rankFromXp } from './rank';
 import { RankBadge } from './RankBadge';
 import { RankRing } from './RankRing';
+import { useNarrowViewport } from './useNarrowViewport';
 
 interface LevelLeaderboardEntry {
   readonly rank: number;
@@ -77,14 +78,21 @@ function Stars({ stars, compact }: { stars: number; compact: boolean }) {
 export function LevelLeaderboard({
   level,
   myId,
-  compact = false,
+  compact: forceCompact = false,
 }: {
   level: number;
   myId?: string;
-  /** Drops the ball and rank badge and shrinks the stars, for the completion dialog. */
+  /**
+   * Insist on the narrow presentation regardless of viewport, for a surface that is narrow
+   * on every screen. A narrow viewport produces it anyway, without anyone asking.
+   */
   compact?: boolean;
 }) {
   const { t } = useTranslation();
+  // Called unconditionally: `forceCompact || useNarrowViewport()` would short-circuit past
+  // the hook whenever the caller forces compact, which is a different hook order per render.
+  const narrowViewport = useNarrowViewport();
+  const compact = forceCompact || narrowViewport;
   const [period, setPeriod] = useState<Period>('alltime');
   const [data, setData] = useState<LevelLeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -187,7 +195,7 @@ export function LevelLeaderboard({
                   </td>
                   {!compact && (
                     <td className={`${cell} w-px pr-2`}>
-                      <RankBadge tier={tier} subLevel={subLevel} className="hidden sm:inline-flex" />
+                      <RankBadge tier={tier} subLevel={subLevel} />
                     </td>
                   )}
                   <td className={`${cell} w-px pr-2`}>

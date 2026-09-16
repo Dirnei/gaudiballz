@@ -19,3 +19,22 @@ afterEach(cleanup);
  * the transition synchronous, which is what these tests actually want to assert about.
  */
 MotionGlobalConfig.skipAnimations = true;
+
+/**
+ * jsdom does not implement matchMedia, so anything asking about the viewport throws.
+ *
+ * The stub reports "not narrow" by default, which keeps every existing test on the layout it
+ * was written against. A test that cares sets `window.matchMedia` itself.
+ */
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+}
