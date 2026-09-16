@@ -853,7 +853,7 @@ export function GameScreen() {
                     className="overflow-hidden"
                   >
                     <div className="mt-2 text-left">
-                      <LevelLeaderboard level={game.levelId} myId={game.identity?.playerId} />
+                      <LevelLeaderboard level={game.levelId} myId={game.identity?.playerId} compact />
                     </div>
                   </motion.div>
                 )}

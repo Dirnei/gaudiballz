@@ -47,7 +47,43 @@ export async function fetchLevelLeaderboard(level: number, period: Period): Prom
   return null;
 }
 
-export function LevelLeaderboard({ level, myId }: { level: number; myId?: string }) {
+/**
+ * Renders the star rating.
+ *
+ * Three glyphs cost roughly three times the width of the digit they encode, which the
+ * compact row needs for the player's name. The rating itself never goes away in either
+ * form: it is the primary ranking key, and without it the order of the rows is contradicted
+ * by every other number on screen.
+ */
+function Stars({ stars, compact }: { stars: number; compact: boolean }) {
+  if (compact) {
+    return (
+      <span className="flex items-center justify-end gap-0.5 text-xs tabular-nums text-amber-400">
+        <span aria-hidden="true">★</span>
+        {stars}
+      </span>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3].map((i) => (
+        <span key={i} className={`text-xs ${i <= stars ? 'text-amber-400' : 'text-slate-700'}`}>★</span>
+      ))}
+    </div>
+  );
+}
+
+export function LevelLeaderboard({
+  level,
+  myId,
+  compact = false,
+}: {
+  level: number;
+  myId?: string;
+  /** Drops the ball and rank badge and shrinks the stars, for the completion dialog. */
+  compact?: boolean;
+}) {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<Period>('alltime');
   const [data, setData] = useState<LevelLeaderboardResponse | null>(null);
@@ -106,48 +142,66 @@ export function LevelLeaderboard({ level, myId }: { level: number; myId?: string
         <p className="mt-4 text-center text-sm text-slate-500">{t('levelLeaderboard.empty')}</p>
       )}
 
+      {/*
+        A real table, because the columns have to line up down the list. Sizing them by hand
+        meant guessing a width wide enough for "120.0s", which the name column then paid for
+        on every row. Here each column takes exactly its widest cell and the name absorbs
+        whatever is left: `w-px` shrinks a column to its content, while `w-full max-w-0`
+        makes the name take the remainder and ellipsise inside it.
+      */}
       {data && data.entries.length > 0 && (
-        <div className="mt-3 space-y-1">
-          {data.entries.map((e) => {
-            const isViewer = myId !== undefined && e.playerId === myId;
-            const { tier, subLevel } = rankFromXp(e.allTimeXp);
-            return (
-              <div
-                key={e.playerId}
-                className="flex items-center gap-2 rounded-xl px-3 py-2"
-                style={{
-                  background: isViewer ? 'rgba(147,51,234,0.12)' : 'rgba(255,255,255,0.04)',
-                  border: isViewer ? '1px solid rgba(147,51,234,0.4)' : '1px solid transparent',
-                }}
-              >
-                <span className="w-5 text-right text-sm font-bold tabular-nums text-slate-500" style={fredoka}>
-                  {e.rank}
-                </span>
-                <RankRing tier={tier} size={14}>
-                  <span
-                    className="h-3.5 w-3.5 flex-shrink-0 rounded-full"
-                    style={ballStyle(ballForAccount(e.ball, e.username))}
-                  />
-                </RankRing>
-                <span
-                  className="flex-1 truncate text-sm font-semibold"
-                  style={{ ...fredoka, color: isViewer ? '#A855F7' : undefined }}
+        <table className="mt-3 w-full border-separate" style={{ borderSpacing: '0 4px' }}>
+          <tbody>
+            {data.entries.map((e) => {
+              const isViewer = myId !== undefined && e.playerId === myId;
+              const { tier, subLevel } = rankFromXp(e.allTimeXp);
+              const cell = 'py-2';
+              return (
+                <tr
+                  key={e.playerId}
+                  style={{
+                    background: isViewer ? 'rgba(147,51,234,0.12)' : 'rgba(255,255,255,0.04)',
+                    outline: isViewer ? '1px solid rgba(147,51,234,0.4)' : 'none',
+                    outlineOffset: '-1px',
+                  }}
                 >
-                  {e.username}
-                  {isViewer && <span className="text-xs text-slate-500"> {t('leaderboard.you')}</span>}
-                </span>
-                <RankBadge tier={tier} subLevel={subLevel} className="hidden sm:inline-flex" />
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3].map((i) => (
-                    <span key={i} className={`text-xs ${i <= e.stars ? 'text-amber-400' : 'text-slate-700'}`}>★</span>
-                  ))}
-                </div>
-                <span className="text-xs tabular-nums text-slate-400">{e.moves}m</span>
-                <span className="text-xs tabular-nums text-slate-500">{formatElapsed(e.timeMs)}</span>
-              </div>
-            );
-          })}
-        </div>
+                  <td className={`${cell} w-px rounded-l-xl pl-3 pr-2 text-right text-sm font-bold tabular-nums text-slate-500`} style={fredoka}>
+                    {e.rank}
+                  </td>
+                  {!compact && (
+                    <td className={`${cell} w-px pr-2`}>
+                      <RankRing tier={tier} size={14}>
+                        <span
+                          className="h-3.5 w-3.5 flex-shrink-0 rounded-full"
+                          style={ballStyle(ballForAccount(e.ball, e.username))}
+                        />
+                      </RankRing>
+                    </td>
+                  )}
+                  <td
+                    className={`${cell} w-full max-w-0 truncate pr-2 text-sm font-semibold`}
+                    style={{ ...fredoka, color: isViewer ? '#A855F7' : undefined }}
+                  >
+                    {e.username}
+                    {isViewer && <span className="text-xs text-slate-500"> {t('leaderboard.you')}</span>}
+                  </td>
+                  {!compact && (
+                    <td className={`${cell} w-px pr-2`}>
+                      <RankBadge tier={tier} subLevel={subLevel} className="hidden sm:inline-flex" />
+                    </td>
+                  )}
+                  <td className={`${cell} w-px pr-2`}>
+                    <Stars stars={e.stars} compact={compact} />
+                  </td>
+                  <td className={`${cell} w-px pr-2 text-right text-xs tabular-nums text-slate-400`}>{e.moves}m</td>
+                  <td className={`${cell} w-px rounded-r-xl pr-3 text-right text-xs tabular-nums text-slate-500`}>
+                    {formatElapsed(e.timeMs)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
 
       {/* Viewer outside top 10 */}
@@ -157,11 +211,7 @@ export function LevelLeaderboard({ level, myId }: { level: number; myId?: string
             {t('levelLeaderboard.yourRank', { rank: data.viewer.rank })}
           </p>
           <div className="mt-1 flex items-center gap-2 text-sm text-slate-300">
-            <span>
-              {[1, 2, 3].map((i) => (
-                <span key={i} className={i <= data.viewer!.stars ? 'text-amber-400' : 'text-slate-700'}>★</span>
-              ))}
-            </span>
+            <Stars stars={data.viewer.stars} compact={compact} />
             <span className="text-slate-500">·</span>
             <span>{data.viewer.moves}m</span>
             <span className="text-slate-500">·</span>
