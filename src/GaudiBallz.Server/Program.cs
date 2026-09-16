@@ -52,7 +52,7 @@ var akkaConfig = ConfigurationFactory.ParseString($@"
                 collection = ""journal""
                 auto-initialize = true
                 event-adapters {{
-                    tagging = ""Akka.Persistence.Journal.EventAdapters+IdentityEventAdapter, Akka.Persistence""
+                    tagging = ""Akka.Persistence.Journal.IdentityEventAdapter, Akka.Persistence""
                 }}
             }}
         }}
