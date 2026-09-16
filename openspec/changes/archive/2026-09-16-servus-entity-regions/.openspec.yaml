@@ -1,0 +1,5 @@
+schema: spec-driven
+created: 2026-09-16
+# No capability's observable behaviour changes: the same endpoints return the same
+# responses, and no spec describes the actor topology being replaced.
+skip_specs: true
