@@ -1,4 +1,5 @@
 using Akka.Actor;
+using Akka.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using GaudiBallz.Server.Levels;
 using GaudiBallz.Server.Persistence;
@@ -48,7 +49,7 @@ public sealed class ProfileBallSlice : ISlice
                 async (HttpContext http,
                     SetBallRequest request,
                     PuzzleStore store,
-                    PlayerRegistry registry,
+                    IRequiredActor<PlayerRegion> registry,
                     PlayerTokens tokens,
                     CancellationToken token) =>
                 {
@@ -86,7 +87,7 @@ public sealed class ProfileBallSlice : ISlice
                         return Results.BadRequest(new { error = "That is not one of the game's colours." });
                     }
 
-                    var snapshot = await registry.Actor.Ask<ProgressSnapshot>(
+                    var snapshot = await registry.ActorRef.Ask<ProgressSnapshot>(
                         new LoadProgress(playerId), AskTimeout, token);
 
                     var unlocksAt = LevelCatalogue.ColourUnlocks

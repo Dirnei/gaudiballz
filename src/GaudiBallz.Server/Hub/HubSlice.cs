@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using Akka.Actor;
+using Akka.Hosting;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.Extensions.DependencyInjection;
 using GaudiBallz.Server.Achievements;
@@ -146,8 +147,8 @@ public sealed class HubSlice : ISlice
             HttpContext http,
             PuzzleStore store,
             PlayerTokens tokens,
-            PlayerRegistry registry,
-            WalletRegistry wallet) =>
+            IRequiredActor<PlayerRegion> registry,
+            IRequiredActor<WalletRegion> wallet) =>
         {
             var playerId = tokens.Verify(BearerFrom(http));
             if (playerId is null)
@@ -161,7 +162,7 @@ public sealed class HubSlice : ISlice
                 return Results.Unauthorized();
             }
 
-            var snapshot = await registry.Actor.Ask<ProgressSnapshot>(
+            var snapshot = await registry.ActorRef.Ask<ProgressSnapshot>(
                 new LoadProgress(playerId), TimeSpan.FromSeconds(5));
             var progress = snapshot.Progress;
             var totalXp = await ProgressionSlice.TryGetBalanceAsync(wallet, playerId)

@@ -1,4 +1,5 @@
 using Akka.Actor;
+using Akka.Hosting;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,8 +24,8 @@ public sealed class WalletAuthorityFixture : WebApplicationFactory<Program>, IAs
 
     public PuzzleStore Store { get; private set; } = null!;
 
-    /// <summary>The gate in front of the wallet registry, for opening and closing it.</summary>
-    public IActorRef Gate => Services.GetRequiredService<WalletRegistry>().Actor;
+    /// <summary>The gate in front of the wallet region, for opening and closing it.</summary>
+    public IActorRef Gate => Services.GetRequiredService<IRequiredActor<WalletRegion>>().ActorRef;
 
     public async ValueTask InitializeAsync()
     {
@@ -44,15 +45,35 @@ public sealed class WalletAuthorityFixture : WebApplicationFactory<Program>, IAs
         builder.UseSetting("Mongo:ConnectionString", _container.GetConnectionString());
         builder.UseSetting("Mongo:Database", _database);
 
-        // Registered after the application's own WalletRegistry, so this one wins.
+        // The application registers IRequiredActor<T> as an open generic, so this closed
+        // registration comes later and wins. Endpoints resolve the gate believing it to be
+        // the wallet region; the gate forwards to the real one until a test closes it.
         builder.ConfigureServices(services =>
-            services.AddSingleton(sp =>
-            {
-                var system = sp.GetRequiredService<ActorSystem>();
-                var registry = system.ActorOf(WalletRegistryActor.PropsFor(), "gated-wallets");
-                return new WalletRegistry(
-                    system.ActorOf(WalletGateActor.PropsFor(registry), "wallet-gate"));
-            }));
+            services.AddSingleton<IRequiredActor<WalletRegion>>(sp => new GatedRegion(sp)));
+    }
+
+    /// <summary>
+    /// Hands endpoints the gate in place of the region they asked for.
+    ///
+    /// The gate is built on first use rather than when this is constructed. Every hosted
+    /// service is constructed before any of them starts, so at construction time the actor
+    /// system has not run its registrations yet and asking the registry for the region
+    /// throws. Akka.Hosting's own implementation defers for the same reason.
+    /// </summary>
+    private sealed class GatedRegion(IServiceProvider services) : IRequiredActor<WalletRegion>
+    {
+        private readonly Lazy<IActorRef> _gate = new(() =>
+        {
+            var system = services.GetRequiredService<ActorSystem>();
+            var region = services.GetRequiredService<ActorRegistry>().Get<WalletRegion>();
+
+            return system.ActorOf(WalletGateActor.PropsFor(region), "wallet-gate");
+        });
+
+        public IActorRef ActorRef => _gate.Value;
+
+        public Task<IActorRef> GetAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(ActorRef);
     }
 
     public void CloseWallet() => Gate.Tell(WalletGateActor.Close.Instance);

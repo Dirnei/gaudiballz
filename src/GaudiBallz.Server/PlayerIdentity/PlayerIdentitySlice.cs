@@ -1,6 +1,7 @@
 using System.Buffers.Text;
 using System.Collections.Concurrent;
 using Akka.Actor;
+using Akka.Hosting;
 using Fido2NetLib;
 using Fido2NetLib.Objects;
 using Microsoft.Extensions.DependencyInjection;
@@ -168,7 +169,7 @@ public sealed class PlayerIdentitySlice : ISlice
 
         group.MapPost("/passkey/enrol/finish",
             async (HttpContext http, AuthenticatorAttestationRawResponse response, IFido2 fido2,
-                   PuzzleStore store, PlayerTokens tokens, AchievementRegistry achievements,
+                   PuzzleStore store, PlayerTokens tokens, IRequiredActor<AchievementRegion> achievements,
                    CancellationToken token) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
@@ -201,7 +202,7 @@ public sealed class PlayerIdentitySlice : ISlice
 
                 await store.MarkEnrolledAsync(playerId, token);
 
-                achievements.Actor.Tell(new EvaluateRetroactive(playerId), ActorRefs.NoSender);
+                achievements.ActorRef.Tell(new EvaluateRetroactive(playerId), ActorRefs.NoSender);
 
                 return Results.Ok(new { enrolled = true });
             });
@@ -496,7 +497,7 @@ public sealed class PlayerIdentitySlice : ISlice
 
         group.MapPost("/email/register/verify",
             async (HttpContext http, CodeRequest request, PuzzleStore store,
-                   PlayerTokens tokens, EmailCodeStore codes, AchievementRegistry achievements,
+                   PlayerTokens tokens, EmailCodeStore codes, IRequiredActor<AchievementRegion> achievements,
                    CancellationToken token) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
@@ -519,7 +520,7 @@ public sealed class PlayerIdentitySlice : ISlice
 
                 await store.VerifyEmailAsync(playerId, token);
                 await store.MarkEnrolledAsync(playerId, token);
-                achievements.Actor.Tell(new EvaluateRetroactive(playerId), ActorRefs.NoSender);
+                achievements.ActorRef.Tell(new EvaluateRetroactive(playerId), ActorRefs.NoSender);
 
                 return Results.Ok(new { enrolled = true });
             });

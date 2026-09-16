@@ -29,7 +29,7 @@ public sealed class PlayerSessionTests : TestKit
     [Fact]
     public void A_completion_is_recorded_and_reflected_in_the_snapshot()
     {
-        var registry = Sys.ActorOf(PlayerRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Player(Sys, _store);
         var player = Guid.NewGuid().ToString("N");
 
         registry.Tell(new RecordCompletion(player, 4, new LevelResult(19, 1)));
@@ -41,7 +41,7 @@ public sealed class PlayerSessionTests : TestKit
     [Fact]
     public void Commands_are_handled_one_at_a_time_so_nothing_is_lost()
     {
-        var registry = Sys.ActorOf(PlayerRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Player(Sys, _store);
         var player = Guid.NewGuid().ToString("N");
 
         // Fired without waiting, so they queue in the mailbox rather than arriving in turn.
@@ -69,13 +69,13 @@ public sealed class PlayerSessionTests : TestKit
     {
         var player = Guid.NewGuid().ToString("N");
 
-        var first = Sys.ActorOf(PlayerRegistryActor.PropsFor(_store));
+        var first = TestRegions.Player(Sys, _store);
         first.Tell(new RecordCompletion(player, 9, new LevelResult(27, 0)));
         ExpectMsg<ProgressSnapshot>(cancellationToken: Token);
         Sys.Stop(first);
 
         // A completely fresh registry, as though the process had restarted.
-        var second = Sys.ActorOf(PlayerRegistryActor.PropsFor(_store));
+        var second = TestRegions.Player(Sys, _store);
         second.Tell(new LoadProgress(player));
 
         var snapshot = ExpectMsg<ProgressSnapshot>(TimeSpan.FromSeconds(15), cancellationToken: Token);
@@ -85,7 +85,7 @@ public sealed class PlayerSessionTests : TestKit
     [Fact]
     public void Merging_a_device_keeps_both_sides()
     {
-        var registry = Sys.ActorOf(PlayerRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Player(Sys, _store);
         var player = Guid.NewGuid().ToString("N");
 
         registry.Tell(new RecordCompletion(player, 1, new LevelResult(12, 0)));
@@ -106,7 +106,7 @@ public sealed class PlayerSessionTests : TestKit
     [Fact]
     public void Two_players_do_not_interfere()
     {
-        var registry = Sys.ActorOf(PlayerRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Player(Sys, _store);
         var a = Guid.NewGuid().ToString("N");
         var b = Guid.NewGuid().ToString("N");
 

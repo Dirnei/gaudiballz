@@ -40,7 +40,7 @@ public sealed class AchievementActorTests : TestKit
     {
         var playerId = await RegisteredPlayerWithCompletions(10);
 
-        var registry = Sys.ActorOf(AchievementRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Achievements(Sys, _store);
 
         registry.Tell(new CompletionEvent(
             playerId, 10, new LevelResult(10, 0), DefaultMetadata, IsAnonymous: false));
@@ -60,7 +60,7 @@ public sealed class AchievementActorTests : TestKit
     {
         var playerId = await RegisteredPlayerWithCompletions(5);
 
-        var registry = Sys.ActorOf(AchievementRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Achievements(Sys, _store);
 
         registry.Tell(new CompletionEvent(
             playerId, 5, new LevelResult(10, 0), DefaultMetadata, IsAnonymous: false));
@@ -82,7 +82,7 @@ public sealed class AchievementActorTests : TestKit
     {
         var playerId = Guid.NewGuid().ToString("N");
 
-        var registry = Sys.ActorOf(AchievementRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Achievements(Sys, _store);
 
         registry.Tell(new CompletionEvent(
             playerId, 1, new LevelResult(10, 0), DefaultMetadata, IsAnonymous: true));
@@ -98,7 +98,7 @@ public sealed class AchievementActorTests : TestKit
     {
         var playerId = await RegisteredPlayerWithCompletions(12);
 
-        var registry = Sys.ActorOf(AchievementRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Achievements(Sys, _store);
 
         registry.Tell(new EvaluateRetroactive(playerId));
 
@@ -120,7 +120,7 @@ public sealed class AchievementActorTests : TestKit
         var playerA = await RegisteredPlayerWithCompletions(3);
         var playerB = await RegisteredPlayerWithCompletions(7);
 
-        var registry = Sys.ActorOf(AchievementRegistryActor.PropsFor(_store));
+        var registry = TestRegions.Achievements(Sys, _store);
 
         registry.Tell(new CompletionEvent(
             playerA, 3, new LevelResult(10, 0), DefaultMetadata, IsAnonymous: false));

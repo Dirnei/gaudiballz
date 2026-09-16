@@ -1,4 +1,5 @@
 using Akka.Actor;
+using Akka.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using GaudiBallz.Server.Persistence;
 using GaudiBallz.Server.PlayerIdentity;
@@ -20,7 +21,7 @@ public sealed class AchievementsSlice : ISlice
         var group = endpoints.MapGroup("/api/v1/achievements").WithTags("Achievements");
 
         group.MapGet("/", async (HttpContext http, PlayerTokens tokens, PuzzleStore store,
-                                  AchievementRegistry registry) =>
+                                  IRequiredActor<AchievementRegion> registry) =>
         {
             var playerId = tokens.Verify(BearerFrom(http));
             if (playerId is null)

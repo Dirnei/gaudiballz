@@ -1,6 +1,8 @@
-using Akka.Actor;
 using Akka.Configuration;
+using Akka.Hosting;
 using Akka.Persistence.MongoDb.Query;
+using Servus.Akka;
+using Servus.Akka.Local;
 using MongoDB.Driver;
 using Fido2NetLib;
 using GaudiBallz.Server.Achievements;
@@ -23,7 +25,6 @@ var mongo = new MongoOptions();
 builder.Configuration.GetSection("Mongo").Bind(mongo);
 var store = new PuzzleStore(mongo);
 builder.Services.AddSingleton(store);
-builder.Services.AddHostedService<IndexInitializer>();
 
 builder.Services.AddSingleton(new PlayerTokens(
     builder.Configuration["Auth:SigningKey"]
@@ -56,8 +57,8 @@ if (!string.IsNullOrEmpty(persistenceUrl.Username))
 persistenceUrl.DatabaseName = mongo.Database;
 var persistenceConnectionString = persistenceUrl.ToString();
 
-// One actor system, one registry. The registry creates a session actor per player on demand
-// and stops it when idle.
+// One actor system. Each per-player actor family lives behind a region that creates an
+// entity on demand and stops it when idle.
 var akkaConfig = ConfigurationFactory.ParseString($@"
     akka.persistence {{
         journal {{
@@ -87,21 +88,34 @@ var akkaConfig = ConfigurationFactory.ParseString($@"
 // LevelLeaderboardProjection reads through MongoDbReadJournal, which brings its own
 // query-plugin defaults; without them underneath, the projection fails on its first tick
 // and takes the host down with it.
-var actors = ActorSystem.Create(
-    "puzzle", akkaConfig.WithFallback(MongoDbReadJournal.DefaultConfiguration()));
-builder.Services.AddSingleton(actors);
-builder.Services.AddSingleton(new PlayerRegistry(
-    actors.ActorOf(PlayerRegistryActor.PropsFor(store), "players")));
+builder.Services.AddAkka("puzzle", akka => akka
+    .AddHocon(
+        akkaConfig.WithFallback(MongoDbReadJournal.DefaultConfiguration()),
+        HoconAddMode.Prepend)
+    .WithLocalEntityRegion<PlayerRegion>(
+        "players",
+        id => PlayerSessionActor.PropsFor(id, store),
+        new EntityIdExtractor(),
+        EntityRegions.Options())
+    .WithLocalEntityRegion<AchievementRegion>(
+        "achievements",
+        id => AchievementEvaluatorActor.PropsFor(id, store),
+        new EntityIdExtractor(),
+        EntityRegions.Options())
+    .WithLocalEntityRegion<CompletionJournalRegion>(
+        "completion-journal",
+        CompletionJournalActor.PropsFor,
+        new EntityIdExtractor(),
+        EntityRegions.Options())
+    .WithLocalEntityRegion<WalletRegion>(
+        "wallets",
+        PlayerWalletActor.PropsFor,
+        new EntityIdExtractor(),
+        EntityRegions.Options()));
 
-builder.Services.AddSingleton(new AchievementRegistry(
-    actors.ActorOf(AchievementRegistryActor.PropsFor(store), "achievements")));
-
-builder.Services.AddSingleton(new CompletionJournalRegistry(
-    actors.ActorOf(CompletionJournalRegistryActor.PropsFor(), "completion-journal")));
-
-builder.Services.AddSingleton(new WalletRegistry(
-    actors.ActorOf(WalletRegistryActor.PropsFor(), "wallets")));
-
+// Registered after AddAkka so the actor system is started before anything that resolves a
+// region out of the registry.
+builder.Services.AddHostedService<IndexInitializer>();
 builder.Services.AddHostedService<LevelLeaderboardProjection>();
 
 builder.Services.AddSingleton(new LevelCodes(

@@ -30,14 +30,10 @@ public sealed record AwardedAchievement(string Id, string Name);
 
 public sealed record AwardedBadge(string Id, string Name);
 
-internal sealed record AchievementPassivate(string PlayerId);
-
 // ---- evaluator per player ----------------------------------------------------
 
 public sealed class AchievementEvaluatorActor : ReceiveActor
 {
-    private static readonly TimeSpan IdleBeforePassivation = TimeSpan.FromMinutes(10);
-
     private readonly Dictionary<string, HashSet<int>> _sessionLevels = [];
 
     public AchievementEvaluatorActor(string playerId, PuzzleStore store)
@@ -152,97 +148,14 @@ public sealed class AchievementEvaluatorActor : ReceiveActor
                 // Retroactive failure is silent — achievements will be evaluated on the next completion.
             }
         });
-
-        Receive<ReceiveTimeout>(_ => Context.Parent.Tell(new AchievementPassivate(playerId)));
-
-        Context.SetReceiveTimeout(IdleBeforePassivation);
     }
 
     public static Props PropsFor(string playerId, PuzzleStore store) =>
         Props.Create(() => new AchievementEvaluatorActor(playerId, store));
 }
-
-// ---- registry ----------------------------------------------------------------
-
-public sealed class AchievementRegistryActor : ReceiveActor
-{
-    private readonly PuzzleStore _store;
-    private readonly Dictionary<string, IActorRef> _children = [];
-    private readonly Dictionary<string, List<(object Message, IActorRef Sender)>> _passivating = [];
-
-    public AchievementRegistryActor(PuzzleStore store)
-    {
-        _store = store;
-
-        Receive<IPlayerCommand>(command =>
-        {
-            if (_passivating.TryGetValue(command.PlayerId, out var buffered))
-            {
-                buffered.Add((command, Sender));
-                return;
-            }
-
-            ChildFor(command.PlayerId).Forward(command);
-        });
-
-        Receive<AchievementPassivate>(passivate =>
-        {
-            if (_children.TryGetValue(passivate.PlayerId, out var child))
-            {
-                _passivating[passivate.PlayerId] = [];
-                Context.Stop(child);
-            }
-        });
-
-        Receive<Terminated>(terminated =>
-        {
-            var playerId = _children
-                .Where(pair => pair.Value.Equals(terminated.ActorRef))
-                .Select(pair => pair.Key)
-                .FirstOrDefault();
-
-            if (playerId is null)
-            {
-                return;
-            }
-
-            _children.Remove(playerId);
-
-            if (_passivating.Remove(playerId, out var buffered) && buffered.Count > 0)
-            {
-                var replacement = ChildFor(playerId);
-                foreach (var (message, sender) in buffered)
-                {
-                    replacement.Tell(message, sender);
-                }
-            }
-        });
-    }
-
-    public static Props PropsFor(PuzzleStore store) =>
-        Props.Create(() => new AchievementRegistryActor(store));
-
-    protected override SupervisorStrategy SupervisorStrategy() =>
-        new OneForOneStrategy(3, TimeSpan.FromSeconds(30), _ => Directive.Restart);
-
-    private IActorRef ChildFor(string playerId)
-    {
-        if (_children.TryGetValue(playerId, out var existing))
-        {
-            return existing;
-        }
-
-        var child = Context.ActorOf(
-            AchievementEvaluatorActor.PropsFor(playerId, _store),
-            Uri.EscapeDataString(playerId));
-
-        Context.Watch(child);
-        _children[playerId] = child;
-        return child;
-    }
-}
-
-public sealed class AchievementRegistry(IActorRef Ref)
-{
-    public IActorRef Actor { get; } = Ref;
-}
+/// <summary>
+/// Key for the achievement entity region in the actor registry.
+/// See <see cref="GaudiBallz.Server.Progression.PlayerRegion"/> for why the marker names the
+/// region rather than the entity.
+/// </summary>
+public sealed class AchievementRegion;

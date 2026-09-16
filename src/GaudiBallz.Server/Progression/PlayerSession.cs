@@ -1,12 +1,16 @@
 using Akka.Actor;
 using GaudiBallz.Server.Persistence;
+using Servus.Akka.Local;
 
 namespace GaudiBallz.Server.Progression;
 
 /// <summary>Everything addressed to one player carries their id, so it can be routed.</summary>
-public interface IPlayerCommand
+public interface IPlayerCommand : IWithEntityId
 {
     public string PlayerId { get; }
+
+    /// <summary>The entity region routes on this; for every player command it is the player.</summary>
+    string IWithEntityId.EntityId => PlayerId;
 }
 
 public sealed record RecordCompletion(string PlayerId, int Level, LevelResult Result) : IPlayerCommand;
@@ -16,8 +20,6 @@ public sealed record LoadProgress(string PlayerId) : IPlayerCommand;
 public sealed record MergeDeviceProgress(string PlayerId, PlayerProgress Incoming) : IPlayerCommand;
 
 public sealed record ProgressSnapshot(PlayerProgress Progress);
-
-internal sealed record Passivate(string PlayerId);
 
 /// <summary>
 /// One actor per player, and the reason Akka is in this project.
@@ -34,8 +36,6 @@ internal sealed record Passivate(string PlayerId);
 /// </summary>
 public sealed class PlayerSessionActor : ReceiveActor, IWithStash
 {
-    private static readonly TimeSpan IdleBeforePassivation = TimeSpan.FromMinutes(10);
-
     private readonly string _playerId;
     private readonly PuzzleStore _store;
     private PlayerProgress _progress = PlayerProgress.Empty;
@@ -67,7 +67,6 @@ public sealed class PlayerSessionActor : ReceiveActor, IWithStash
             _progress = snapshot.Progress;
             Become(Ready);
             Stash.UnstashAll();
-            Context.SetReceiveTimeout(IdleBeforePassivation);
         });
 
         Receive<Status.Failure>(failure =>
@@ -103,99 +102,8 @@ public sealed class PlayerSessionActor : ReceiveActor, IWithStash
                     success: () => new ProgressSnapshot(_progress),
                     failure: ex => new Status.Failure(ex));
         });
-
-        Receive<ReceiveTimeout>(_ => Context.Parent.Tell(new Passivate(_playerId)));
     }
 }
 
 public sealed class PlayerSessionLoadException(string playerId, Exception cause)
     : Exception($"Could not load progress for player {playerId}.", cause);
-
-/// <summary>
-/// Routes commands to the actor for their player, creating it on demand and stopping it
-/// when idle.
-///
-/// A hand-rolled miniature of cluster sharding's passivation protocol. Messages arriving
-/// while a child is stopping are buffered and delivered to its replacement rather than
-/// dropped, which is the part that is easy to get wrong and impossible to notice until a
-/// completion goes missing.
-/// </summary>
-public sealed class PlayerRegistryActor : ReceiveActor
-{
-    private readonly PuzzleStore _store;
-    private readonly Dictionary<string, IActorRef> _children = [];
-    private readonly Dictionary<string, List<(object Message, IActorRef Sender)>> _passivating = [];
-
-    public PlayerRegistryActor(PuzzleStore store)
-    {
-        _store = store;
-
-        Receive<IPlayerCommand>(command =>
-        {
-            if (_passivating.TryGetValue(command.PlayerId, out var buffered))
-            {
-                buffered.Add((command, Sender));
-                return;
-            }
-
-            ChildFor(command.PlayerId).Forward(command);
-        });
-
-        Receive<Passivate>(passivate =>
-        {
-            if (_children.TryGetValue(passivate.PlayerId, out var child))
-            {
-                _passivating[passivate.PlayerId] = [];
-                Context.Stop(child);
-            }
-        });
-
-        Receive<Terminated>(terminated =>
-        {
-            var playerId = _children
-                .Where(pair => pair.Value.Equals(terminated.ActorRef))
-                .Select(pair => pair.Key)
-                .FirstOrDefault();
-
-            if (playerId is null)
-            {
-                return;
-            }
-
-            _children.Remove(playerId);
-
-            if (_passivating.Remove(playerId, out var buffered) && buffered.Count > 0)
-            {
-                var replacement = ChildFor(playerId);
-                foreach (var (message, sender) in buffered)
-                {
-                    replacement.Tell(message, sender);
-                }
-            }
-        });
-    }
-
-    public static Props PropsFor(PuzzleStore store) =>
-        Props.Create(() => new PlayerRegistryActor(store));
-
-    protected override SupervisorStrategy SupervisorStrategy() =>
-        // Restarting reloads from the database, and nothing authoritative lives in the
-        // actor, so restart is always a safe answer to a failure here.
-        new OneForOneStrategy(3, TimeSpan.FromSeconds(30), _ => Directive.Restart);
-
-    private IActorRef ChildFor(string playerId)
-    {
-        if (_children.TryGetValue(playerId, out var existing))
-        {
-            return existing;
-        }
-
-        var child = Context.ActorOf(
-            PlayerSessionActor.PropsFor(playerId, _store),
-            Uri.EscapeDataString(playerId));
-
-        Context.Watch(child);
-        _children[playerId] = child;
-        return child;
-    }
-}

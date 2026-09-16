@@ -25,6 +25,15 @@
     <PackageVersion Include="Akka.Hosting.TestKit" Version="$(AkkaVersion)" />
   </ItemGroup>
 
+  <!--
+    Local entity regions: entity-per-id routing, passivation and restart limiting without a
+    cluster. Deliberately outside the Akka.NET group above - it ships on its own cadence and
+    is pre-1.0, so it is pinned to an exact version rather than moving with $(AkkaVersion).
+  -->
+  <ItemGroup Label="Servus">
+    <PackageVersion Include="Servus.Akka" Version="0.3.14" />
+  </ItemGroup>
+
   <ItemGroup Label="Persistence">
     <PackageVersion Include="MongoDB.Driver" Version="3.11.1" />
   </ItemGroup>

@@ -1,4 +1,5 @@
 using Akka.Actor;
+using Akka.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using GaudiBallz.Rules;
 using GaudiBallz.Server.Achievements;
@@ -8,12 +9,6 @@ using GaudiBallz.Server.Persistence;
 using GaudiBallz.Server.PlayerIdentity;
 
 namespace GaudiBallz.Server.Progression;
-
-/// <summary>Registered by the host so endpoints can reach the player registry actor.</summary>
-public sealed class PlayerRegistry(IActorRef Ref)
-{
-    public IActorRef Actor { get; } = Ref;
-}
 
 /// <summary>
 /// What a player has completed.
@@ -37,7 +32,7 @@ public sealed class ProgressionSlice : ISlice
     {
         var group = endpoints.MapGroup("/api/v1/progress").WithTags("Progress");
 
-        group.MapGet("/", async (HttpContext http, PlayerRegistry registry, PlayerTokens tokens, WalletRegistry wallet) =>
+        group.MapGet("/", async (HttpContext http, IRequiredActor<PlayerRegion> registry, PlayerTokens tokens, IRequiredActor<WalletRegion> wallet) =>
         {
             var playerId = tokens.Verify(BearerFrom(http));
             if (playerId is null)
@@ -45,17 +40,17 @@ public sealed class ProgressionSlice : ISlice
                 return Results.Unauthorized();
             }
 
-            var snapshot = await registry.Actor.Ask<ProgressSnapshot>(new LoadProgress(playerId), AskTimeout);
+            var snapshot = await registry.ActorRef.Ask<ProgressSnapshot>(new LoadProgress(playerId), AskTimeout);
             var walletBalance = await TryGetBalanceAsync(wallet, playerId);
 
             return Results.Ok(Shape(snapshot, walletBalance));
         });
 
         group.MapPost("/completions",
-            async (HttpContext http, CompletionRequest request, PlayerRegistry registry,
-                   PlayerTokens tokens, PuzzleStore store, AchievementRegistry achievements,
-                   PresenceTracker presence, CompletionJournalRegistry journal,
-                   WalletRegistry wallet) =>
+            async (HttpContext http, CompletionRequest request, IRequiredActor<PlayerRegion> registry,
+                   PlayerTokens tokens, PuzzleStore store, IRequiredActor<AchievementRegion> achievements,
+                   PresenceTracker presence, IRequiredActor<CompletionJournalRegion> journal,
+                   IRequiredActor<WalletRegion> wallet) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null)
@@ -76,13 +71,13 @@ public sealed class ProgressionSlice : ISlice
 
                 var levelResult = new LevelResult(request.Moves, request.Hints, attemptStars, attemptPoints);
 
-                var before = await registry.Actor.Ask<ProgressSnapshot>(
+                var before = await registry.ActorRef.Ask<ProgressSnapshot>(
                     new LoadProgress(playerId), AskTimeout);
                 var isReplay = before.Progress.Levels.TryGetValue(request.Level, out var prev) && prev.Stars > 0;
                 var previousPoints = prev.Points;
                 var starDelta = Math.Max(0, attemptPoints - previousPoints);
 
-                var snapshot = await registry.Actor.Ask<ProgressSnapshot>(
+                var snapshot = await registry.ActorRef.Ask<ProgressSnapshot>(
                     new RecordCompletion(playerId, request.Level, levelResult),
                     AskTimeout);
 
@@ -108,7 +103,7 @@ public sealed class ProgressionSlice : ISlice
 
                     try
                     {
-                        var result = await achievements.Actor.Ask<AchievementResult>(
+                        var result = await achievements.ActorRef.Ask<AchievementResult>(
                             new CompletionEvent(playerId, request.Level,
                                 levelResult,
                                 metadata, false),
@@ -129,7 +124,7 @@ public sealed class ProgressionSlice : ISlice
                 }
 
                 // Journal: record raw completion facts for event sourcing (fire-and-forget)
-                journal.Actor.Tell(new JournalCompletion(
+                journal.ActorRef.Tell(new JournalCompletion(
                     playerId,
                     player?.Username,
                     request.Level,
@@ -141,30 +136,30 @@ public sealed class ProgressionSlice : ISlice
                     player?.ProfileBall));
 
                 // Wallet: credit each earning (fire-and-forget)
-                wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.BaseScore, attemptPoints));
+                wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.BaseScore, attemptPoints));
                 if (bonus.FirstClearBonus > 0)
                 {
-                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.FirstClearBonus, bonus.FirstClearBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.FirstClearBonus, bonus.FirstClearBonus));
                 }
 
                 if (bonus.NoHintBonus > 0)
                 {
-                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.NoHintBonus, bonus.NoHintBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.NoHintBonus, bonus.NoHintBonus));
                 }
 
                 if (bonus.StreakBonus > 0)
                 {
-                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.StreakBonus, bonus.StreakBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.StreakBonus, bonus.StreakBonus));
                 }
 
                 if (bonus.ReplayBonus > 0)
                 {
-                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.ReplayBonus, bonus.ReplayBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.ReplayBonus, bonus.ReplayBonus));
                 }
 
                 if (bonus.TimeBonus > 0)
                 {
-                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.TimeBeatBonus, bonus.TimeBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.TimeBeatBonus, bonus.TimeBonus));
                 }
 
                 // Hub: update leaderboard and activity feed (fire-and-forget, never blocks the response)
@@ -253,7 +248,7 @@ public sealed class ProgressionSlice : ISlice
 
         // Used once, when a device with local progress signs in to an existing account.
         group.MapPost("/merge",
-            async (HttpContext http, MergeRequest request, PlayerRegistry registry, PlayerTokens tokens) =>
+            async (HttpContext http, MergeRequest request, IRequiredActor<PlayerRegion> registry, PlayerTokens tokens) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null)
@@ -270,7 +265,7 @@ public sealed class ProgressionSlice : ISlice
                     }
                 }
 
-                var snapshot = await registry.Actor.Ask<ProgressSnapshot>(
+                var snapshot = await registry.ActorRef.Ask<ProgressSnapshot>(
                     new MergeDeviceProgress(playerId, incoming), AskTimeout);
 
                 return Results.Ok(Shape(snapshot));
@@ -281,11 +276,11 @@ public sealed class ProgressionSlice : ISlice
     /// The wallet ledger is the authority for total XP. When it can't answer in time the
     /// caller falls back to the progress-derived total rather than failing the request.
     /// </summary>
-    internal static async Task<int?> TryGetBalanceAsync(WalletRegistry wallet, string playerId)
+    internal static async Task<int?> TryGetBalanceAsync(IRequiredActor<WalletRegion> wallet, string playerId)
     {
         try
         {
-            var balance = await wallet.Actor.Ask<BalanceResult>(new GetBalance(playerId), WalletAskTimeout);
+            var balance = await wallet.ActorRef.Ask<BalanceResult>(new GetBalance(playerId), WalletAskTimeout);
             return balance.Balance;
         }
         catch

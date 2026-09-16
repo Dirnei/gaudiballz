@@ -25,6 +25,7 @@
     <PackageReference Include="Akka.Persistence.Query" />
     <PackageReference Include="Fido2.AspNet" />
     <PackageReference Include="MailKit" />
+    <PackageReference Include="Servus.Akka" />
   </ItemGroup>
 
   <ItemGroup>

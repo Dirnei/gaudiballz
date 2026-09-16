@@ -1,4 +1,5 @@
 using Akka.Actor;
+using Akka.Hosting;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using GaudiBallz.Server.Progression;
@@ -17,7 +18,7 @@ namespace GaudiBallz.Server.Persistence;
 /// service converges whenever the database appears.
 /// </summary>
 public sealed partial class IndexInitializer(
-    PuzzleStore store, WalletRegistry wallet, ILogger<IndexInitializer> logger)
+    PuzzleStore store, IRequiredActor<WalletRegion> wallet, ILogger<IndexInitializer> logger)
     : BackgroundService
 {
     private static readonly TimeSpan BetweenAttempts = TimeSpan.FromSeconds(5);
@@ -64,7 +65,7 @@ public sealed partial class IndexInitializer(
         {
             try
             {
-                var balance = await wallet.Actor.Ask<BalanceResult>(
+                var balance = await wallet.ActorRef.Ask<BalanceResult>(
                     new GetBalance(playerId), TimeSpan.FromSeconds(5), token);
                 if (balance.Balance > 0)
                 {
@@ -80,12 +81,12 @@ public sealed partial class IndexInitializer(
             {
                 if (result.Points > 0)
                 {
-                    wallet.Actor.Tell(new CreditPoints(playerId, level, PointCategory.BaseScore, result.Points));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, level, PointCategory.BaseScore, result.Points));
                 }
 
                 if (result.BonusPoints > 0)
                 {
-                    wallet.Actor.Tell(new CreditPoints(playerId, level, PointCategory.Migration, result.BonusPoints));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, level, PointCategory.Migration, result.BonusPoints));
                 }
             }
         }

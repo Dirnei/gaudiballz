@@ -1,5 +1,6 @@
 using Akka.Actor;
 using Akka.Persistence;
+using Servus.Akka.Local;
 
 namespace GaudiBallz.Server.Progression;
 
@@ -31,9 +32,11 @@ public sealed record PointsAdjusted(
 
 // ---- commands and queries ---------------------------------------------------
 
-public interface IWalletCommand
+public interface IWalletCommand : IWithEntityId
 {
     public string PlayerId { get; }
+
+    string IWithEntityId.EntityId => PlayerId;
 }
 
 public sealed record CreditPoints(
@@ -74,7 +77,6 @@ public sealed record WalletSnapshot(int Balance, Dictionary<int, int> LevelBaseC
 public sealed class PlayerWalletActor : ReceivePersistentActor
 {
     private const int SnapshotInterval = 100;
-    private static readonly TimeSpan IdleBeforePassivation = TimeSpan.FromMinutes(10);
 
     public override string PersistenceId { get; }
 
@@ -97,10 +99,6 @@ public sealed class PlayerWalletActor : ReceivePersistentActor
                 _state = new WalletState(snap.Balance, new Dictionary<int, int>(snap.LevelBaseCredits));
             }
         });
-
-        SetReceiveTimeout(IdleBeforePassivation);
-        Command<ReceiveTimeout>(_ =>
-            Context.Parent.Tell(new WalletPassivate(playerId)));
     }
 
     private void HandleCredit(CreditPoints cmd)
@@ -165,88 +163,4 @@ public sealed class PlayerWalletActor : ReceivePersistentActor
 
     public static Props PropsFor(string playerId) =>
         Props.Create(() => new PlayerWalletActor(playerId));
-}
-
-internal sealed record WalletPassivate(string PlayerId);
-
-// ---- registry ---------------------------------------------------------------
-
-public sealed class WalletRegistry(IActorRef Ref)
-{
-    public IActorRef Actor { get; } = Ref;
-}
-
-public sealed class WalletRegistryActor : ReceiveActor
-{
-    private readonly Dictionary<string, IActorRef> _children = [];
-    private readonly Dictionary<string, List<(object Message, IActorRef Sender)>> _passivating = [];
-
-    public WalletRegistryActor()
-    {
-        Receive<IWalletCommand>(command =>
-        {
-            if (_passivating.TryGetValue(command.PlayerId, out var buffered))
-            {
-                buffered.Add((command, Sender));
-                return;
-            }
-
-            ChildFor(command.PlayerId).Forward(command);
-        });
-
-        Receive<WalletPassivate>(passivate =>
-        {
-            if (_children.TryGetValue(passivate.PlayerId, out var child))
-            {
-                _passivating[passivate.PlayerId] = [];
-                Context.Stop(child);
-            }
-        });
-
-        Receive<Terminated>(terminated =>
-        {
-            var playerId = _children
-                .Where(pair => pair.Value.Equals(terminated.ActorRef))
-                .Select(pair => pair.Key)
-                .FirstOrDefault();
-
-            if (playerId is null)
-            {
-                return;
-            }
-
-            _children.Remove(playerId);
-
-            if (_passivating.Remove(playerId, out var buffered) && buffered.Count > 0)
-            {
-                var replacement = ChildFor(playerId);
-                foreach (var (message, sender) in buffered)
-                {
-                    replacement.Tell(message, sender);
-                }
-            }
-        });
-    }
-
-    public static Props PropsFor() =>
-        Props.Create(() => new WalletRegistryActor());
-
-    protected override SupervisorStrategy SupervisorStrategy() =>
-        new OneForOneStrategy(3, TimeSpan.FromSeconds(30), _ => Directive.Restart);
-
-    private IActorRef ChildFor(string playerId)
-    {
-        if (_children.TryGetValue(playerId, out var existing))
-        {
-            return existing;
-        }
-
-        var child = Context.ActorOf(
-            PlayerWalletActor.PropsFor(playerId),
-            Uri.EscapeDataString(playerId));
-
-        Context.Watch(child);
-        _children[playerId] = child;
-        return child;
-    }
 }
