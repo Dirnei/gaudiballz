@@ -79,6 +79,9 @@ builder.Services.AddSingleton(new AchievementRegistry(
 builder.Services.AddSingleton(new CompletionJournalRegistry(
     actors.ActorOf(CompletionJournalRegistryActor.PropsFor(), "completion-journal")));
 
+builder.Services.AddSingleton(new WalletRegistry(
+    actors.ActorOf(WalletRegistryActor.PropsFor(), "wallets")));
+
 builder.Services.AddHostedService<LevelLeaderboardProjection>();
 
 builder.Services.AddSingleton(new LevelCodes(

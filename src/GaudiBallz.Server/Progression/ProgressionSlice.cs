@@ -36,7 +36,7 @@ public sealed class ProgressionSlice : ISlice
     {
         var group = endpoints.MapGroup("/api/v1/progress").WithTags("Progress");
 
-        group.MapGet("/", async (HttpContext http, PlayerRegistry registry, PlayerTokens tokens) =>
+        group.MapGet("/", async (HttpContext http, PlayerRegistry registry, PlayerTokens tokens, WalletRegistry wallet) =>
         {
             var playerId = tokens.Verify(BearerFrom(http));
             if (playerId is null)
@@ -45,13 +45,25 @@ public sealed class ProgressionSlice : ISlice
             }
 
             var snapshot = await registry.Actor.Ask<ProgressSnapshot>(new LoadProgress(playerId), AskTimeout);
-            return Results.Ok(Shape(snapshot));
+            int? walletBalance = null;
+            try
+            {
+                var balance = await wallet.Actor.Ask<BalanceResult>(new GetBalance(playerId), AskTimeout);
+                walletBalance = balance.Balance;
+            }
+            catch
+            {
+                // Wallet unavailable — fall back to progress-derived total
+            }
+
+            return Results.Ok(Shape(snapshot, walletBalance));
         });
 
         group.MapPost("/completions",
             async (HttpContext http, CompletionRequest request, PlayerRegistry registry,
                    PlayerTokens tokens, PuzzleStore store, AchievementRegistry achievements,
-                   PresenceTracker presence, CompletionJournalRegistry journal) =>
+                   PresenceTracker presence, CompletionJournalRegistry journal,
+                   WalletRegistry wallet) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null)
@@ -135,6 +147,33 @@ public sealed class ProgressionSlice : ISlice
                     request.Restarted ?? false,
                     request.ElapsedTimeMs,
                     player?.ProfileBall));
+
+                // Wallet: credit each earning (fire-and-forget)
+                wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.BaseScore, attemptPoints));
+                if (bonus.FirstClearBonus > 0)
+                {
+                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.FirstClearBonus, bonus.FirstClearBonus));
+                }
+
+                if (bonus.NoHintBonus > 0)
+                {
+                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.NoHintBonus, bonus.NoHintBonus));
+                }
+
+                if (bonus.StreakBonus > 0)
+                {
+                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.StreakBonus, bonus.StreakBonus));
+                }
+
+                if (bonus.ReplayBonus > 0)
+                {
+                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.ReplayBonus, bonus.ReplayBonus));
+                }
+
+                if (bonus.TimeBonus > 0)
+                {
+                    wallet.Actor.Tell(new CreditPoints(playerId, request.Level, PointCategory.TimeBeatBonus, bonus.TimeBonus));
+                }
 
                 // Hub: update leaderboard and activity feed (fire-and-forget, never blocks the response)
                 if (player is { IsAnonymous: false, Username: not null })
@@ -243,9 +282,9 @@ public sealed class ProgressionSlice : ISlice
             });
     }
 
-    private static object Shape(ProgressSnapshot snapshot)
+    private static object Shape(ProgressSnapshot snapshot, int? walletBalance = null)
     {
-        var totalPoints = snapshot.Progress.TotalPoints;
+        var totalPoints = walletBalance ?? snapshot.Progress.TotalPoints;
         var (tier, subLevel) = RankTier.FromXp(totalPoints);
         var nextThreshold = RankTier.NextThreshold(totalPoints);
 

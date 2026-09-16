@@ -1,5 +1,7 @@
+using Akka.Actor;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using GaudiBallz.Server.Progression;
 
 namespace GaudiBallz.Server.Persistence;
 
@@ -14,7 +16,8 @@ namespace GaudiBallz.Server.Persistence;
 /// Creating an index that already exists is a no-op, so retrying costs nothing and the
 /// service converges whenever the database appears.
 /// </summary>
-public sealed partial class IndexInitializer(PuzzleStore store, ILogger<IndexInitializer> logger)
+public sealed partial class IndexInitializer(
+    PuzzleStore store, WalletRegistry wallet, ILogger<IndexInitializer> logger)
     : BackgroundService
 {
     private static readonly TimeSpan BetweenAttempts = TimeSpan.FromSeconds(5);
@@ -29,6 +32,7 @@ public sealed partial class IndexInitializer(PuzzleStore store, ILogger<IndexIni
                 await store.EnsureActivityFeedCollectionAsync(stoppingToken);
                 await store.BackfillLeaderboardAsync(stoppingToken);
                 await store.BackfillLevelLeaderboardAsync(stoppingToken);
+                await BackfillWalletsAsync(stoppingToken);
                 IndexesReady(logger);
                 return;
             }
@@ -40,6 +44,49 @@ public sealed partial class IndexInitializer(PuzzleStore store, ILogger<IndexIni
             {
                 NotReady(logger, ex.GetType().Name);
                 await Task.Delay(BetweenAttempts, stoppingToken);
+            }
+        }
+    }
+
+    private async Task BackfillWalletsAsync(CancellationToken token)
+    {
+        List<(string PlayerId, PlayerProgress Progress)> players;
+        try
+        {
+            players = await store.LoadAllProgressForMigrationAsync(token);
+        }
+        catch
+        {
+            return;
+        }
+
+        foreach (var (playerId, progress) in players)
+        {
+            try
+            {
+                var balance = await wallet.Actor.Ask<BalanceResult>(
+                    new GetBalance(playerId), TimeSpan.FromSeconds(5), token);
+                if (balance.Balance > 0)
+                {
+                    continue;
+                }
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var (level, result) in progress.Levels)
+            {
+                if (result.Points > 0)
+                {
+                    wallet.Actor.Tell(new CreditPoints(playerId, level, PointCategory.BaseScore, result.Points));
+                }
+
+                if (result.BonusPoints > 0)
+                {
+                    wallet.Actor.Tell(new CreditPoints(playerId, level, PointCategory.Migration, result.BonusPoints));
+                }
             }
         }
     }

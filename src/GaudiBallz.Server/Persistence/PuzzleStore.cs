@@ -878,6 +878,32 @@ public sealed class PuzzleStore
             .ToDictionary(g => g.Key, g => g.Sum(d => d.CompletionCount));
     }
 
+    public async Task<List<(string PlayerId, PlayerProgress Progress)>> LoadAllProgressForMigrationAsync(
+        CancellationToken token = default)
+    {
+        var allDocs = await _progress.Find(_ => true).ToListAsync(token);
+        var grouped = allDocs.GroupBy(d => d.PlayerId);
+        var result = new List<(string, PlayerProgress)>();
+
+        foreach (var group in grouped)
+        {
+            var progress = PlayerProgress.Empty;
+            foreach (var doc in group)
+            {
+                progress = progress.With(doc.Level, new LevelResult(
+                    doc.BestMoves, doc.BestHints, doc.BestStars, doc.BestPoints,
+                    doc.BestTimeMs, doc.BonusPoints));
+            }
+
+            if (progress.TotalPoints > 0)
+            {
+                result.Add((group.Key, progress));
+            }
+        }
+
+        return result;
+    }
+
     // ---- leaderboard backfill -----------------------------------------------
 
     public async Task BackfillLeaderboardAsync(CancellationToken token = default)
