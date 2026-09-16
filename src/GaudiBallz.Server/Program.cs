@@ -1,5 +1,7 @@
 using Akka.Actor;
 using Akka.Configuration;
+using Akka.Persistence.MongoDb.Query;
+using MongoDB.Driver;
 using Fido2NetLib;
 using GaudiBallz.Server.Achievements;
 using GaudiBallz.Server.Daily;
@@ -39,6 +41,21 @@ builder.Services.AddFido2(options =>
         .ToHashSet();
 });
 
+// Akka.Persistence.MongoDb reads the database out of the connection string and ignores any
+// separate setting, so the two halves of MongoOptions have to be spliced back together here.
+// PuzzleStore keeps them apart because the driver wants them apart.
+var persistenceUrl = new MongoUrlBuilder(mongo.ConnectionString);
+if (!string.IsNullOrEmpty(persistenceUrl.Username))
+{
+    // Naming a database also names the authentication database unless one is stated
+    // outright, so pin it before the name changes underneath the credentials.
+    persistenceUrl.AuthenticationSource =
+        new MongoUrl(mongo.ConnectionString).AuthenticationSource ?? "admin";
+}
+
+persistenceUrl.DatabaseName = mongo.Database;
+var persistenceConnectionString = persistenceUrl.ToString();
+
 // One actor system, one registry. The registry creates a session actor per player on demand
 // and stops it when idle.
 var akkaConfig = ConfigurationFactory.ParseString($@"
@@ -47,28 +64,31 @@ var akkaConfig = ConfigurationFactory.ParseString($@"
             plugin = ""akka.persistence.journal.mongodb""
             mongodb {{
                 class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
-                connection-string = ""{mongo.ConnectionString}""
-                database = ""{mongo.Database}""
+                connection-string = ""{persistenceConnectionString}""
                 collection = ""journal""
                 auto-initialize = true
-                event-adapters {{
-                    tagging = ""Akka.Persistence.Journal.IdentityEventAdapter, Akka.Persistence""
-                }}
             }}
         }}
         snapshot-store {{
             plugin = ""akka.persistence.snapshot-store.mongodb""
             mongodb {{
                 class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
-                connection-string = ""{mongo.ConnectionString}""
-                database = ""{mongo.Database}""
+                connection-string = ""{persistenceConnectionString}""
                 collection = ""snapshots""
                 auto-initialize = true
             }}
         }}
+        query.journal.mongodb {{
+            write-plugin = ""akka.persistence.journal.mongodb""
+        }}
     }}
 ");
-var actors = ActorSystem.Create("puzzle", akkaConfig);
+
+// LevelLeaderboardProjection reads through MongoDbReadJournal, which brings its own
+// query-plugin defaults; without them underneath, the projection fails on its first tick
+// and takes the host down with it.
+var actors = ActorSystem.Create(
+    "puzzle", akkaConfig.WithFallback(MongoDbReadJournal.DefaultConfiguration()));
 builder.Services.AddSingleton(actors);
 builder.Services.AddSingleton(new PlayerRegistry(
     actors.ActorOf(PlayerRegistryActor.PropsFor(store), "players")));
