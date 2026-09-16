@@ -1,14 +1,20 @@
+# attempt-outcomes Specification
+
 ## Purpose
 Records how each try at a level ends — cleared, restarted, or walked away from — so that a
 win rate describes whether a player saw the level through, and so that throwing an attempt
 away is something the player is warned about rather than something they discover afterwards.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: An attempt has exactly one outcome
 
-An attempt at a level SHALL begin when the player opens that level to play it, and SHALL end
+An attempt at a level SHALL begin when the player makes their first move on it, and SHALL end
 in exactly one of three outcomes: completed, restarted, or abandoned.
+
+Opening a level SHALL NOT begin an attempt. A player who looks at a board and leaves without
+moving anything SHALL have nothing recorded, and SHALL NOT be warned on the way out, because
+there is nothing to lose.
 
 Completing the level SHALL count as a win. Restarting SHALL end the attempt as a loss.
 Abandoning SHALL end the attempt as a loss.
@@ -18,6 +24,12 @@ and then clears the level records one loss and one win.
 
 An attempt SHALL be counted once and only once, regardless of how many moves, undos, or
 hints it contained.
+
+#### Scenario: Leaving a level without playing it
+
+- **WHEN** a player opens a level, makes no move, and returns to the level select screen
+- **THEN** no attempt is recorded
+- **AND** they are not warned about leaving
 
 #### Scenario: Clearing a level on the first try
 
@@ -58,7 +70,7 @@ after completing it SHALL record nothing further.
 
 #### Scenario: Warned before navigating away
 
-- **WHEN** a player with an unfinished attempt navigates to the level select screen
+- **WHEN** a player who has moved at least once on an unfinished level navigates to the level select screen
 - **THEN** they are warned that leaving counts as a loss
 - **AND** the attempt is not yet ended
 
