@@ -1,4 +1,5 @@
 using Akka.Actor;
+using Akka.Configuration;
 using Fido2NetLib;
 using GaudiBallz.Server.Achievements;
 using GaudiBallz.Server.Daily;
@@ -9,6 +10,8 @@ using GaudiBallz.Server.Persistence;
 using GaudiBallz.Server.PlayerIdentity;
 using GaudiBallz.Server.ProfileBall;
 using GaudiBallz.Server.Progression;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,13 +41,45 @@ builder.Services.AddFido2(options =>
 
 // One actor system, one registry. The registry creates a session actor per player on demand
 // and stops it when idle.
-var actors = ActorSystem.Create("puzzle");
+var akkaConfig = ConfigurationFactory.ParseString($@"
+    akka.persistence {{
+        journal {{
+            plugin = ""akka.persistence.journal.mongodb""
+            mongodb {{
+                class = ""Akka.Persistence.MongoDb.Journal.MongoDbJournal, Akka.Persistence.MongoDb""
+                connection-string = ""{mongo.ConnectionString}""
+                database = ""{mongo.Database}""
+                collection = ""journal""
+                auto-initialize = true
+                event-adapters {{
+                    tagging = ""Akka.Persistence.Journal.EventAdapters+IdentityEventAdapter, Akka.Persistence""
+                }}
+            }}
+        }}
+        snapshot-store {{
+            plugin = ""akka.persistence.snapshot-store.mongodb""
+            mongodb {{
+                class = ""Akka.Persistence.MongoDb.Snapshot.MongoDbSnapshotStore, Akka.Persistence.MongoDb""
+                connection-string = ""{mongo.ConnectionString}""
+                database = ""{mongo.Database}""
+                collection = ""snapshots""
+                auto-initialize = true
+            }}
+        }}
+    }}
+");
+var actors = ActorSystem.Create("puzzle", akkaConfig);
 builder.Services.AddSingleton(actors);
 builder.Services.AddSingleton(new PlayerRegistry(
     actors.ActorOf(PlayerRegistryActor.PropsFor(store), "players")));
 
 builder.Services.AddSingleton(new AchievementRegistry(
     actors.ActorOf(AchievementRegistryActor.PropsFor(store), "achievements")));
+
+builder.Services.AddSingleton(new CompletionJournalRegistry(
+    actors.ActorOf(CompletionJournalRegistryActor.PropsFor(), "completion-journal")));
+
+builder.Services.AddHostedService<LevelLeaderboardProjection>();
 
 builder.Services.AddSingleton(new LevelCodes(
     builder.Configuration["LevelCodes:Secret"]
@@ -94,7 +129,46 @@ app.UseOutputCache();
 // Kestrel serves the built client itself - no reverse proxy in front. In development the
 // client runs on its own Vite server instead and wwwroot simply does not exist.
 app.UseDefaultFiles();
-app.UseStaticFiles();
+
+// Vite fingerprints JS/CSS into /assets/ with content hashes — immutable forever.
+// Everything else (index.html, manifest, icons) must revalidate so deploys land immediately.
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var path = ctx.Context.Request.Path.Value ?? "";
+        if (path.StartsWith("/assets/", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.Headers[HeaderNames.CacheControl] =
+                "public, max-age=31536000, immutable";
+        }
+        else
+        {
+            ctx.Context.Response.Headers[HeaderNames.CacheControl] = "no-cache";
+        }
+    }
+});
+
+// Default cache policy: API responses get no-store (data changes constantly), everything
+// else gets no-cache (revalidate on every request). Static files served through
+// UseStaticFiles already have Cache-Control set by OnPrepareResponse above, so the
+// ContainsKey guard skips them.
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        if (!context.Response.Headers.ContainsKey(HeaderNames.CacheControl))
+        {
+            var path = context.Request.Path.Value ?? "";
+            context.Response.Headers[HeaderNames.CacheControl] =
+                path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
+                    ? "no-store"
+                    : "no-cache";
+        }
+        return Task.CompletedTask;
+    });
+    await next();
+});
 
 // Liveness only. Readiness would need a database ping, and the game deliberately stays
 // playable when the database is down - only recording progress fails, which the client

@@ -130,17 +130,24 @@ After completing a level, the player SHALL be able to view that level's leaderbo
 
 ### Requirement: Leaderboard is accessible from level select
 
-The level-select screen SHALL provide access to the per-level leaderboard for any completed level.
+The level-select screen SHALL provide access to the per-level leaderboard for any accessible (non-locked) level. Selecting a level SHALL display its leaderboard in a detail panel alongside the level grid.
 
-#### Scenario: Viewing from level select
+Locked levels SHALL NOT be selectable and SHALL NOT show a leaderboard.
 
-- **WHEN** a player has completed level 8 and opens the level-select screen
+#### Scenario: Viewing from level select for a completed level
+
+- **WHEN** a player has completed level 8 and selects it on the level-select screen
 - **THEN** they can view the level 8 leaderboard
 
-#### Scenario: No leaderboard for uncompleted levels
+#### Scenario: Viewing from level select for an uncompleted but accessible level
 
-- **WHEN** a player has not completed level 20
-- **THEN** no leaderboard access is offered for level 20 on the level-select screen
+- **WHEN** a player has not completed level 10 but it is unlocked
+- **THEN** they can select level 10 and view its leaderboard
+
+#### Scenario: Locked levels are not selectable
+
+- **WHEN** a player has not unlocked level 20
+- **THEN** level 20 cannot be selected and no leaderboard is shown for it
 
 ### Requirement: Leaderboard updates when a better result is recorded
 

@@ -28,6 +28,7 @@ public sealed class PuzzleStore
     private readonly IMongoCollection<DailyPlayDocument> _dailyPlay;
     private readonly IMongoCollection<LeaderboardDocument> _leaderboard;
     private readonly IMongoCollection<DailyResultDocument> _dailyResults;
+    private readonly IMongoCollection<LevelLeaderboardDocument> _levelLeaderboard;
     private readonly IMongoDatabase _database;
 
     public PuzzleStore(MongoOptions options)
@@ -60,6 +61,7 @@ public sealed class PuzzleStore
         _dailyPlay = _database.GetCollection<DailyPlayDocument>("daily_play", durable);
         _leaderboard = _database.GetCollection<LeaderboardDocument>("leaderboard", durable);
         _dailyResults = _database.GetCollection<DailyResultDocument>("daily_results", durable);
+        _levelLeaderboard = _database.GetCollection<LevelLeaderboardDocument>("level_leaderboard", durable);
     }
 
     /// <summary>Idempotent: creating an index that already exists is a no-op.</summary>
@@ -111,6 +113,17 @@ public sealed class PuzzleStore
                     .Ascending(d => d.ElapsedTimeMs),
                 new CreateIndexOptions { Name = "daily_results_by_date" }),
             cancellationToken: token);
+
+        await _levelLeaderboard.Indexes.CreateOneAsync(
+            new CreateIndexModel<LevelLeaderboardDocument>(
+                Builders<LevelLeaderboardDocument>.IndexKeys
+                    .Ascending(l => l.Level)
+                    .Ascending(l => l.Period)
+                    .Descending(l => l.BestStars)
+                    .Ascending(l => l.BestMoves)
+                    .Ascending(l => l.BestTimeMs),
+                new CreateIndexOptions { Name = "level_leaderboard_by_rank" }),
+            cancellationToken: token);
     }
 
     public async Task<PlayerDocument> CreateAnonymousPlayerAsync(
@@ -145,6 +158,22 @@ public sealed class PuzzleStore
             .Project(p => new { p.Id, p.ProfileBall })
             .ToListAsync(token);
         return players.ToDictionary(p => p.Id, p => p.ProfileBall);
+    }
+
+    public async Task<Dictionary<string, int>> GetAllTimeXpAsync(
+        IEnumerable<string> playerIds, CancellationToken token = default)
+    {
+        var ids = playerIds.Distinct().Select(LeaderboardDocument.AllTimeKey).ToList();
+        if (ids.Count == 0)
+        {
+            return new();
+        }
+
+        var entries = await _leaderboard
+            .Find(Builders<LeaderboardDocument>.Filter.In(l => l.Id, ids))
+            .Project(l => new { l.PlayerId, l.TotalPoints })
+            .ToListAsync(token);
+        return entries.ToDictionary(e => e.PlayerId, e => e.TotalPoints);
     }
 
     public Task TouchPlayerAsync(string playerId, CancellationToken token = default) =>
@@ -590,6 +619,94 @@ public sealed class PuzzleStore
         return ((int)rank + 1, entry);
     }
 
+    // ---- per-level leaderboard -----------------------------------------------
+
+    public async Task UpsertLevelLeaderboardAsync(
+        int level, string playerId, string? username, string? period,
+        int stars, int moves, int timeMs, int? profileBall,
+        CancellationToken token = default)
+    {
+        var key = LevelLeaderboardDocument.Key(level, playerId, period);
+        var existing = await _levelLeaderboard.Find(l => l.Id == key).FirstOrDefaultAsync(token);
+
+        if (existing is not null)
+        {
+            var dominated = stars > existing.BestStars
+                || (stars == existing.BestStars && moves < existing.BestMoves)
+                || (stars == existing.BestStars && moves == existing.BestMoves && timeMs < existing.BestTimeMs);
+
+            if (!dominated)
+            {
+                return;
+            }
+        }
+
+        await _levelLeaderboard.UpdateOneAsync(
+            l => l.Id == key,
+            Builders<LevelLeaderboardDocument>.Update
+                .SetOnInsert(l => l.Level, level)
+                .SetOnInsert(l => l.PlayerId, playerId)
+                .Set(l => l.Username, username)
+                .Set(l => l.ProfileBall, profileBall)
+                .Set(l => l.Period, period)
+                .Set(l => l.BestStars, stars)
+                .Set(l => l.BestMoves, moves)
+                .Set(l => l.BestTimeMs, timeMs)
+                .Set(l => l.UpdatedAt, DateTime.UtcNow),
+            new UpdateOptions { IsUpsert = true },
+            token);
+    }
+
+    public async Task<List<LevelLeaderboardDocument>> GetLevelLeaderboardAsync(
+        int level, string? period, int limit = 10, CancellationToken token = default)
+    {
+        var filter = Builders<LevelLeaderboardDocument>.Filter.And(
+            Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.Level, level),
+            period is null
+                ? Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.Period, null)
+                : Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.Period, period));
+
+        return await _levelLeaderboard
+            .Find(filter)
+            .SortByDescending(l => l.BestStars)
+            .ThenBy(l => l.BestMoves)
+            .ThenBy(l => l.BestTimeMs)
+            .Limit(limit)
+            .ToListAsync(token);
+    }
+
+    public async Task<(int Rank, LevelLeaderboardDocument? Entry)> GetLevelPlayerRankAsync(
+        int level, string playerId, string? period, CancellationToken token = default)
+    {
+        var key = LevelLeaderboardDocument.Key(level, playerId, period);
+        var entry = await _levelLeaderboard.Find(l => l.Id == key).FirstOrDefaultAsync(token);
+        if (entry is null)
+        {
+            return (0, null);
+        }
+
+        var levelFilter = Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.Level, level);
+        var periodFilter = period is null
+            ? Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.Period, null)
+            : Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.Period, period);
+
+        var betterFilter = Builders<LevelLeaderboardDocument>.Filter.Or(
+            Builders<LevelLeaderboardDocument>.Filter.Gt(l => l.BestStars, entry.BestStars),
+            Builders<LevelLeaderboardDocument>.Filter.And(
+                Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.BestStars, entry.BestStars),
+                Builders<LevelLeaderboardDocument>.Filter.Lt(l => l.BestMoves, entry.BestMoves)),
+            Builders<LevelLeaderboardDocument>.Filter.And(
+                Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.BestStars, entry.BestStars),
+                Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.BestMoves, entry.BestMoves),
+                Builders<LevelLeaderboardDocument>.Filter.Lt(l => l.BestTimeMs, entry.BestTimeMs)));
+
+        var rank = await _levelLeaderboard.CountDocumentsAsync(
+            Builders<LevelLeaderboardDocument>.Filter.And(levelFilter, periodFilter, betterFilter),
+            cancellationToken: token);
+
+        return ((int)rank + 1, entry);
+    }
+
     // ---- activity feed ------------------------------------------------------
 
     public async Task EnsureActivityFeedCollectionAsync(CancellationToken token = default)
@@ -748,6 +865,19 @@ public sealed class PuzzleStore
         return docs.Select(d => d.PlayerId).Distinct().Count();
     }
 
+    public async Task<Dictionary<DateTime, int>> GetGlobalDailyActivityAsync(
+        int days = 28, CancellationToken token = default)
+    {
+        var start = DateTime.UtcNow.Date.AddDays(-(days - 1));
+        var docs = await _dailyPlay
+            .Find(d => d.Date >= start)
+            .ToListAsync(token);
+
+        return docs
+            .GroupBy(d => d.Date)
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.CompletionCount));
+    }
+
     // ---- leaderboard backfill -----------------------------------------------
 
     public async Task BackfillLeaderboardAsync(CancellationToken token = default)
@@ -778,6 +908,37 @@ public sealed class PuzzleStore
             await UpsertLeaderboardAsync(
                 player.Id, player.Username, progress.TotalPoints, gamesPlayed, gamesWon,
                 player.ProfileBall, token);
+        }
+    }
+
+    public async Task BackfillLevelLeaderboardAsync(CancellationToken token = default)
+    {
+        var existing = await _levelLeaderboard.CountDocumentsAsync(
+            Builders<LevelLeaderboardDocument>.Filter.Eq(l => l.Period, null),
+            cancellationToken: token);
+        if (existing > 0)
+        {
+            return;
+        }
+
+        var players = await _players
+            .Find(p => !p.IsAnonymous)
+            .ToListAsync(token);
+
+        foreach (var player in players)
+        {
+            var progress = await LoadProgressAsync(player.Id, token);
+            foreach (var (level, result) in progress.Levels)
+            {
+                var built = Levels.LevelCatalogue.Build(level);
+                var par = built.ConstructiveSolution.Count;
+                var timeTarget = Levels.LevelCatalogue.TimeTargetMs(level);
+                var (stars, _) = Rules.Scoring.Calculate(result.Moves, result.Hints, result.BestTimeMs, par, timeTarget);
+
+                await UpsertLevelLeaderboardAsync(
+                    level, player.Id, player.Username, null,
+                    stars, result.Moves, result.BestTimeMs, player.ProfileBall, token);
+            }
         }
     }
 }

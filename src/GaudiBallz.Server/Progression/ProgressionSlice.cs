@@ -51,7 +51,7 @@ public sealed class ProgressionSlice : ISlice
         group.MapPost("/completions",
             async (HttpContext http, CompletionRequest request, PlayerRegistry registry,
                    PlayerTokens tokens, PuzzleStore store, AchievementRegistry achievements,
-                   PresenceTracker presence) =>
+                   PresenceTracker presence, CompletionJournalRegistry journal) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null)
@@ -124,6 +124,18 @@ public sealed class ProgressionSlice : ISlice
                     }
                 }
 
+                // Journal: record raw completion facts for event sourcing (fire-and-forget)
+                journal.Actor.Tell(new JournalCompletion(
+                    playerId,
+                    player?.Username,
+                    request.Level,
+                    request.Moves,
+                    request.Hints,
+                    request.UndoCount ?? 0,
+                    request.Restarted ?? false,
+                    request.ElapsedTimeMs,
+                    player?.ProfileBall));
+
                 // Hub: update leaderboard and activity feed (fire-and-forget, never blocks the response)
                 if (player is { IsAnonymous: false, Username: not null })
                 {
@@ -141,15 +153,28 @@ public sealed class ProgressionSlice : ISlice
                                 updatedProgress.Levels.Values.Count(r => r.Stars > 0),
                                 ball);
 
+                            var weekPeriod = $"{DateTime.UtcNow.Year}-W{System.Globalization.CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(DateTime.UtcNow, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday):D2}";
+                            var dayPeriod = DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
                             var earnedThisAttempt = starDelta + bonus.Total;
                             if (earnedThisAttempt > 0)
                             {
-                                var weekPeriod = $"{DateTime.UtcNow.Year}-W{System.Globalization.CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(DateTime.UtcNow, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday):D2}";
-                                var dayPeriod = DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
-
                                 await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, weekPeriod, earnedThisAttempt, ball);
                                 await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, earnedThisAttempt, ball);
                             }
+
+                            var timeMs = request.ElapsedTimeMs ?? 0;
+                            await store.UpsertLevelLeaderboardAsync(
+                                request.Level, playerId, player.Username, null,
+                                attemptStars, request.Moves, timeMs, ball);
+
+                            await store.UpsertLevelLeaderboardAsync(
+                                request.Level, playerId, player.Username, weekPeriod,
+                                attemptStars, request.Moves, timeMs, ball);
+
+                            await store.UpsertLevelLeaderboardAsync(
+                                request.Level, playerId, player.Username, dayPeriod,
+                                attemptStars, request.Moves, timeMs, ball);
 
                             await store.RecordStructuredActivityAsync(
                                 playerId, player.Username, "level_clear",

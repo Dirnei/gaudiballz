@@ -148,7 +148,8 @@
     "invalidCode": "Ungültiger Code.",
     "prevPage": "Vorherige Seite",
     "nextPage": "Nächste Seite",
-    "pageOf": "Seite {{current}} von {{total}}"
+    "pageOf": "Seite {{current}} von {{total}}",
+    "play": "Spielen"
   },
   "ballPicker": {
     "cantReach": "Server nicht erreichbar, daher gibt es gerade nichts zur Auswahl.",
@@ -189,6 +190,17 @@
     "pts": "{{points}} XP",
     "winPct": "{{pct}} % Sieg"
   },
+  "levelLeaderboard": {
+    "title": "Level {{level}} Bestenliste",
+    "allTime": "Gesamt",
+    "thisWeek": "Diese Woche",
+    "today": "Heute",
+    "loading": "Bestenliste wird geladen…",
+    "empty": "Noch keine Ergebnisse für diesen Zeitraum.",
+    "yourRank": "Dein Rang: #{{rank}}",
+    "viewLeaderboard": "Bestenliste",
+    "selectLevel": "Wähle ein Level, um die Bestenliste zu sehen"
+  },
   "stats": {
     "title": "Deine Statistik",
     "registerPrompt": "Registriere ein Konto, um deine Statistiken zu verfolgen und in der Bestenliste mitzumachen.",
@@ -225,15 +237,16 @@
   "community": {
     "playingNow": "{{count}} spielen gerade",
     "solvedToday": "{{count}} Rätsel heute gelöst",
-    "playersThisWeek": "{{count}} Spieler diese Woche"
+    "playersThisWeek": "{{count}} Spieler diese Woche",
+    "activityTitle": "Gespielte Runden — letzte 4 Wochen"
   },
-  "recentGames": {
-    "title": "Letzte Spiele",
-    "won": "Sieg",
-    "lost": "Niederlage",
-    "level": "Level {{level}}",
-    "moves": "{{count}} Züge",
-    "points": "{{points}} XP"
+  "playerActivity": {
+    "title": "Deine Aktivität",
+    "thisWeek": "Diese Woche",
+    "thisMonth": "Diesen Monat",
+    "allTime": "Gesamt",
+    "bestStreak": "Beste Serie",
+    "winRate": "Siegquote"
   },
   "activityFeed": {
     "title": "Aktivitäten",

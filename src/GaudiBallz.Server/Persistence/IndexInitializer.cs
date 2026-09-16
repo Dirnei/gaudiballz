@@ -28,6 +28,7 @@ public sealed partial class IndexInitializer(PuzzleStore store, ILogger<IndexIni
                 await store.EnsureIndexesAsync(stoppingToken);
                 await store.EnsureActivityFeedCollectionAsync(stoppingToken);
                 await store.BackfillLeaderboardAsync(stoppingToken);
+                await store.BackfillLevelLeaderboardAsync(stoppingToken);
                 IndexesReady(logger);
                 return;
             }

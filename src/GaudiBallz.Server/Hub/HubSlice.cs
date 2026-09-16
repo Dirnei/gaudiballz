@@ -38,6 +38,10 @@ public sealed class HubSlice : ISlice
 
             var entries = await store.QueryLeaderboardAsync(periodKey, skip, take);
 
+            var allTimeXp = periodKey is not null
+                ? await store.GetAllTimeXpAsync(entries.Select(e => e.PlayerId))
+                : null;
+
             var shaped = entries.Select((e, i) => new
             {
                 rank = skip + i + 1,
@@ -45,6 +49,9 @@ public sealed class HubSlice : ISlice
                 username = e.Username,
                 ball = e.ProfileBall,
                 totalPoints = e.TotalPoints,
+                allTimeXp = allTimeXp is not null && allTimeXp.TryGetValue(e.PlayerId, out var xp)
+                    ? xp
+                    : e.TotalPoints,
                 gamesPlayed = e.GamesPlayed,
                 gamesWon = e.GamesWon,
             }).ToArray();
@@ -56,6 +63,16 @@ public sealed class HubSlice : ISlice
                 var (rank, entry) = await store.GetPlayerRankAsync(playerId, periodKey);
                 if (entry is not null)
                 {
+                    var viewerAllTimeXp = entry.TotalPoints;
+                    if (periodKey is not null)
+                    {
+                        var xpMap = await store.GetAllTimeXpAsync([playerId]);
+                        if (xpMap.TryGetValue(playerId, out var vxp))
+                        {
+                            viewerAllTimeXp = vxp;
+                        }
+                    }
+
                     viewer = new
                     {
                         rank,
@@ -63,6 +80,7 @@ public sealed class HubSlice : ISlice
                         username = entry.Username,
                         ball = entry.ProfileBall,
                         totalPoints = entry.TotalPoints,
+                        allTimeXp = viewerAllTimeXp,
                         gamesPlayed = entry.GamesPlayed,
                         gamesWon = entry.GamesWon,
                     };
@@ -78,23 +96,49 @@ public sealed class HubSlice : ISlice
         {
             long solvedToday;
             long activeThisWeek;
+            Dictionary<DateTime, int> dailyActivity;
 
             try
             {
                 solvedToday = await store.CountSolvedTodayAsync();
                 activeThisWeek = await store.CountActivePlayersThisWeekAsync();
+                dailyActivity = await store.GetGlobalDailyActivityAsync();
             }
             catch
             {
                 solvedToday = 0;
                 activeThisWeek = 0;
+                dailyActivity = new();
             }
+
+            var allActivity = await store.GetGlobalDailyActivityAsync(days: 365);
+
+            var today = DateTime.UtcNow.Date;
+            var historyStart = today.AddDays(-27);
+            var dailyHistory = Enumerable.Range(0, 28)
+                .Select(i => historyStart.AddDays(i))
+                .Select(d => new
+                {
+                    date = d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    count = dailyActivity.GetValueOrDefault(d, 0),
+                })
+                .ToArray();
+
+            var weekStart = today.AddDays(-(int)(today.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)today.DayOfWeek - 1));
+            var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var gamesThisWeek = allActivity.Where(kv => kv.Key >= weekStart).Sum(kv => kv.Value);
+            var gamesThisMonth = allActivity.Where(kv => kv.Key >= monthStart).Sum(kv => kv.Value);
+            var gamesAllTime = allActivity.Sum(kv => kv.Value);
 
             return Results.Ok(new
             {
                 onlineCount = presence.OnlineCount,
                 solvedToday,
                 activeThisWeek,
+                dailyHistory,
+                gamesThisWeek,
+                gamesThisMonth,
+                gamesAllTime,
             });
         });
 
@@ -123,6 +167,22 @@ public sealed class HubSlice : ISlice
             var dailyPlay = await store.LoadDailyPlayAsync(playerId);
             var currentStreak = CalculateStreak(dailyPlay);
             var bestStreak = CalculateBestStreak(dailyPlay);
+
+            var today = DateTime.UtcNow.Date;
+            var weekStart = today.AddDays(-(int)(today.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)today.DayOfWeek - 1));
+            var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var gamesThisWeek = dailyPlay.Where(d => d.Date >= weekStart).Sum(d => d.CompletionCount);
+            var gamesThisMonth = dailyPlay.Where(d => d.Date >= monthStart).Sum(d => d.CompletionCount);
+            var gamesAllTime = dailyPlay.Sum(d => d.CompletionCount);
+
+            var historyStart = today.AddDays(-27);
+            var dailyLookup = dailyPlay
+                .Where(d => d.Date >= historyStart)
+                .ToDictionary(d => d.Date, d => d.CompletionCount);
+            var dailyHistory = Enumerable.Range(0, 28)
+                .Select(i => historyStart.AddDays(i))
+                .Select(d => new { date = d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), count = dailyLookup.GetValueOrDefault(d, 0) })
+                .ToArray();
 
             var gamesPlayed = progress.LevelsCompleted;
             var gamesWon = progress.Levels.Values.Count(r => r.Stars > 0);
@@ -171,6 +231,10 @@ public sealed class HubSlice : ISlice
                 highestLevel = progress.HighestCompleted,
                 bestMoves = bestMoves.Value.Moves,
                 bestMovesLevel = bestMoves.Key,
+                gamesThisWeek,
+                gamesThisMonth,
+                gamesAllTime,
+                dailyHistory,
                 currentStreak,
                 bestStreak,
                 globalRank,
@@ -229,6 +293,61 @@ public sealed class HubSlice : ISlice
                         timestamp = e.Timestamp,
                     };
             }));
+        });
+
+        group.MapGet("/level-leaderboard", async (
+            HttpContext http,
+            PuzzleStore store,
+            PlayerTokens tokens,
+            int level,
+            string? period) =>
+        {
+            if (level < 1)
+            {
+                return Results.BadRequest(new { error = "Level must be at least 1." });
+            }
+
+            var periodKey = period switch
+            {
+                "week" => WeekPeriod(),
+                "today" => DateTime.UtcNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                _ => (string?)null,
+            };
+
+            var entries = await store.GetLevelLeaderboardAsync(level, periodKey);
+
+            var allTimeXp = await store.GetAllTimeXpAsync(entries.Select(e => e.PlayerId));
+
+            var shaped = entries.Select((e, i) => new
+            {
+                rank = i + 1,
+                playerId = e.PlayerId,
+                username = e.Username,
+                ball = e.ProfileBall,
+                stars = e.BestStars,
+                moves = e.BestMoves,
+                timeMs = e.BestTimeMs,
+                allTimeXp = allTimeXp.GetValueOrDefault(e.PlayerId, 0),
+            }).ToArray();
+
+            var playerId = tokens.Verify(BearerFrom(http));
+            object? viewer = null;
+            if (playerId is not null)
+            {
+                var (rank, entry) = await store.GetLevelPlayerRankAsync(level, playerId, periodKey);
+                if (entry is not null)
+                {
+                    viewer = new
+                    {
+                        rank,
+                        stars = entry.BestStars,
+                        moves = entry.BestMoves,
+                        timeMs = entry.BestTimeMs,
+                    };
+                }
+            }
+
+            return Results.Ok(new { entries = shaped, viewer });
         });
 
         group.MapPost("/heartbeat", (

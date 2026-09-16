@@ -111,7 +111,7 @@ describe('nothing announces an earned ball', () => {
       .getAllByRole('button')
       .map((button) => button.textContent);
 
-    expect(offered).toEqual(['Next level', 'Play again']);
+    expect(offered).toEqual(['Leaderboard ▸', 'Next level', 'Play again']);
   });
 
   it('leaves the account control unchanged whatever has been earned', async () => {

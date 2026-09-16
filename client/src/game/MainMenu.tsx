@@ -4,11 +4,21 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { FlaskLogo } from './FlaskLogo';
 import { useGameContext } from './GameContext';
-import { StatsRibbon } from './StatsRibbon';
+import { StatsRibbon, useCommunityStats } from './StatsRibbon';
 import { ProgressTiles } from './ProgressTiles';
-import { RecentGames } from './RecentGames';
 import { ActivityFeed } from './ActivityFeed';
 import { needsTutorial } from './tutorial';
+
+const fredoka = { fontFamily: "'Fredoka', system-ui, sans-serif" } as const;
+
+const CARD_BG = {
+  backgroundImage:
+    'linear-gradient(160deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.03) 30%,' +
+    ' rgba(255,255,255,0.02) 70%, rgba(255,255,255,0.06) 100%),' +
+    'radial-gradient(120% 90% at 50% -10%, #1B2748 0%, #131C36 45%, #0B1122 100%)',
+  border: '1px solid rgba(255,255,255,0.14)',
+  borderTopColor: 'rgba(255,255,255,0.22)',
+} as const;
 
 function isDailyDone(): boolean {
   try {
@@ -27,8 +37,9 @@ export function MainMenu() {
   const game = useGameContext();
   const navigate = useNavigate();
   const totalPoints = game.progress?.totalPoints ?? 0;
+  const community = useCommunityStats();
 
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState(0);
 
   const hasProgress = (game.progress?.highestCompleted ?? 0) > 0;
   const onPlay = useCallback(() => navigate(!hasProgress && needsTutorial() ? '/tutorial' : '/play'), [navigate, hasProgress]);
@@ -44,15 +55,12 @@ export function MainMenu() {
 
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
-        setFocusedIndex((prev) => {
-          if (prev === null) return 0;
-          const dir = e.key === 'ArrowDown' ? 1 : -1;
-          return (prev + dir + actions.length) % actions.length;
-        });
+        const dir = e.key === 'ArrowDown' ? 1 : -1;
+        setFocusedIndex((prev) => (prev + dir + actions.length) % actions.length);
         return;
       }
 
-      if ((e.key === 'Enter' || e.key === ' ') && focusedIndex !== null) {
+      if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         actions[focusedIndex]();
       }
@@ -63,16 +71,9 @@ export function MainMenu() {
   }, [actions, focusedIndex]);
 
   function handlePointerDown() {
-    setFocusedIndex(null);
+    setFocusedIndex(0);
   }
 
-  function fc(idx: number) {
-    return focusedIndex === idx ? ' kb-focus' : '';
-  }
-
-  const playIdx = 0;
-  const dailyIdx = 1;
-  const levelSelectIdx = 2;
   const dailyDone = isDailyDone();
 
   return (
@@ -88,10 +89,7 @@ export function MainMenu() {
           <div className="mb-2 flex justify-center">
             <FlaskLogo className="h-16 w-auto text-slate-200" />
           </div>
-          <h1
-            className="text-4xl font-bold tracking-tight text-white"
-            style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
-          >
+          <h1 className="text-4xl font-bold tracking-tight text-white" style={fredoka}>
             GAUDI BALLZ
           </h1>
           <p className="mt-2 text-sm text-slate-400">{t('brand.tagline')}</p>
@@ -102,59 +100,64 @@ export function MainMenu() {
           )}
 
           {/* Play + actions */}
-          <div className="mx-auto mt-6 flex max-w-xs flex-wrap justify-center gap-3">
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.97 }}
-              onClick={onPlay}
-              onPointerDown={handlePointerDown}
-              className={`rounded-2xl bg-sky-500 px-8 py-3 font-semibold text-white shadow-lg shadow-sky-500/25 transition-colors hover:bg-sky-400${fc(playIdx)}`}
-              style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
-              data-testid="menu-play"
-            >
-              {t('menu.play')}
-            </motion.button>
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.97 }}
-              onClick={onDaily}
-              onPointerDown={handlePointerDown}
-              className={`relative rounded-2xl border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-sm text-amber-300 transition-colors hover:bg-amber-500/20 hover:text-amber-200${fc(dailyIdx)}`}
-              style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
-              data-testid="menu-daily"
-            >
-              {t('menu.dailyChallenge')}
-              {dailyDone && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[0.6rem] font-bold text-white shadow">
-                  ✓
-                </span>
-              )}
-            </motion.button>
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.97 }}
-              onClick={onLevelSelect}
-              onPointerDown={handlePointerDown}
-              className={`rounded-2xl border border-white/14 px-5 py-2.5 text-sm text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200${fc(levelSelectIdx)}`}
-              style={{ fontFamily: "'Fredoka', system-ui, sans-serif" }}
-              data-testid="menu-level-select"
-            >
-              {t('menu.levelSelect')}
-            </motion.button>
+          <div className="mx-auto mt-6 flex w-full max-w-xs flex-col gap-2.5">
+            {([
+              { action: onPlay, label: t('menu.play'), testId: 'menu-play', idx: 0, badge: false },
+              { action: onDaily, label: t('menu.dailyChallenge'), testId: 'menu-daily', idx: 1, badge: dailyDone },
+              { action: onLevelSelect, label: t('menu.levelSelect'), testId: 'menu-level-select', idx: 2, badge: false },
+            ] as const).map(({ action, label, testId, idx, badge }) => (
+              <motion.button
+                key={testId}
+                type="button"
+                whileTap={{ scale: 0.97 }}
+                onClick={action}
+                onPointerDown={handlePointerDown}
+                className={`relative w-full rounded-2xl px-5 py-3 font-semibold transition-colors ${
+                  focusedIndex === idx
+                    ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/25'
+                    : 'border border-white/14 text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                }`}
+                style={fredoka}
+                data-testid={testId}
+              >
+                {label}
+                {badge && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-[0.6rem] font-bold text-white shadow">
+                    ✓
+                  </span>
+                )}
+              </motion.button>
+            ))}
           </div>
         </div>
 
-        {/* Community stats */}
-        <StatsRibbon />
+        {/* Community chips */}
+        <StatsRibbon stats={community} />
 
         {/* Progress tiles */}
         <div className="mt-2">
           <ProgressTiles />
         </div>
 
-        {/* Recent games + Activity feed */}
-        <div className="mt-6 grid gap-5 md:grid-cols-2">
-          <RecentGames />
+        {/* Global activity chart + stats */}
+        {community && (
+          <div className="mt-6">
+            <div className="rounded-2xl px-4 pt-4 pb-3" style={CARD_BG}>
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500" style={fredoka}>
+                {t('community.activityTitle')}
+              </h3>
+              <ActivityChart days={community.dailyHistory} />
+            </div>
+            <div className="mt-2.5 grid grid-cols-3 gap-2">
+              <MiniStat label={t('playerActivity.thisWeek')} value={community.gamesThisWeek} />
+              <MiniStat label={t('playerActivity.thisMonth')} value={community.gamesThisMonth} />
+              <MiniStat label={t('playerActivity.allTime')} value={community.gamesAllTime} />
+            </div>
+          </div>
+        )}
+
+        {/* Activity feed */}
+        <div className="mt-6">
           <ActivityFeed />
         </div>
 
@@ -176,4 +179,111 @@ export function MainMenu() {
       </motion.div>
     </div>
   );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl px-3 py-2 text-center" style={CARD_BG}>
+      <div className="text-base font-bold tabular-nums text-sky-400" style={fredoka}>
+        {value.toLocaleString()}
+      </div>
+      <div className="text-[0.65rem] font-semibold text-slate-500" style={fredoka}>{label}</div>
+    </div>
+  );
+}
+
+interface DayEntry { readonly date: string; readonly count: number }
+
+function ActivityChart({ days }: { days: readonly DayEntry[] }) {
+  const [active, setActive] = useState<number | null>(null);
+  const max = Math.max(...days.map((d) => d.count), 1);
+  const W = 100;
+  const H = 40;
+  const barW = W / days.length;
+  const gap = barW * 0.2;
+
+  const weekday = (iso: string) => new Date(iso + 'T00:00:00').getUTCDay();
+
+  const activeDay = active !== null ? days[active] : null;
+
+  return (
+    <div>
+      <div className="relative">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="w-full"
+          style={{ height: 80 }}
+          preserveAspectRatio="none"
+          onMouseLeave={() => setActive(null)}
+        >
+          {days.map((d, i) => {
+            const barH = (d.count / max) * (H - 2);
+            const x = i * barW + gap / 2;
+            const w = barW - gap;
+            const y = H - barH;
+            const isMonday = weekday(d.date) === 1;
+            const isActive = active === i;
+            return (
+              <g key={d.date}>
+                {isMonday && i > 0 && (
+                  <line x1={x - gap / 2} y1={0} x2={x - gap / 2} y2={H} stroke="rgba(255,255,255,0.06)" strokeWidth={0.2} />
+                )}
+                <rect
+                  x={x}
+                  y={d.count > 0 ? y : H - 1}
+                  width={w}
+                  height={d.count > 0 ? barH : 1}
+                  rx={w / 3}
+                  fill={isActive ? '#7dd3fc' : d.count > 0 ? '#38bdf8' : 'rgba(255,255,255,0.06)'}
+                  opacity={d.count > 0 ? (isActive ? 1 : 0.4 + 0.6 * (d.count / max)) : 1}
+                />
+                <rect
+                  x={i * barW}
+                  y={0}
+                  width={barW}
+                  height={H}
+                  fill="transparent"
+                  onMouseEnter={() => setActive(i)}
+                  onTouchStart={() => setActive(i)}
+                />
+              </g>
+            );
+          })}
+        </svg>
+
+        {activeDay && active !== null && (
+          <div
+            className="pointer-events-none absolute -top-8 rounded-lg bg-slate-800 px-2.5 py-1 text-center shadow-lg ring-1 ring-white/10"
+            style={{
+              left: `${((active + 0.5) / days.length) * 100}%`,
+              transform: 'translateX(-50%)',
+            }}
+          >
+            <span className="text-xs font-bold tabular-nums text-sky-300" style={fredoka}>
+              {activeDay.count}
+            </span>
+            <span className="ml-1.5 text-[0.6rem] text-slate-500" style={fredoka}>
+              {formatLabel(activeDay.date)}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="mt-1 flex justify-between text-[0.6rem] tabular-nums text-slate-600" style={fredoka}>
+        <span>{formatShort(days[0].date)}</span>
+        <span>{formatShort(days[days.length - 1].date)}</span>
+      </div>
+    </div>
+  );
+}
+
+function formatShort(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
+}
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatLabel(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return `${WEEKDAYS[d.getUTCDay()]} ${d.getUTCDate()}/${d.getUTCMonth() + 1}`;
 }

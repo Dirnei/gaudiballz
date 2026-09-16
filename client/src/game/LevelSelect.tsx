@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useGameContext } from './GameContext';
-import { PageLayout } from './PageLayout';
+import { PageHeader } from './PageHeader';
+import { LevelLeaderboard } from './LevelLeaderboard';
 
 type TileState = 'completed' | 'current' | 'unlocked' | 'locked';
 
@@ -21,6 +22,8 @@ function tileState(
   return 'locked';
 }
 
+const fredoka = { fontFamily: "'Fredoka', system-ui, sans-serif" } as const;
+
 export function LevelSelect() {
   const { t } = useTranslation();
   const game = useGameContext();
@@ -31,6 +34,8 @@ export function LevelSelect() {
   const [levelCode, setLevelCode] = useState('');
   const [codeError, setCodeError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(levelId > 0 ? levelId : null);
+  const [showMobilePanel, setShowMobilePanel] = useState(false);
 
   async function handleCodeUnlock() {
     setCodeError(null);
@@ -71,9 +76,15 @@ export function LevelSelect() {
     navigate('/');
   }
 
-  function onSelectLevel(level: number) {
+  function playLevel(level: number) {
     game.goToLevel(level);
     navigate('/play');
+  }
+
+  function handleTileClick(level: number, state: TileState) {
+    if (state === 'locked') return;
+    setSelectedLevel(level);
+    setShowMobilePanel(true);
   }
 
   useEffect(() => {
@@ -110,41 +121,56 @@ export function LevelSelect() {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onBack();
+        if (showMobilePanel) {
+          setShowMobilePanel(false);
+        } else {
+          onBack();
+        }
         return;
       }
 
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         setFocusedIndex((prev) => {
-          if (prev === null) {
-            const idx = tiles.indexOf(levelId);
+          const cur = prev ?? (() => {
+            const idx = tiles.indexOf(selectedLevel ?? levelId);
             return idx >= 0 ? idx : 0;
+          })();
+          let next: number;
+          if (e.key === 'ArrowRight') {
+            next = Math.min(cur + 1, tiles.length - 1);
+          } else if (e.key === 'ArrowLeft') {
+            next = Math.max(cur - 1, 0);
+          } else if (e.key === 'ArrowDown') {
+            next = findVerticalNeighbour(cur, 'down');
+          } else {
+            next = findVerticalNeighbour(cur, 'up');
           }
 
-          if (e.key === 'ArrowRight') return Math.min(prev + 1, tiles.length - 1);
-          if (e.key === 'ArrowLeft') return Math.max(prev - 1, 0);
-          if (e.key === 'ArrowDown') return findVerticalNeighbour(prev, 'down');
-          if (e.key === 'ArrowUp') return findVerticalNeighbour(prev, 'up');
-          return prev;
+          const level = tiles[next];
+          const state = tileState(level, levelId, levelCeiling, progress);
+          if (state !== 'locked') {
+            setSelectedLevel(level);
+          }
+          return next;
         });
         return;
       }
 
       if (e.key === 'Enter' || e.key === ' ') {
-        if (focusedIndex === null) return;
+        if (selectedLevel === null) return;
         e.preventDefault();
-        const level = tiles[focusedIndex];
-        const state = tileState(level, levelId, levelCeiling, progress);
+        const state = tileState(selectedLevel, levelId, levelCeiling, progress);
         if (state !== 'locked') {
-          onSelectLevel(level);
+          game.goToLevel(selectedLevel);
+          navigate('/play');
         }
       }
     }
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [tiles, levelId, levelCeiling, progress, focusedIndex]);
+  }, [tiles, levelId, levelCeiling, progress, focusedIndex, selectedLevel, showMobilePanel, game, navigate]);
 
   useEffect(() => {
     if (focusedIndex !== null) {
@@ -166,20 +192,17 @@ export function LevelSelect() {
     setFocusedIndex(null);
   }
 
-  return (
-    <PageLayout
-      title={t('levels.title')}
-      trailing={totalPoints > 0 ? (
-        <span className="text-sm font-medium tabular-nums text-amber-400">
-          ★ {totalPoints.toLocaleString()}
-        </span>
-      ) : undefined}
-    >
-      <div className="grid max-w-lg mx-auto grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))] gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(4rem,1fr))]">
+  const selectedState = selectedLevel !== null ? tileState(selectedLevel, levelId, levelCeiling, progress) : null;
+  const selectedEntry = selectedLevel !== null ? progress.get(selectedLevel) : undefined;
+
+  const gridContent = (
+    <>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))] gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(3.5rem,1fr))]">
         {tiles.map((level, i) => {
           const state = tileState(level, levelId, levelCeiling, progress);
           const entry = progress.get(level);
           const accessible = state !== 'locked';
+          const isSelected = selectedLevel === level;
 
           return (
             <motion.button
@@ -189,18 +212,18 @@ export function LevelSelect() {
               disabled={!accessible}
               whileTap={accessible ? { scale: 0.92 } : undefined}
               transition={{ type: 'spring', stiffness: 700, damping: 26 }}
-              onClick={() => accessible && onSelectLevel(level)}
+              onClick={() => handleTileClick(level, state)}
               onPointerDown={handlePointerDown}
               data-testid={`tile-${level}`}
-              className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl text-center transition-colors ${tileClasses(state)}${focusedIndex === i ? ' kb-focus' : ''}`}
+              className={`relative flex aspect-square flex-col items-center justify-center rounded-2xl text-center transition-colors ${tileClasses(state, isSelected)}`}
             >
-              <span className={`text-base font-semibold tabular-nums ${state === 'locked' ? 'text-slate-600' : state === 'current' ? 'text-sky-100' : 'text-slate-200'}${level === 88 ? ' blur-sm' : ''}`}>
+              <span className={`text-base font-semibold tabular-nums ${state === 'locked' ? 'text-slate-600' : 'text-slate-200'}${level === 88 ? ' blur-sm' : ''}`}>
                 {level}
               </span>
               {state === 'completed' && entry && entry.stars > 0 && (
                 <span className="mt-0.5 flex gap-px text-[0.55rem]">
-                  {[1, 2, 3].map((i) => (
-                    <span key={i} className={i <= entry.stars ? 'text-amber-400' : 'text-slate-600'}>★</span>
+                  {[1, 2, 3].map((s) => (
+                    <span key={s} className={s <= entry.stars ? 'text-amber-400' : 'text-slate-600'}>★</span>
                   ))}
                 </span>
               )}
@@ -237,7 +260,7 @@ export function LevelSelect() {
         </div>
       )}
 
-      {/* Level code entry — always visible */}
+      {/* Level code entry */}
       <div className="mx-auto mt-6 flex max-w-xs items-center gap-2">
         <input
           value={levelCode}
@@ -273,16 +296,133 @@ export function LevelSelect() {
           </motion.p>
         )}
       </AnimatePresence>
-    </PageLayout>
+    </>
+  );
+
+  const detailPanel = selectedLevel !== null && (
+    <motion.div
+      key={selectedLevel}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      className="rounded-3xl bg-slate-800/60 p-5 ring-1 ring-white/10"
+    >
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-lg font-bold text-white" style={fredoka}>
+          Level {selectedLevel}
+        </span>
+        {selectedEntry && selectedEntry.stars > 0 && (
+          <span className="flex gap-0.5">
+            {[1, 2, 3].map((s) => (
+              <span key={s} className={`text-sm ${s <= selectedEntry.stars ? 'text-amber-400' : 'text-slate-600'}`}>★</span>
+            ))}
+          </span>
+        )}
+      </div>
+
+      <LevelLeaderboard level={selectedLevel} myId={game.identity?.playerId} />
+
+      <motion.button
+        type="button"
+        whileTap={{ scale: 0.96 }}
+        onClick={() => playLevel(selectedLevel)}
+        className="mt-5 w-full rounded-2xl bg-sky-500 px-4 py-3 font-semibold text-white shadow-lg shadow-sky-500/30"
+        style={fredoka}
+      >
+        {selectedState === 'completed' ? t('game.playAgain') : t('levels.play')}
+      </motion.button>
+    </motion.div>
+  );
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader
+        title={t('levels.title')}
+        trailing={totalPoints > 0 ? (
+          <span className="text-sm font-medium tabular-nums text-amber-400">
+            ★ {totalPoints.toLocaleString()}
+          </span>
+        ) : undefined}
+      />
+      <div className="flex-1 overflow-y-auto px-5 pb-6 pt-4">
+        <div className="mx-auto w-full max-w-lg sm:max-w-4xl sm:grid sm:grid-cols-[1fr_20rem] sm:gap-6">
+          <div>{gridContent}</div>
+          <div className="hidden sm:block sticky top-0 self-start">
+            {detailPanel || (
+              <div className="flex h-48 items-center justify-center rounded-3xl bg-white/3 ring-1 ring-white/5">
+                <p className="text-sm text-slate-500" style={fredoka}>{t('levelLeaderboard.selectLevel')}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile: full-screen leaderboard overlay */}
+      <AnimatePresence>
+        {selectedLevel !== null && showMobilePanel && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-end justify-center bg-slate-950/75 backdrop-blur-sm sm:hidden"
+            onClick={() => setShowMobilePanel(false)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-slate-800/95 p-5 shadow-2xl ring-1 ring-white/10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-lg font-bold text-white" style={fredoka}>
+                  Level {selectedLevel}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowMobilePanel(false)}
+                  className="text-sm text-slate-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {selectedEntry && selectedEntry.stars > 0 && (
+                <div className="mb-3 flex gap-0.5">
+                  {[1, 2, 3].map((s) => (
+                    <span key={s} className={`text-sm ${s <= selectedEntry.stars ? 'text-amber-400' : 'text-slate-600'}`}>★</span>
+                  ))}
+                </div>
+              )}
+
+              <LevelLeaderboard level={selectedLevel} myId={game.identity?.playerId} />
+
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.96 }}
+                onClick={() => playLevel(selectedLevel)}
+                className="mt-5 w-full rounded-2xl bg-sky-500 px-4 py-3.5 font-semibold text-white shadow-lg shadow-sky-500/30"
+                style={fredoka}
+              >
+                {selectedState === 'completed' ? t('game.playAgain') : t('levels.play')}
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
-function tileClasses(state: TileState): string {
+function tileClasses(state: TileState, isSelected: boolean): string {
+  if (isSelected) {
+    return 'bg-violet-500/20 ring-2 ring-violet-400/60 shadow-lg shadow-violet-500/20';
+  }
   switch (state) {
     case 'completed':
       return 'bg-white/8 ring-1 ring-white/10';
     case 'current':
-      return 'bg-sky-500/20 ring-2 ring-sky-400/60 shadow-lg shadow-sky-500/20';
     case 'unlocked':
       return 'bg-white/5 ring-1 ring-white/8';
     case 'locked':

@@ -2,14 +2,22 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { API } from './identity';
 
-interface CommunityStats {
+interface DayEntry {
+  readonly date: string;
+  readonly count: number;
+}
+
+export interface CommunityStats {
   readonly onlineCount: number;
   readonly solvedToday: number;
   readonly activeThisWeek: number;
+  readonly dailyHistory: readonly DayEntry[];
+  readonly gamesThisWeek: number;
+  readonly gamesThisMonth: number;
+  readonly gamesAllTime: number;
 }
 
-export function StatsRibbon() {
-  const { t } = useTranslation();
+export function useCommunityStats() {
   const [stats, setStats] = useState<CommunityStats | null>(null);
 
   useEffect(() => {
@@ -18,11 +26,16 @@ export function StatsRibbon() {
       try {
         const res = await fetch(`${API}/api/hub/community-stats`);
         if (res.ok && !cancelled) setStats(await res.json() as CommunityStats);
-      } catch { /* silent — stats are a nice-to-have */ }
+      } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
   }, []);
 
+  return stats;
+}
+
+export function StatsRibbon({ stats }: { stats: CommunityStats | null }) {
+  const { t } = useTranslation();
   if (!stats) return null;
 
   return (

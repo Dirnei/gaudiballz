@@ -20,6 +20,9 @@
     <PackageReference Include="MongoDB.Driver" />
     <PackageReference Include="Akka" />
     <PackageReference Include="Akka.Hosting" />
+    <PackageReference Include="Akka.Streams" />
+    <PackageReference Include="Akka.Persistence.MongoDb" />
+    <PackageReference Include="Akka.Persistence.Query" />
     <PackageReference Include="Fido2.AspNet" />
     <PackageReference Include="MailKit" />
   </ItemGroup>

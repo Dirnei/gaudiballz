@@ -148,7 +148,8 @@
     "invalidCode": "Invalid code.",
     "prevPage": "Previous page",
     "nextPage": "Next page",
-    "pageOf": "Page {{current}} of {{total}}"
+    "pageOf": "Page {{current}} of {{total}}",
+    "play": "Play"
   },
   "ballPicker": {
     "cantReach": "Can't reach the server, so there's nothing to choose from right now.",
@@ -189,6 +190,17 @@
     "pts": "{{points}} XP",
     "winPct": "{{pct}}% win"
   },
+  "levelLeaderboard": {
+    "title": "Level {{level}} Leaderboard",
+    "allTime": "All Time",
+    "thisWeek": "This Week",
+    "today": "Today",
+    "loading": "Loading leaderboard...",
+    "empty": "No results for this period yet.",
+    "yourRank": "Your rank: #{{rank}}",
+    "viewLeaderboard": "Leaderboard",
+    "selectLevel": "Select a level to see its leaderboard"
+  },
   "stats": {
     "title": "Your Stats",
     "registerPrompt": "Register an account to track your statistics and compete on the leaderboard.",
@@ -225,15 +237,16 @@
   "community": {
     "playingNow": "{{count}} playing now",
     "solvedToday": "{{count}} puzzles solved today",
-    "playersThisWeek": "{{count}} players this week"
+    "playersThisWeek": "{{count}} players this week",
+    "activityTitle": "Games played — last 4 weeks"
   },
-  "recentGames": {
-    "title": "Recent Games",
-    "won": "Won",
-    "lost": "Lost",
-    "level": "Level {{level}}",
-    "moves": "{{count}} moves",
-    "points": "{{points}} XP"
+  "playerActivity": {
+    "title": "Your Activity",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "allTime": "All Time",
+    "bestStreak": "Best Streak",
+    "winRate": "Win Rate"
   },
   "activityFeed": {
     "title": "Live Activity",

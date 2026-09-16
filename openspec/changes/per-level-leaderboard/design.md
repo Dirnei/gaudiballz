@@ -14,10 +14,12 @@ gameplay state; completions flow from it into `PuzzleStore` as direct MongoDB wr
 **Goals:**
 
 - Top-10 per-level leaderboard with time-period filtering (all time, this week, today)
-- Event-source every completion with full attempt detail (moves, hints, undos, restarts,
-  stars, elapsed time) so leaderboards can be calculated and recalculated for any window
+- Event-source every completion as raw facts (moves, hints, undos, restarts, elapsed time)
+  — scores are derived, not stored, so leaderboards can be recalculated if scoring changes
 - Viewer's own rank when outside the top 10
 - Accessible from the win screen and level-select screen
+- Establish Akka.Persistence infrastructure that future features (wallet, per-game actors)
+  can build on
 
 **Non-Goals:**
 
@@ -43,18 +45,26 @@ uses the same connection and the journal lives alongside existing collections.
 Rejected — Akka.Persistence gives sequence numbers, recovery, and snapshot support for
 free, and the journal format is what Akka.Streams can read directly.
 
-### 2. Completion event shape
+### 2. Completion event shape — raw facts, no scores
 
-**Choice**: Each event carries:
+**Choice**: Each event carries only observable facts:
 - `PlayerId`, `Username` (null if anonymous), `Level`
-- `Moves`, `Hints`, `Undos`, `Restarted` (bool), `Stars`, `Points`, `ElapsedTimeMs`
+- `Moves`, `Hints`, `Undos`, `Restarted` (bool), `ElapsedTimeMs`
 - `Timestamp` (UTC)
 - `ProfileBall` (nullable int)
 
-**Why**: This is the full set of attempt metadata the client already sends on completion.
-Journaling it preserves every attempt rather than only the best. Username and ProfileBall
-are denormalized onto the event so the projection can build leaderboard rows without
-joining against the player collection.
+Stars and points are **not** stored in the event. They are derived at projection time
+by calling `Scoring.Calculate(moves, hints, elapsedTimeMs, par, timeTarget)` — the same
+pure function the completion endpoint uses today. Par and time target come from
+`LevelCatalogue`, which is deterministic for a given level number.
+
+**Why**: Separating raw facts from derived scores means a scoring bug can be fixed by
+replaying the journal through corrected logic and rebuilding the materialized view. If
+Stars/Points were baked into the event, fixing a scoring bug would require either mutating
+the journal (violating immutability) or carrying a version/correction scheme.
+
+Username and ProfileBall are denormalized onto the event so the projection can build
+leaderboard rows without joining against the player collection.
 
 ### 3. Persistent actor per player for journaling
 
@@ -71,18 +81,31 @@ An actor earns its place here because the event journal has long-lived state (th
 sequence number), ordering matters (events must not be reordered for correct projection),
 and Akka.Persistence requires an actor host.
 
-### 4. Akka.Streams projection into a materialized collection
+### 4. Akka.Streams projection into a materialized MongoDB collection
 
 **Choice**: An Akka.Streams `PersistenceQuery` reads the journal by tag (all completion
-events) and projects them into a `level_leaderboard` MongoDB collection. The projection
-maintains one document per (level, playerId, period) tuple, keeping the best result seen
-in that period.
+events tagged `"level-completion"`) and projects them into a `level_leaderboard` MongoDB
+collection. The projection maintains one document per (level, playerId, period) tuple,
+keeping the best result seen in that period.
+
+The materialized collection is a regular MongoDB collection with a compound index — not
+an Akka snapshot. Akka snapshots are for actor recovery; the leaderboard collection is a
+read-optimized projection that the API queries directly, outside the actor system.
+
+For each event, the projection:
+1. Derives stars and points via `Scoring.Calculate()` using the event's raw facts
+2. Upserts three documents (all-time, weekly, daily) with dominance check — only updates
+   if the new result beats the existing best (same logic as `UpsertDailyResultAsync`)
 
 **Why**: Akka.Streams gives backpressured, resumable reads from the journal. The
 projection is a continuous stream that processes new events as they arrive. If the
-leaderboard logic changes or a new time window is needed, the projection can be replayed
-from the journal to rebuild the materialized view — this is the key benefit of event
-sourcing over direct writes.
+scoring logic changes or a new time window is needed, the projection can be replayed
+from the journal to rebuild the materialized view with corrected scores — this is the
+key benefit of separating raw events from derived scores.
+
+**Rebuild procedure**: Reset the stored offset to the beginning, optionally clear the
+`level_leaderboard` collection, restart the projection. All events replay through the
+current `Scoring.Calculate()`, producing a fully recalculated materialized view.
 
 **Periods**: The projection writes three entries per completion event:
 - All-time (period = null): update if the new result beats the existing best
@@ -159,3 +182,19 @@ would require navigation away from the current flow.
   username changes are ever added, the projection would need to handle renames (update
   materialized documents, but the journal events retain the original name as historical
   fact).
+
+## Future: what this infrastructure unlocks
+
+This change introduces Akka.Persistence and Akka.Streams to the project. Future changes
+can build on this without repeating the infrastructure setup:
+
+- **Points wallet**: A persistent actor that receives point credits as discrete events.
+  Replaces the current `TotalPoints = Sum(Points + BonusPoints)` derivation with an
+  authoritative point journal. If scoring changes, revoke old credits and issue corrected
+  ones. The global leaderboard would migrate to read from the wallet.
+- **Per-game actor**: A persistent actor per active game session that records moves as
+  they happen. Enables server-side replay, move validation, and "save only the best play"
+  control.
+- **Bonus recalculability**: Bonuses (first-clear, streak, time-bonus) are computed at
+  completion time in the current design and are not replayable from the completion journal
+  alone. The wallet change would make bonus credits individually journaled and correctable.

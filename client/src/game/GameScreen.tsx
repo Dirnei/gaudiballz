@@ -17,6 +17,7 @@ import { topColour, topRunLength } from '../engine/board';
 import { validate } from '../engine/rules';
 import { APP_VERSION } from './version';
 import { isComplete } from './isComplete';
+import { LevelLeaderboard } from './LevelLeaderboard';
 
 function hintLabel(remaining: number, cooldownEnd: number | null, stuck: boolean, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (remaining === 0) {
@@ -452,6 +453,7 @@ export function GameScreen() {
 
   const note = game.info?.chapterNote ?? null;
   const [showNote, setShowNote] = useState(false);
+  const [showLevelBoard, setShowLevelBoard] = useState(false);
 
   useEffect(() => {
     if (note === null) {
@@ -833,6 +835,29 @@ export function GameScreen() {
                   <span className="text-slate-500"> / {formatTime(game.info.timeTargetMs)}s</span>
                 )}
               </p>
+
+              {/* Per-level leaderboard toggle */}
+              <button
+                type="button"
+                onClick={() => setShowLevelBoard((v) => !v)}
+                className="mt-4 w-full rounded-xl bg-white/5 px-3 py-2 text-xs font-semibold text-violet-300 ring-1 ring-white/10"
+              >
+                {t('levelLeaderboard.viewLeaderboard')} {showLevelBoard ? '▾' : '▸'}
+              </button>
+              <AnimatePresence>
+                {showLevelBoard && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 text-left">
+                      <LevelLeaderboard level={game.levelId} myId={game.identity?.playerId} />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <motion.button
                 type="button"

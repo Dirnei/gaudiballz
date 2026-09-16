@@ -40,13 +40,13 @@ export function ProgressTiles() {
 
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-      <Tile value={totalPoints.toLocaleString()} label={t('stats.totalPoints')} color="text-amber-400" />
       <RankTile tier={playerRank.tier} subLevel={playerRank.subLevel} xp={totalPoints} />
       <Tile value={String(highestLevel)} label={t('stats.currentLevel')} color="text-violet-400" />
       <Tile value={String(streak)} label={t('stats.dayStreak')} color="text-emerald-400" />
-      {isRegistered && globalRank != null && globalRank > 0 && (
-        <Tile value={String(globalRank)} label={t('stats.globalRank')} color="text-sky-400" />
-      )}
+      {isRegistered && globalRank != null && globalRank > 0
+        ? <Tile value={`#${globalRank}`} label={t('stats.globalRank')} color="text-sky-400" />
+        : <Tile value={totalPoints.toLocaleString()} label={t('stats.totalPoints')} color="text-amber-400" />
+      }
     </div>
   );
 }

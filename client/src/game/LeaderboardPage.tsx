@@ -15,6 +15,7 @@ interface LeaderboardEntry {
   readonly username: string;
   readonly ball: number | null;
   readonly totalPoints: number;
+  readonly allTimeXp: number;
   readonly gamesPlayed: number;
   readonly gamesWon: number;
 }
@@ -125,13 +126,13 @@ export function LeaderboardPage() {
                       <td className="rounded-l-xl bg-white/4 py-2.5 px-3 font-bold tabular-nums text-slate-500" style={fredoka}>{e.rank}</td>
                       <td className="bg-white/4 py-2.5 px-3">
                         <div className="flex items-center gap-2">
-                          <RankRing tier={rankFromXp(e.totalPoints).tier} size={14}>
+                          <RankRing tier={rankFromXp(e.allTimeXp).tier} size={14}>
                             <span className="h-3.5 w-3.5 rounded-full flex-shrink-0" style={ballStyle(ballForAccount(e.ball, e.username))} />
                           </RankRing>
                           <span className="font-semibold" style={{ ...fredoka, color: isMe ? '#A855F7' : undefined }}>
                             {e.username}{isMe ? ` ${t('leaderboard.you')}` : ''}
                           </span>
-                          <RankBadge tier={rankFromXp(e.totalPoints).tier} subLevel={rankFromXp(e.totalPoints).subLevel} />
+                          <RankBadge tier={rankFromXp(e.allTimeXp).tier} subLevel={rankFromXp(e.allTimeXp).subLevel} />
                         </div>
                       </td>
                       <td className="bg-white/4 py-2.5 px-3 font-bold tabular-nums text-amber-400">{e.totalPoints.toLocaleString()}</td>

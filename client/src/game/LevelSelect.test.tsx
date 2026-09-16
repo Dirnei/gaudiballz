@@ -39,57 +39,42 @@ function press(key: string) {
 }
 
 describe('LevelSelect keyboard navigation', () => {
-  it('first arrow press focuses the current level', () => {
-    setup({ levelId: 5 });
-    press('ArrowRight');
-    expect(screen.getByTestId('tile-5')).toHaveClass('kb-focus');
-  });
-
-  it('ArrowRight moves to the next tile (lower number in descending order)', () => {
-    setup({ levelId: 5 });
-    press('ArrowRight');
-    press('ArrowRight');
-    expect(screen.getByTestId('tile-4')).toHaveClass('kb-focus');
-  });
-
-  it('ArrowLeft moves to the previous tile (higher number in descending order)', () => {
-    setup({ levelId: 5 });
-    press('ArrowRight');
-    press('ArrowLeft');
-    expect(screen.getByTestId('tile-6')).toHaveClass('kb-focus');
-  });
-
-  it('Enter starts an unlocked level', () => {
+  it('ArrowRight selects the next tile (lower number in descending order)', () => {
     const goToLevel = vi.fn();
     setup({ levelId: 5, goToLevel });
-    press('ArrowRight');
     press('ArrowRight');
     press('Enter');
     expect(goToLevel).toHaveBeenCalledWith(4);
   });
 
-  it('Enter on a locked tile does nothing', () => {
+  it('ArrowLeft selects the previous tile (higher number in descending order)', () => {
     const goToLevel = vi.fn();
-    setup({ levelId: 5, levelCeiling: 5, goToLevel });
-    press('ArrowRight');
+    setup({ levelId: 5, goToLevel });
     press('ArrowLeft');
     press('Enter');
-    expect(goToLevel).not.toHaveBeenCalled();
+    expect(goToLevel).toHaveBeenCalledWith(6);
+  });
+
+  it('Enter plays the selected level', () => {
+    const goToLevel = vi.fn();
+    setup({ levelId: 5, goToLevel });
+    press('Enter');
+    expect(goToLevel).toHaveBeenCalledWith(5);
+  });
+
+  it('arrow keys do not select locked tiles', () => {
+    const goToLevel = vi.fn();
+    setup({ levelId: 5, levelCeiling: 5, goToLevel });
+    press('ArrowLeft');
+    press('ArrowLeft');
+    press('Enter');
+    expect(goToLevel).toHaveBeenCalledWith(5);
   });
 
   it('Escape goes back', () => {
     setup();
     press('Escape');
     // Navigate('/')  is called — no error means the back action ran
-  });
-
-  it('pointer click clears keyboard focus', () => {
-    setup({ levelId: 5 });
-    press('ArrowRight');
-    expect(screen.getByTestId('tile-5')).toHaveClass('kb-focus');
-
-    fireEvent.pointerDown(screen.getByTestId('tile-3'));
-    expect(screen.getByTestId('tile-5')).not.toHaveClass('kb-focus');
   });
 });
 

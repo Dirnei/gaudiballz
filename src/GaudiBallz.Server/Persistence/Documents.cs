@@ -226,6 +226,28 @@ public sealed class DailyResultDocument
 }
 
 /// <summary>
+/// One entry in the per-level leaderboard materialized view. Keyed by
+/// "{level:D6}#{playerId}#{period|'alltime'}". The Akka.Streams projection upserts this
+/// with a dominance check so only the best result per (level, player, period) is kept.
+/// </summary>
+public sealed class LevelLeaderboardDocument
+{
+    public string Id { get; set; } = string.Empty;
+    public int Level { get; set; }
+    public string PlayerId { get; set; } = string.Empty;
+    public string? Username { get; set; }
+    public int? ProfileBall { get; set; }
+    public string? Period { get; set; }
+    public int BestStars { get; set; }
+    public int BestMoves { get; set; }
+    public int BestTimeMs { get; set; }
+    public DateTime UpdatedAt { get; set; }
+
+    public static string Key(int level, string playerId, string? period) =>
+        $"{level:D6}#{playerId}#{period ?? "alltime"}";
+}
+
+/// <summary>
 /// Registers class maps explicitly rather than relying on automatic mapping, which changes
 /// behaviour silently when a property is renamed or reordered.
 /// </summary>
@@ -328,6 +350,16 @@ public static class BsonRegistration
                 map.SetIgnoreExtraElements(true);
                 map.GetMemberMap(d => d.Username).SetIgnoreIfNull(true);
                 map.GetMemberMap(d => d.ProfileBall).SetIgnoreIfNull(true);
+            });
+
+            BsonClassMap.RegisterClassMap<LevelLeaderboardDocument>(map =>
+            {
+                map.AutoMap();
+                map.MapIdMember(l => l.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+                map.GetMemberMap(l => l.Username).SetIgnoreIfNull(true);
+                map.GetMemberMap(l => l.ProfileBall).SetIgnoreIfNull(true);
+                map.GetMemberMap(l => l.Period).SetIgnoreIfNull(true);
             });
 
             _registered = true;
