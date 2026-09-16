@@ -2,7 +2,7 @@
  * Recording and reading progress, with the offline queue in front of it.
  */
 
-import { API, authHeaders, sessionId as clientSessionId } from './identity';
+import { API, authHeaders, sessionId as clientSessionId, storedToken } from './identity';
 import { clearQueue, enqueue, forget, newId, pending, type PendingCompletion } from './completionQueue';
 
 export interface ProgressEntry {
@@ -60,6 +60,8 @@ export interface CompletionMetadata {
   readonly restarted: boolean;
   readonly colourCount: number;
   readonly parMoves: number;
+  /** Which attempt this completion closes, so the server counts it exactly once. */
+  readonly attemptId?: string;
 }
 
 export async function loadProgress(): Promise<Progress | null> {
@@ -100,6 +102,7 @@ export async function recordCompletion(
     sessionId: clientSessionId,
     colourCount: metadata?.colourCount,
     parMoves: metadata?.parMoves,
+    attemptId: metadata?.attemptId,
   });
   return drain();
 }
@@ -137,6 +140,7 @@ export async function drain(): Promise<CompletionResult> {
           sessionId: item.sessionId,
           colourCount: item.colourCount,
           parMoves: item.parMoves,
+          attemptId: item.attemptId,
         }),
       });
 
@@ -232,4 +236,40 @@ export async function flushAndClear(): Promise<void> {
   } catch {
     // Storage unavailable; there is nothing queued to worry about.
   }
+}
+
+/** How an attempt ended, for the endings the server cannot infer from a completion. */
+export type AttemptEnding = 'restarted' | 'abandoned';
+
+/**
+ * Reports an attempt that ended without a completion.
+ *
+ * `keepalive` lets the request outlive the page during an in-app departure; a closing tab
+ * uses `sendBeacon` instead, which cannot set headers and so carries the token in the body.
+ * Either way this is best-effort: a lost report costs one uncounted loss, which is a better
+ * failure than a departure the player cannot make.
+ */
+export function reportAttemptEnded(
+  level: number,
+  attemptId: string,
+  outcome: AttemptEnding,
+  { beacon = false }: { beacon?: boolean } = {},
+): void {
+  const url = `${API}/api/v1/progress/attempts/end`;
+  const token = storedToken();
+
+  if (beacon && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    const body = JSON.stringify({ level, attemptId, outcome, token });
+    navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+    return;
+  }
+
+  void fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ level, attemptId, outcome }),
+    keepalive: true,
+  }).catch(() => {
+    // Best-effort by design; see above.
+  });
 }

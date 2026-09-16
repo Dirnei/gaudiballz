@@ -29,7 +29,7 @@ interface PlayerStats {
   readonly totalPoints: number;
   readonly gamesPlayed: number;
   readonly gamesWon: number;
-  readonly winRate: number;
+  readonly winRate: number | null;
   readonly highestLevel: number;
   readonly bestMoves: number;
   readonly bestMovesLevel: number;
@@ -101,7 +101,7 @@ export function StatsPage() {
             {/* Stat cards */}
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
               <StatCard value={stats.totalPoints.toLocaleString()} label={t('stats.totalPoints')} color="text-amber-400" sub={stats.comparisons?.['points']} icon="star" iconBg="bg-amber-400/12" />
-              <StatCard value={String(stats.gamesPlayed)} label={t('stats.gamesPlayed')} color="text-emerald-400" sub={t('stats.wonAndRate', { won: stats.gamesWon, rate: stats.winRate })} icon="check" iconBg="bg-emerald-400/12" />
+              <StatCard value={String(stats.gamesPlayed)} label={t('stats.gamesPlayed')} color="text-emerald-400" sub={t('stats.wonAndRate', { won: stats.gamesWon, rate: stats.winRate ?? '—' })} icon="check" iconBg="bg-emerald-400/12" />
               <StatCard value={String(stats.highestLevel)} label={t('stats.highestLevel')} color="text-violet-400" sub={stats.comparisons?.['level']} icon="arrow" iconBg="bg-violet-400/12" />
               <StatCard value={String(stats.bestMoves)} label={t('stats.bestMoves')} color="text-sky-400" sub={stats.bestMovesLevel > 0 ? t('stats.levelN', { level: stats.bestMovesLevel }) : undefined} icon="chart" iconBg="bg-sky-400/12" />
               <StatCard value={String(stats.currentStreak)} label={t('stats.dayStreak')} color="text-emerald-400" sub={t('stats.bestDays', { days: stats.bestStreak })} icon="flame" iconBg="bg-emerald-400/12" />

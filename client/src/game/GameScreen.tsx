@@ -18,6 +18,7 @@ import { validate } from '../engine/rules';
 import { APP_VERSION } from './version';
 import { isComplete } from './isComplete';
 import { LevelLeaderboard } from './LevelLeaderboard';
+import { LeaveAttemptPrompt } from './LeaveAttemptPrompt';
 
 function hintLabel(remaining: number, cooldownEnd: number | null, stuck: boolean, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (remaining === 0) {
@@ -469,6 +470,8 @@ export function GameScreen() {
 
   return (
     <>
+      <LeaveAttemptPrompt active={game.attemptOpen} onLeave={game.abandonAttempt} />
+
       <header className="relative z-10 flex items-center gap-3 px-5 pt-3 pb-1">
         <button
           type="button"

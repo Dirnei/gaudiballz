@@ -8,7 +8,8 @@ namespace GaudiBallz.Server.Tests.Hub;
 /// Verifies that the profile ball colour is propagated into leaderboard and activity feed
 /// API responses, following the same denormalization pattern as Username.
 /// </summary>
-public sealed class HubBallTests : IClassFixture<HubApiFixture>
+[Collection(SharedHubApi.Name)]
+public sealed class HubBallTests
 {
     private readonly HubApiFixture _fixture;
 

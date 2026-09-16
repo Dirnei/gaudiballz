@@ -18,6 +18,8 @@ interface LeaderboardEntry {
   readonly allTimeXp: number;
   readonly gamesPlayed: number;
   readonly gamesWon: number;
+  /** Absent when the player has no recorded attempts — not the same as losing them all. */
+  readonly winRate: number | null;
 }
 
 interface LeaderboardResponse {
@@ -51,8 +53,14 @@ export function LeaderboardPage() {
   const allEntries = data?.entries ?? [];
   const top3 = allEntries.length >= 3 ? allEntries.slice(0, 3) : [];
   const rest = allEntries.length >= 3 ? allEntries.slice(3) : allEntries;
+  // The server decides the rate now, because it is the only side that knows what an
+  // attempt is. Null means "no attempts recorded", which reads as a dash rather than 0%.
   const winRate = (e: LeaderboardEntry) =>
-    e.gamesPlayed > 0 ? Math.round((e.gamesWon / e.gamesPlayed) * 100) : 0;
+    e.winRate ?? (e.gamesPlayed > 0 ? Math.round((e.gamesWon / e.gamesPlayed) * 100) : null);
+  const winRateText = (e: LeaderboardEntry) => {
+    const rate = winRate(e);
+    return rate === null ? '—' : `${rate}%`;
+  };
 
   const fredoka = { fontFamily: "'Fredoka', system-ui, sans-serif" } as const;
 
@@ -140,9 +148,9 @@ export function LeaderboardPage() {
                       <td className="rounded-r-xl bg-white/4 py-2.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <div className="h-1.5 w-12 rounded-full bg-white/6 overflow-hidden">
-                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${winRate(e)}%` }} />
+                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${winRate(e) ?? 0}%` }} />
                           </div>
-                          <span className="text-xs font-bold tabular-nums text-slate-400 min-w-[2rem] text-right">{winRate(e)}%</span>
+                          <span className="text-xs font-bold tabular-nums text-slate-400 min-w-[2rem] text-right">{winRateText(e)}</span>
                         </div>
                       </td>
                     </tr>
@@ -183,7 +191,7 @@ function PodiumSlot({
 }: {
   entry: LeaderboardEntry;
   rank: number;
-  winRate: number;
+  winRate: number | null;
   first?: boolean;
 }) {
   const { t } = useTranslation();
@@ -213,7 +221,9 @@ function PodiumSlot({
       </div>
       <div className="mt-0.5 truncate text-sm font-bold text-slate-200" style={fredoka}>{entry.username}</div>
       <div className="text-xs tabular-nums text-slate-500">{t('leaderboard.pts', { points: entry.totalPoints.toLocaleString() })}</div>
-      <div className="text-[0.65rem] font-bold text-emerald-400">{t('leaderboard.winPct', { pct: winRate })}</div>
+      <div className="text-[0.65rem] font-bold text-emerald-400">
+        {winRate === null ? '—' : t('leaderboard.winPct', { pct: winRate })}
+      </div>
       <div className={`mt-2 rounded-t-lg bg-gradient-to-t from-white/4 to-white/7 ring-1 ring-white/6 ring-b-0 ${pedestalH}`} />
     </div>
   );

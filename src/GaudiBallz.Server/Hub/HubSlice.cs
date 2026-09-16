@@ -55,6 +55,7 @@ public sealed class HubSlice : ISlice
                     : e.TotalPoints,
                 gamesPlayed = e.GamesPlayed,
                 gamesWon = e.GamesWon,
+                winRate = WinRate(e.GamesPlayed, e.GamesWon),
             }).ToArray();
 
             var playerId = tokens.Verify(BearerFrom(http));
@@ -84,6 +85,7 @@ public sealed class HubSlice : ISlice
                         allTimeXp = viewerAllTimeXp,
                         gamesPlayed = entry.GamesPlayed,
                         gamesWon = entry.GamesWon,
+                        winRate = WinRate(entry.GamesPlayed, entry.GamesWon),
                     };
                 }
             }
@@ -148,7 +150,8 @@ public sealed class HubSlice : ISlice
             PuzzleStore store,
             PlayerTokens tokens,
             IRequiredActor<PlayerRegion> registry,
-            IRequiredActor<WalletRegion> wallet) =>
+            IRequiredActor<WalletRegion> wallet,
+            IRequiredActor<CompletionJournalRegion> journal) =>
         {
             var playerId = tokens.Verify(BearerFrom(http));
             if (playerId is null)
@@ -188,9 +191,12 @@ public sealed class HubSlice : ISlice
                 .Select(d => new { date = d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), count = dailyLookup.GetValueOrDefault(d, 0) })
                 .ToArray();
 
-            var gamesPlayed = progress.LevelsCompleted;
-            var gamesWon = progress.Levels.Values.Count(r => r.Stars > 0);
-            var winRate = gamesPlayed > 0 ? (int)Math.Round(100.0 * gamesWon / gamesPlayed) : 0;
+            // Attempts, not distinct levels: an attempt ended by restarting or by walking
+            // away counts against the rate, which is the whole point of tracking them.
+            var counts = await ProgressionSlice.TryGetAttemptCountsAsync(journal, playerId);
+            var gamesPlayed = counts?.Attempts ?? 0;
+            var gamesWon = counts?.Completions ?? 0;
+            var winRate = WinRate(gamesPlayed, gamesWon);
 
             var bestMoves = progress.Levels.Count > 0
                 ? progress.Levels.MinBy(p => p.Value.Moves)
@@ -450,6 +456,15 @@ public sealed class HubSlice : ISlice
 
         return best;
     }
+
+    /// <summary>
+    /// Completions over attempts, or null when there are none.
+    ///
+    /// Null rather than zero on purpose: a player who has not attempted anything since
+    /// attempt tracking began has not lost every game, and 0% says they have.
+    /// </summary>
+    private static int? WinRate(int played, int won) =>
+        played > 0 ? (int)Math.Round(100.0 * won / played) : null;
 
     private static string? BearerFrom(HttpContext http)
     {

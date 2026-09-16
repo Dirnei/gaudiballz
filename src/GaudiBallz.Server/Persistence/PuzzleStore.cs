@@ -547,9 +547,14 @@ public sealed class PuzzleStore
             token);
     }
 
+    /// <param name="won">
+    /// Whether the attempt being recorded ended in a completion. A period row counts the
+    /// attempts made inside that period, so a restart or an abandonment arrives here too,
+    /// adding to games played without adding to games won.
+    /// </param>
     public Task UpsertPeriodLeaderboardAsync(
         string playerId, string? username, string period, int periodPoints,
-        int? profileBall = null, CancellationToken token = default)
+        int? profileBall = null, bool won = true, CancellationToken token = default)
     {
         var now = DateTime.UtcNow;
 
@@ -562,6 +567,9 @@ public sealed class PuzzleStore
                 .Set(l => l.Period, period)
                 .Inc(l => l.TotalPoints, periodPoints)
                 .Inc(l => l.GamesPlayed, 1)
+                // Counted here rather than read from a total, because a period's wins are by
+                // definition the attempts made inside it, which no running tally tracks.
+                .Inc(l => l.GamesWon, won ? 1 : 0)
                 .Set(l => l.UpdatedAt, now),
             new UpdateOptions { IsUpsert = true },
             token);

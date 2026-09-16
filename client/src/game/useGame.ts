@@ -11,12 +11,13 @@ import {
   restartLevel,
   spendHint,
   spendUndo,
+  newAttemptId,
   startLevel,
   type Attempt,
 } from './attempt';
 import { ceilingFor, forgetUnlocked, readUnlocked, rememberUnlocked } from './ceiling';
 import {
-  drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion,
+  drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion, reportAttemptEnded,
   type NewAchievement, type NewBadge, type Progress, type RankUpEvent,
 } from './progress';
 import {
@@ -150,6 +151,23 @@ export function useGame() {
   const plan = useRef<Move[]>([]);
 
   const restartedLevels = useRef(new Set<number>());
+
+  /**
+   * Identifies the attempt currently being played.
+   *
+   * The server counts an attempt once per id, which is what lets a departure be reported
+   * twice — by the player confirming it and by the closing tab's beacon — without charging
+   * two losses.
+   *
+   * `attemptOpen` says whether there is anything to lose. It goes true on the first move
+   * rather than when the level loads, so opening a board to look at it and backing out costs
+   * nothing, and goes false the moment the board is solved.
+   */
+  const attemptId = useRef(newAttemptId());
+  const [attemptOpen, setAttemptOpen] = useState(false);
+
+  /** Marks the attempt as begun. Called on every move; only the first one matters. */
+  const beginAttempt = useCallback(() => setAttemptOpen(true), []);
   const undosUsed = useRef(0);
   const totalMoves = useRef(0);
   const [colourCount, setColourCount] = useState(0);
@@ -218,6 +236,8 @@ export function useGame() {
     undosUsed.current = 0;
     totalMoves.current = 0;
     restartedLevels.current.delete(levelId);
+    attemptId.current = newAttemptId();
+    setAttemptOpen(false);
     elapsed.reset();
     setAttemptStars(0);
     setAttemptPoints(0);
@@ -293,6 +313,7 @@ export function useGame() {
         // The player moved for themselves; whatever line was planned no longer applies.
         plan.current = [];
         totalMoves.current += 1;
+        beginAttempt();
         setState(next);
         setSelected(null);
       } else {
@@ -312,6 +333,7 @@ export function useGame() {
       if (next !== state) {
         plan.current = [];
         totalMoves.current += 1;
+        beginAttempt();
         setState(next);
         setSelected(null);
       }
@@ -399,6 +421,7 @@ export function useGame() {
     const next = play(state, suggestion);
     if (next !== state) {
       totalMoves.current += 1;
+      beginAttempt();
       setState(next);
     }
 
@@ -448,6 +471,13 @@ export function useGame() {
     undosUsed.current = 0;
     totalMoves.current = 0;
     restartedLevels.current.add(levelId);
+    // Only an attempt that was actually played is lost by restarting; wiping an untouched
+    // board throws nothing away.
+    if (attemptOpen) {
+      reportAttemptEnded(levelId, attemptId.current, 'restarted');
+    }
+    attemptId.current = newAttemptId();
+    setAttemptOpen(false);
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
     elapsed.reset();
     setAttemptStars(0);
@@ -460,7 +490,7 @@ export function useGame() {
     setStreakBonus(0);
     setRankUp(null);
     setState((current) => (current === null ? current : restartState(current)));
-  }, [levelId]);
+  }, [levelId, attemptOpen]);
 
   /**
    * Records a completion once per solved attempt.
@@ -469,6 +499,19 @@ export function useGame() {
    * request leaves the work waiting rather than losing it.
    */
   const recorded = useRef<string | null>(null);
+
+  /**
+   * Ends the current attempt as a loss, for a player who is leaving the level unfinished.
+   *
+   * Safe to call twice — the confirmed departure and the unload beacon both land on the same
+   * attempt id, and the server counts an id once. Closing the attempt locally as well stops
+   * the modal reappearing on the way out.
+   */
+  const abandonAttempt = useCallback((options: { beacon?: boolean } = {}) => {
+    if (!attemptOpen) return;
+    reportAttemptEnded(levelId, attemptId.current, 'abandoned', options);
+    setAttemptOpen(false);
+  }, [attemptOpen, levelId]);
   useEffect(() => {
     if (state === null || !isSolved(state.board)) {
       return;
@@ -479,12 +522,15 @@ export function useGame() {
       return;
     }
     recorded.current = attempt;
+    // Solved, so there is no longer an attempt to abandon.
+    setAttemptOpen(false);
 
     void (async () => {
       const result = await recordCompletion(levelId, totalMoves.current, hintsUsed, {
         elapsedTimeMs: elapsed.elapsedMs(),
         undoCount: undosUsed.current,
         restarted: restartedLevels.current.has(levelId),
+        attemptId: attemptId.current,
         colourCount,
         parMoves: info?.parMoves ?? 0,
       });
@@ -631,6 +677,9 @@ export function useGame() {
   return {
     levelId,
     levelCode,
+    attemptId: attemptId.current,
+    attemptOpen,
+    abandonAttempt,
     levelCeiling,
     levelProgress,
     info,

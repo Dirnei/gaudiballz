@@ -46,6 +46,87 @@ public sealed class ProgressionSlice : ISlice
             return Results.Ok(Shape(snapshot, walletBalance));
         });
 
+        // Reports an attempt that ended without a completion. A completion arrives through
+        // /completions instead, because it carries the facts the journal records with it.
+        group.MapPost("/attempts/end",
+            async (HttpContext http, EndAttemptRequest request, PlayerTokens tokens,
+                   PuzzleStore store, IRequiredActor<CompletionJournalRegion> journal,
+                   IRequiredActor<WalletRegion> wallet) =>
+            {
+                // sendBeacon cannot set an Authorization header, so a tab closing mid-attempt
+                // has nowhere to put the token but the body.
+                var playerId = tokens.Verify(BearerFrom(http) ?? request.Token);
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                if (request.Level < 1 || string.IsNullOrWhiteSpace(request.AttemptId))
+                {
+                    return Results.BadRequest(new { error = "An attempt ending needs a level and an attempt id.", code = "attempt-invalid" });
+                }
+
+                var outcome = request.Outcome?.ToLowerInvariant() switch
+                {
+                    "restarted" => AttemptOutcome.Restarted,
+                    "abandoned" => AttemptOutcome.Abandoned,
+                    _ => (AttemptOutcome?)null,
+                };
+
+                if (outcome is null)
+                {
+                    return Results.BadRequest(new { error = "An attempt ends as restarted or abandoned.", code = "attempt-outcome-invalid" });
+                }
+
+                try
+                {
+                    // The actor ignores an id it has already closed, so a duplicate beacon
+                    // and a confirmed departure both land here and only one is counted.
+                    var counts = await journal.ActorRef.Ask<AttemptEnded>(
+                        new EndAttempt(playerId, request.Level, request.AttemptId, outcome.Value),
+                        AskTimeout);
+
+                    // A loss should show up without waiting for the player's next clear, so
+                    // the standings are refreshed here too. Best-effort: a player who is not
+                    // on the leaderboard at all has nothing to refresh.
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var player = await store.FindPlayerAsync(playerId);
+                            if (player is not { IsAnonymous: false, Username: not null })
+                            {
+                                return;
+                            }
+
+                            var progress = await store.LoadProgressAsync(playerId);
+                            await store.UpsertLeaderboardAsync(
+                                playerId, player.Username,
+                                await TryGetBalanceAsync(wallet, playerId) ?? progress.TotalPoints,
+                                counts.Attempts, counts.Completions, player.ProfileBall);
+
+                            var now = DateTime.UtcNow;
+                            foreach (var period in new[] { IsoWeek(now), now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) })
+                            {
+                                await store.UpsertPeriodLeaderboardAsync(
+                                    playerId, player.Username, period, 0, player.ProfileBall, won: false);
+                            }
+                        }
+                        catch
+                        {
+                            // Standings are best-effort; never fail a departure for them.
+                        }
+                    });
+
+                    return Results.Ok(new { attempts = counts.Attempts, completions = counts.Completions });
+                }
+                catch (TaskCanceledException)
+                {
+                    // Losing a loss is better than failing a departure the player already made.
+                    return Results.Ok(new { attempts = (int?)null, completions = (int?)null });
+                }
+            });
+
         group.MapPost("/completions",
             async (HttpContext http, CompletionRequest request, IRequiredActor<PlayerRegion> registry,
                    PlayerTokens tokens, PuzzleStore store, IRequiredActor<AchievementRegion> achievements,
@@ -133,7 +214,8 @@ public sealed class ProgressionSlice : ISlice
                     request.UndoCount ?? 0,
                     request.Restarted ?? false,
                     request.ElapsedTimeMs,
-                    player?.ProfileBall));
+                    player?.ProfileBall,
+                    request.AttemptId));
 
                 // Wallet: credit each earning (fire-and-forget)
                 wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.BaseScore, attemptPoints));
@@ -175,22 +257,27 @@ public sealed class ProgressionSlice : ISlice
                             var leaderboardXp = await TryGetBalanceAsync(wallet, playerId)
                                 ?? updatedProgress.TotalPoints + bonus.Total;
 
+                            // Attempts and wins, not distinct levels: a level cleared on the
+                            // third try is three games played and one won.
+                            var counts = await TryGetAttemptCountsAsync(journal, playerId);
+
                             await store.UpsertLeaderboardAsync(
                                 playerId, player.Username,
                                 leaderboardXp,
-                                updatedProgress.LevelsCompleted,
-                                updatedProgress.Levels.Values.Count(r => r.Stars > 0),
+                                counts?.Attempts ?? updatedProgress.LevelsCompleted,
+                                counts?.Completions ?? updatedProgress.Levels.Values.Count(r => r.Stars > 0),
                                 ball);
 
-                            var weekPeriod = $"{DateTime.UtcNow.Year}-W{System.Globalization.CultureInfo.InvariantCulture.Calendar.GetWeekOfYear(DateTime.UtcNow, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday):D2}";
+                            var weekPeriod = IsoWeek(DateTime.UtcNow);
                             var dayPeriod = DateTime.UtcNow.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
+                            // Unconditional, where it used to be skipped unless the attempt
+                            // earned points. A period's games played and win rate have to
+                            // count the attempts that earned nothing, or every period reads
+                            // as though the player never lost.
                             var earnedThisAttempt = starDelta + bonus.Total;
-                            if (earnedThisAttempt > 0)
-                            {
-                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, weekPeriod, earnedThisAttempt, ball);
-                                await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, earnedThisAttempt, ball);
-                            }
+                            await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, weekPeriod, earnedThisAttempt, ball, won: true);
+                            await store.UpsertPeriodLeaderboardAsync(playerId, player.Username, dayPeriod, earnedThisAttempt, ball, won: true);
 
                             var timeMs = request.ElapsedTimeMs ?? 0;
                             await store.UpsertLevelLeaderboardAsync(
@@ -289,6 +376,35 @@ public sealed class ProgressionSlice : ISlice
         }
     }
 
+    /// <summary>
+    /// The attempt tally, or null when the journal cannot answer in time.
+    ///
+    /// Same shape as the wallet's balance lookup: the counts are worth waiting a moment for
+    /// and never worth failing a request over.
+    /// </summary>
+    internal static async Task<AttemptCounts?> TryGetAttemptCountsAsync(
+        IRequiredActor<CompletionJournalRegion> journal, string playerId)
+    {
+        try
+        {
+            return await journal.ActorRef.Ask<AttemptCounts>(
+                new GetAttemptCounts(playerId), WalletAskTimeout);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The period key for a week, matching the one the hub queries by.</summary>
+    private static string IsoWeek(DateTime utc)
+    {
+        var calendar = System.Globalization.CultureInfo.InvariantCulture.Calendar;
+        var week = calendar.GetWeekOfYear(
+            utc, System.Globalization.CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+        return $"{utc.Year}-W{week:D2}";
+    }
+
     private static object Shape(ProgressSnapshot snapshot, int? walletBalance = null)
     {
         var totalPoints = walletBalance ?? snapshot.Progress.TotalPoints;
@@ -375,7 +491,19 @@ public sealed class ProgressionSlice : ISlice
         bool? Restarted = null,
         string? SessionId = null,
         int? ColourCount = null,
-        int? ParMoves = null);
+        int? ParMoves = null,
+        /// <summary>Identifies the attempt this completion closes, so it is counted once.</summary>
+        string? AttemptId = null);
+
+    /// <param name="Token">
+    /// Carried in the body for the unload beacon, which cannot set request headers. Ignored
+    /// when an Authorization header is present.
+    /// </param>
+    public sealed record EndAttemptRequest(
+        int Level,
+        string AttemptId,
+        string? Outcome,
+        string? Token = null);
 
     public sealed record MergeEntry(int Level, int Moves, int Hints, int Stars = 0, int Points = 0);
 

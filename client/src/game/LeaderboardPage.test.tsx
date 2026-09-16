@@ -20,6 +20,11 @@ const entries = [
   { rank: 4, playerId: 'p4', username: 'NewPlayer', totalPoints: 4000, gamesPlayed: 60, gamesWon: 30 },
 ];
 
+/** A player who has recorded no attempts since attempt tracking began. */
+const noAttempts = [
+  { rank: 1, playerId: 'p9', username: 'Unplayed', totalPoints: 4000, gamesPlayed: 0, gamesWon: 0, winRate: null },
+];
+
 function setup(playerId = 'p4') {
   mockGame.current = { identity: { playerId, isAnonymous: false, username: 'NewPlayer' } };
   vi.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -48,5 +53,26 @@ describe('LeaderboardPage', () => {
     await screen.findByText('TubeKing');
     fireEvent.click(screen.getByText('This Week'));
     expect(globalThis.fetch).toHaveBeenCalledWith(expect.stringContaining('period=week'), expect.anything());
+  });
+
+  it('shows a dash rather than 0% for a player with no attempts', async () => {
+    mockGame.current = { identity: { playerId: 'p9', isAnonymous: false, username: 'Unplayed' } };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ entries: noAttempts, viewer: noAttempts[0], total: 1 }),
+    } as Response);
+
+    render(
+      <MemoryRouter>
+        <LeaderboardPage />
+      </MemoryRouter>,
+    );
+
+    // The viewer's own row reads "Unplayed (you)", so match loosely.
+    await screen.findByText(/Unplayed/);
+
+    // 0% would claim they lost every game; they have played none.
+    expect(screen.queryByText('0%')).toBeNull();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 });

@@ -8,7 +8,7 @@ interface ActivityStats {
   readonly gamesThisMonth: number;
   readonly gamesAllTime: number;
   readonly bestStreak: number;
-  readonly winRate: number;
+  readonly winRate: number | null;
 }
 
 const fredoka = { fontFamily: "'Fredoka', system-ui, sans-serif" } as const;
@@ -56,7 +56,7 @@ export function PlayerActivity() {
       </div>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <MiniStat label={t('playerActivity.bestStreak')} value={`${stats.bestStreak}d`} />
-        <MiniStat label={t('playerActivity.winRate')} value={`${stats.winRate}%`} />
+        <MiniStat label={t('playerActivity.winRate')} value={stats.winRate === null ? '—' : `${stats.winRate}%`} />
       </div>
     </div>
   );

@@ -43,3 +43,17 @@ public sealed class HubApiFixture : WebApplicationFactory<Program>, IAsyncLifeti
         await _container.DisposeAsync();
     }
 }
+
+/// <summary>
+/// Groups the API test classes that need the real application, so they share one instance
+/// of it and one MongoDB between them.
+///
+/// Shared for the same reason <c>SharedMongo</c> exists: an <c>IClassFixture</c> is built per
+/// class, so three classes meant three replica sets starting at once and one of them losing
+/// the race. Sharing is safe because every test here addresses its own randomly-named player.
+/// </summary>
+[CollectionDefinition(Name)]
+public sealed class SharedHubApi : ICollectionFixture<HubApiFixture>
+{
+    public const string Name = "hub-api";
+}

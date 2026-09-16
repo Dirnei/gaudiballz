@@ -79,3 +79,10 @@ export function spendHint(attempt: Attempt): Attempt {
 export function restartLevel(): Attempt {
   return startLevel();
 }
+
+/** A fresh identifier for an attempt, so the server can count each one exactly once. */
+export function newAttemptId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
