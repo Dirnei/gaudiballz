@@ -16,10 +16,7 @@ import { useDrag, type Point } from './useDrag';
 import { topColour, topRunLength } from '../engine/board';
 import { validate } from '../engine/rules';
 import { APP_VERSION } from './version';
-
-function isComplete(tube: readonly number[], capacity: number): boolean {
-  return tube.length === capacity && tube.every((colour) => colour === tube[0]);
-}
+import { isComplete } from './isComplete';
 
 function hintLabel(remaining: number, cooldownEnd: number | null, stuck: boolean, t: (key: string, opts?: Record<string, unknown>) => string): string {
   if (remaining === 0) {
@@ -251,7 +248,7 @@ export function GameScreen() {
     },
     onDragStart: () => {
       const idx = pendingTubeRef.current;
-      if (idx === null || !board || board.tubes[idx].length === 0) return;
+      if (idx === null || !board || board.tubes[idx].length === 0 || isComplete(board.tubes[idx], board.capacity)) return;
       dragSourceRef.current = idx;
       setDragSource(idx);
       if (game.selected !== null && game.selected !== idx) {
@@ -398,6 +395,7 @@ export function GameScreen() {
         case 'Enter':
         case ' ': {
           if (focusedTube === null) return;
+          if (game.selected === null && board && isComplete(board.tubes[focusedTube], board.capacity)) return;
           e.preventDefault();
           haptics.move();
           game.tapTube(focusedTube);

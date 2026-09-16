@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isComplete } from './isComplete';
 import { useElapsedTime } from './useElapsedTime';
 import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
 import { loadAchievements, type AchievementState } from './achievements';
@@ -275,7 +276,8 @@ export function useGame() {
       }
 
       if (selected === null) {
-        if (state.board.tubes[index].length > 0) {
+        const tube = state.board.tubes[index];
+        if (tube.length > 0 && !isComplete(tube, state.board.capacity)) {
           setSelected(index);
         }
         return;
@@ -296,7 +298,8 @@ export function useGame() {
       } else {
         // Illegal: treat the tap as picking up the new tube instead of doing nothing, so
         // a mis-tap never costs a second tap.
-        setSelected(state.board.tubes[index].length > 0 ? index : null);
+        const tube = state.board.tubes[index];
+        setSelected(tube.length > 0 && !isComplete(tube, state.board.capacity) ? index : null);
       }
     },
     [state, selected],

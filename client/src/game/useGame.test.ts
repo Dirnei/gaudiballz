@@ -86,3 +86,13 @@ describe('the hint cooldown ends on its own', () => {
     expect(result.current.hintCooldownEnd).toBeNull();
   });
 });
+
+describe('finished column lock', () => {
+  it('identifies finished tubes correctly', async () => {
+    const { isComplete } = await import('./isComplete');
+    expect(isComplete([1, 1, 1], 3)).toBe(true);
+    expect(isComplete([1, 2, 1], 3)).toBe(false);
+    expect(isComplete([1, 1], 3)).toBe(false);
+    expect(isComplete([], 3)).toBe(false);
+  });
+});

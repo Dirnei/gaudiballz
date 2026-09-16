@@ -200,3 +200,46 @@ describe('hover feedback', () => {
     expect(tubeBody(tubes[2]).style.boxShadow).toContain(TARGET_SHADOW);
   });
 });
+
+describe('finished column lock', () => {
+  function renderWithFinishedTube() {
+    localStorage.setItem('puzzle.tutorialSeen', '1');
+    game.current = playing({
+      state: {
+        board: {
+          tubes: [[1, 1, 1], [2, 1, 2], [1], []],
+          capacity: 3,
+          colourCount: 2,
+        },
+        moves: [],
+        history: [],
+      },
+    });
+    const router = createMemoryRouter(routes, { initialEntries: ['/play'] });
+    render(
+      <GameProvider>
+        <RouterProvider router={router} />
+      </GameProvider>,
+    );
+  }
+
+  it('drag does not initiate from a finished column', () => {
+    renderWithFinishedTube();
+    const tubes = screen.getAllByRole('button', { name: /tube/i });
+
+    fireEvent.pointerDown(tubes[0], { clientX: 100, clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(tubes[0], { clientX: 100, clientY: 130, pointerId: 1 });
+
+    expect(screen.queryByText(/drag/i)).toBeNull();
+    expect((game.current as any).tapTube).not.toHaveBeenCalled();
+  });
+
+  it('keyboard activation on a finished column with nothing selected does not select it', () => {
+    renderWithFinishedTube();
+
+    fireEvent.keyDown(document, { key: 'ArrowRight' });
+    fireEvent.keyDown(document, { key: 'Enter' });
+
+    expect((game.current as any).tapTube).not.toHaveBeenCalled();
+  });
+});
