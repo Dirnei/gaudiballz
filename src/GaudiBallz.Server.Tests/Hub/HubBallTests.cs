@@ -94,6 +94,26 @@ public sealed class HubBallTests : IClassFixture<HubApiFixture>
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// The leaderboard upsert runs after the completion response, and it now waits on the
+    /// wallet for the player's XP total, so the entry lands a beat after the request returns.
+    /// </summary>
+    private async Task WaitForLeaderboardAsync(string playerId)
+    {
+        for (var attempt = 0; attempt < 40; attempt++)
+        {
+            var (_, entry) = await _fixture.Store.GetPlayerRankAsync(playerId, null, Token);
+            if (entry is not null)
+            {
+                return;
+            }
+
+            await Task.Delay(250, Token);
+        }
+
+        Assert.Fail("The leaderboard entry never appeared.");
+    }
+
     // ---- leaderboard includes ball -----------------------------------------
 
     [Fact]
@@ -112,6 +132,7 @@ public sealed class HubBallTests : IClassFixture<HubApiFixture>
 
         // Complete another level to trigger leaderboard upsert with the ball
         await CompleteAsync(client, account.Token, 2);
+        await WaitForLeaderboardAsync(account.PlayerId);
 
         var response = await client.SendAsync(
             Get("/api/hub/leaderboard", account.Token), Token);
@@ -146,6 +167,7 @@ public sealed class HubBallTests : IClassFixture<HubApiFixture>
 
         // Complete again to trigger leaderboard upsert
         await CompleteAsync(client, account.Token, 2);
+        await WaitForLeaderboardAsync(account.PlayerId);
 
         var response = await client.SendAsync(
             Get("/api/hub/leaderboard", account.Token), Token);
@@ -209,6 +231,7 @@ public sealed class HubBallTests : IClassFixture<HubApiFixture>
         // Complete levels so leaderboard is populated
         await CompleteAsync(client, account.Token, 1);
         await CompleteAsync(client, account.Token, 2);
+        await WaitForLeaderboardAsync(account.PlayerId);
 
         // Set ball to colour 2
         (await client.SendAsync(

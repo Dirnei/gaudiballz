@@ -146,7 +146,8 @@ public sealed class HubSlice : ISlice
             HttpContext http,
             PuzzleStore store,
             PlayerTokens tokens,
-            PlayerRegistry registry) =>
+            PlayerRegistry registry,
+            WalletRegistry wallet) =>
         {
             var playerId = tokens.Verify(BearerFrom(http));
             if (playerId is null)
@@ -163,6 +164,8 @@ public sealed class HubSlice : ISlice
             var snapshot = await registry.Actor.Ask<ProgressSnapshot>(
                 new LoadProgress(playerId), TimeSpan.FromSeconds(5));
             var progress = snapshot.Progress;
+            var totalXp = await ProgressionSlice.TryGetBalanceAsync(wallet, playerId)
+                ?? progress.TotalPoints;
 
             var dailyPlay = await store.LoadDailyPlayAsync(playerId);
             var currentStreak = CalculateStreak(dailyPlay);
@@ -196,8 +199,8 @@ public sealed class HubSlice : ISlice
 
             var achievements = await store.LoadAchievementsAsync(playerId);
 
-            var (rankTier, rankSubLevel) = RankTier.FromXp(progress.TotalPoints);
-            var nextThreshold = RankTier.NextThreshold(progress.TotalPoints);
+            var (rankTier, rankSubLevel) = RankTier.FromXp(totalXp);
+            var nextThreshold = RankTier.NextThreshold(totalXp);
 
             var badges = await store.LoadBadgesAsync(playerId);
             var earnedBadgeIds = badges.Select(b => b.BadgeId).ToHashSet();
@@ -224,7 +227,7 @@ public sealed class HubSlice : ISlice
 
             return Results.Ok(new
             {
-                totalPoints = progress.TotalPoints,
+                totalPoints = totalXp,
                 gamesPlayed,
                 gamesWon,
                 winRate,
@@ -246,7 +249,7 @@ public sealed class HubSlice : ISlice
                 {
                     tier = rankTier.ToString().ToLowerInvariant(),
                     subLevel = rankSubLevel,
-                    currentXp = progress.TotalPoints,
+                    currentXp = totalXp,
                     nextThreshold,
                 },
                 badges = badgeShelf,

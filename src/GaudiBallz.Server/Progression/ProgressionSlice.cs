@@ -25,6 +25,7 @@ public sealed class ProgressionSlice : ISlice
 {
     private static readonly TimeSpan AskTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan AchievementAskTimeout = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan WalletAskTimeout = TimeSpan.FromSeconds(2);
 
     public static string Name => "level-progression";
 
@@ -45,16 +46,7 @@ public sealed class ProgressionSlice : ISlice
             }
 
             var snapshot = await registry.Actor.Ask<ProgressSnapshot>(new LoadProgress(playerId), AskTimeout);
-            int? walletBalance = null;
-            try
-            {
-                var balance = await wallet.Actor.Ask<BalanceResult>(new GetBalance(playerId), AskTimeout);
-                walletBalance = balance.Balance;
-            }
-            catch
-            {
-                // Wallet unavailable — fall back to progress-derived total
-            }
+            var walletBalance = await TryGetBalanceAsync(wallet, playerId);
 
             return Results.Ok(Shape(snapshot, walletBalance));
         });
@@ -185,9 +177,12 @@ public sealed class ProgressionSlice : ISlice
                         {
                             var ball = player.ProfileBall;
 
+                            var leaderboardXp = await TryGetBalanceAsync(wallet, playerId)
+                                ?? updatedProgress.TotalPoints + bonus.Total;
+
                             await store.UpsertLeaderboardAsync(
                                 playerId, player.Username,
-                                updatedProgress.TotalPoints + bonus.Total,
+                                leaderboardXp,
                                 updatedProgress.LevelsCompleted,
                                 updatedProgress.Levels.Values.Count(r => r.Stars > 0),
                                 ball);
@@ -280,6 +275,23 @@ public sealed class ProgressionSlice : ISlice
 
                 return Results.Ok(Shape(snapshot));
             });
+    }
+
+    /// <summary>
+    /// The wallet ledger is the authority for total XP. When it can't answer in time the
+    /// caller falls back to the progress-derived total rather than failing the request.
+    /// </summary>
+    internal static async Task<int?> TryGetBalanceAsync(WalletRegistry wallet, string playerId)
+    {
+        try
+        {
+            var balance = await wallet.Actor.Ask<BalanceResult>(new GetBalance(playerId), WalletAskTimeout);
+            return balance.Balance;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static object Shape(ProgressSnapshot snapshot, int? walletBalance = null)
