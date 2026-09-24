@@ -17,7 +17,7 @@ function playing(overrides: Record<string, unknown> = {}) {
     info: { parMoves: 30, timeTargetMs: 90000, chapterNote: null },
     load: 'ready',
     state: null,
-    selected: null,
+    selected: [],
     identity: {
       playerId: 'p1',
       token: 't',

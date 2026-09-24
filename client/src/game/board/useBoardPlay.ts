@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isComplete } from '../isComplete';
+import { resolveTap } from './resolveTap';
 import { useElapsedTime } from '../useElapsedTime';
 import {
   HINT_COOLDOWN_MS,
@@ -19,6 +19,7 @@ import {
   isLegal,
   isSolved,
   play,
+  playGroup,
   restart as restartState,
   solve,
   startGame,
@@ -49,7 +50,8 @@ export interface BoardPlayOptions {
  */
 export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
   const [state, setState] = useState<GameState | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
+  /** The picked-up tubes, in the order they were picked, which is also the pour order. */
+  const [selected, setSelected] = useState<readonly number[]>([]);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [attempt, setAttempt] = useState<Attempt>(startLevel);
 
@@ -82,7 +84,7 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
   onMoveRef.current = onMove;
 
   useEffect(() => {
-    setSelected(null);
+    setSelected([]);
     setHintsUsed(0);
     setHinted(null);
     setAttempt(startLevel());
@@ -99,22 +101,25 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
   if (board !== origin) {
     setOrigin(board);
     setState(board === null ? null : startGame(board));
-    setSelected(null);
+    setSelected([]);
   }
 
-  /** Records an accepted move made by the player. */
-  const moved = useCallback((next: GameState) => {
+  /** Records accepted moves made by the player: one, or a multi-pour's several. */
+  const moved = useCallback((next: GameState, count: number) => {
     // The player moved for themselves; whatever line was planned no longer applies.
     plan.current = [];
-    totalMoves.current += 1;
-    onMoveRef.current?.();
+    totalMoves.current += count;
+    for (let i = 0; i < count; i++) {
+      onMoveRef.current?.();
+    }
     setState(next);
-    setSelected(null);
+    setSelected([]);
   }, []);
 
   /**
    * Tap to pick up, tap again to pour. The same gesture works under touch and mouse, which
-   * drag-and-drop does not on a small screen.
+   * drag-and-drop does not on a small screen. What a tap means - pick up, add to what is
+   * picked up, pour, or put down - is decided by `resolveTap`.
    */
   const tapTube = useCallback(
     (index: number) => {
@@ -122,30 +127,17 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
         return;
       }
 
-      const pickUpAble = (i: number) => {
-        const tube = state.board.tubes[i];
-        return tube.length > 0 && !isComplete(tube, state.board.capacity);
-      };
-
-      if (selected === null) {
-        if (pickUpAble(index)) {
-          setSelected(index);
-        }
+      const outcome = resolveTap(state.board, selected, index);
+      if (outcome.kind === 'select') {
+        setSelected(outcome.selected);
         return;
       }
 
-      if (selected === index) {
-        setSelected(null);
-        return;
-      }
-
-      const next = play(state, { from: selected, to: index });
+      const next = outcome.moves.length === 1
+        ? play(state, outcome.moves[0])
+        : playGroup(state, outcome.moves);
       if (next !== state) {
-        moved(next);
-      } else {
-        // Illegal: treat the tap as picking up the new tube instead of doing nothing, so
-        // a mis-tap never costs a second tap.
-        setSelected(pickUpAble(index) ? index : null);
+        moved(next, outcome.moves.length);
       }
     },
     [state, selected, moved],
@@ -156,13 +148,13 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
       if (state === null) return;
       const next = play(state, { from, to });
       if (next !== state) {
-        moved(next);
+        moved(next, 1);
       }
     },
     [state, moved],
   );
 
-  const clearSelection = useCallback(() => setSelected(null), []);
+  const clearSelection = useCallback(() => setSelected([]), []);
 
   /**
    * Whether the position can still be won, recomputed after every move.
@@ -188,7 +180,7 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
     }
     if (isSolved(state.board)) {
       elapsed.stop();
-    } else if (selected !== null || totalMoves.current > 0) {
+    } else if (selected.length > 0 || totalMoves.current > 0) {
       elapsed.start();
     }
   }, [state, selected, elapsed]);
@@ -219,7 +211,7 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
       if (fallback !== null) {
         planned = fallback;
       } else if (canUndoState(state)) {
-        setSelected(null);
+        setSelected([]);
         setHinted(null);
         plan.current = [];
         setAttempt(spendHint(attempt));
@@ -236,7 +228,7 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
     plan.current = plan.current.slice(1);
 
     setHinted(suggestion);
-    setSelected(null);
+    setSelected([]);
     setHintsUsed((n) => n + 1);
     setAttempt(spendHint(attempt));
     setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
@@ -257,7 +249,7 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
       return;
     }
 
-    setSelected(null);
+    setSelected([]);
     setHinted(null);
     plan.current = [];
     undosUsed.current += 1;
@@ -287,7 +279,7 @@ export function useBoardPlay({ board, resetKey, onMove }: BoardPlayOptions) {
 
   /** Back to the starting board with a fresh attempt's budgets. */
   const restart = useCallback(() => {
-    setSelected(null);
+    setSelected([]);
     setHinted(null);
     plan.current = [];
     setAttempt(restartLevel());

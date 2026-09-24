@@ -187,7 +187,9 @@ export function GameBoard({
       if (idx === null || !board || board.tubes[idx].length === 0 || isComplete(board.tubes[idx], board.capacity)) return;
       dragSourceRef.current = idx;
       setDragSource(idx);
-      if (game.selected !== null && game.selected !== idx) {
+      // A drag moves one tube; anything else picked up is put down. Dragging the one tube that
+      // was already picked up just carries on with it.
+      if (game.selected.length > 0 && !(game.selected.length === 1 && game.selected[0] === idx)) {
         game.clearSelection();
       }
     },
@@ -297,14 +299,14 @@ export function GameBoard({
         case 'Enter':
         case ' ': {
           if (focusedTube === null) return;
-          if (game.selected === null && board && isComplete(board.tubes[focusedTube], board.capacity)) return;
+          if (game.selected.length === 0 && board && isComplete(board.tubes[focusedTube], board.capacity)) return;
           e.preventDefault();
           haptics.move();
           game.tapTube(focusedTube);
           return;
         }
         case 'Escape': {
-          if (game.selected !== null) {
+          if (game.selected.length > 0) {
             e.preventDefault();
             game.clearSelection();
           } else if (onHome) {
@@ -402,7 +404,7 @@ export function GameBoard({
                   ref={(el) => { tubeRefs.current[index] = el; }}
                   items={dragSource === index ? tube.slice(0, tube.length - dragColours.length) : tube}
                   capacity={board.capacity}
-                  selected={game.selected === index}
+                  selected={game.selected.includes(index)}
                   focused={focusedTube === index}
                   complete={isComplete(tube, board.capacity)}
                   dropTarget={validDropTargets.has(index)}
@@ -424,7 +426,7 @@ export function GameBoard({
                     <span className="text-slate-600">·</span>
                     <LiveTimer
                       elapsedMs={game.elapsed.elapsedMs}
-                      running={(game.selected !== null || game.moveCount > 0) && !game.solved}
+                      running={(game.selected.length > 0 || game.moveCount > 0) && !game.solved}
                       timeTargetMs={timeTargetMs}
                       className="text-slate-300"
                     />

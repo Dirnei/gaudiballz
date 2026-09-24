@@ -30,7 +30,7 @@ export function TutorialScreen() {
   // The prompts follow what has happened on the board, not which input made it happen, so a
   // drag or a key press teaches the same lesson as a tap.
   const moves = game.state?.moves.length ?? 0;
-  const picked = game.selected !== null;
+  const picked = game.selected.length > 0;
   const solved = game.solved;
 
   useEffect(() => {

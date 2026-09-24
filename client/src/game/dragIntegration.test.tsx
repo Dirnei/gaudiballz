@@ -26,7 +26,7 @@ function playing(overrides: Record<string, unknown> = {}) {
       history: [],
     },
     pour: vi.fn(),
-    selected: null,
+    selected: [],
     identity: null,
     progress: null,
     levelProgress: new Map(),

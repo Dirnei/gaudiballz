@@ -169,3 +169,45 @@ describe('the daily challenge follows the board rules the campaign always had', 
     expect(body.style.boxShadow).toContain('0 0 0 3px rgba(74,222,128,0.85)');
   });
 });
+
+describe('multi-flask selection behaves the same in the campaign and the daily challenge', () => {
+  // Three full tubes with red (1) on top, two spares.
+  const OPENING = [[2, 3, 1], [3, 2, 1], [2, 3, 1], [], []];
+
+  beforeEach(() => serve(OPENING));
+
+  async function gatherAndPour(mode: Mode) {
+    await open(mode);
+    const after: string[][] = [];
+
+    tap(tubes()[0]);                              // pick up
+    tap(tubes()[1]);                              // full, same colour: joins
+    after.push(snapshot());
+    fireEvent.keyDown(document, { key: '3' });    // joins by keyboard too
+    after.push(snapshot());
+    tap(tubes()[3]);                              // pours all three into the spare
+    after.push(snapshot());
+    fireEvent.keyDown(document, { key: 'u' });    // one undo takes the whole pour back
+    after.push(snapshot());
+    fireEvent.keyDown(document, { key: '1' });
+    fireEvent.keyDown(document, { key: '2' });
+    fireEvent.keyDown(document, { key: 'Escape' }); // puts the whole selection down
+    after.push(snapshot());
+
+    return after;
+  }
+
+  it('gives the same result by tap and keyboard in both modes', async () => {
+    const play = await gatherAndPour('play');
+    document.body.innerHTML = '';
+    const daily = await gatherAndPour('daily');
+
+    expect(daily).toEqual(play);
+    // Two and then three tubes raised; the spare full; everything back; nothing raised.
+    expect(play[0].filter((t) => t.endsWith('|true'))).toHaveLength(2);
+    expect(play[1].filter((t) => t.endsWith('|true'))).toHaveLength(3);
+    expect(play[2][3]).toMatch(/3 of 3/);
+    expect(play[3][3]).toMatch(/0 of 3/);
+    expect(play[4].filter((t) => t.endsWith('|true'))).toHaveLength(0);
+  });
+});

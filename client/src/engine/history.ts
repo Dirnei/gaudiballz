@@ -13,12 +13,17 @@ export interface GameState {
   readonly board: Board;
   /** Moves that survived undo, in order. This is what gets submitted. */
   readonly moves: readonly Move[];
-  /** Boards before each accepted move, so undo is a pop rather than a replay. */
+  /** Boards before each undo step, so undo is a pop rather than a replay. */
   readonly history: readonly Board[];
+  /**
+   * How many moves each undo step holds, parallel to `history`. Usually 1; a pour from
+   * several picked-up tubes at once is one step of several moves, and undoes as one.
+   */
+  readonly steps: readonly number[];
 }
 
 export function startGame(board: Board): GameState {
-  return { board, moves: [], history: [] };
+  return { board, moves: [], history: [], steps: [] };
 }
 
 /** Returns the same state when the move is illegal, so callers can compare identity. */
@@ -32,6 +37,36 @@ export function play(state: GameState, move: Move): GameState {
     board: result.board,
     moves: [...state.moves, move],
     history: [...state.history, state.board],
+    steps: [...state.steps, 1],
+  };
+}
+
+/**
+ * Plays several moves as one undo step. All or nothing: if any move is illegal on the board
+ * the earlier ones leave, the same state comes back and nothing is played.
+ *
+ * The moves are still recorded one by one, because that is what the server replays; only
+ * undo sees them as a group.
+ */
+export function playGroup(state: GameState, moves: readonly Move[]): GameState {
+  if (moves.length === 0) {
+    return state;
+  }
+
+  let board = state.board;
+  for (const move of moves) {
+    const result = applyMove(board, move);
+    if (result === null) {
+      return state;
+    }
+    board = result.board;
+  }
+
+  return {
+    board,
+    moves: [...state.moves, ...moves],
+    history: [...state.history, state.board],
+    steps: [...state.steps, moves.length],
   };
 }
 
@@ -44,10 +79,12 @@ export function undo(state: GameState): GameState {
     return state;
   }
 
+  const size = state.steps[state.steps.length - 1] ?? 1;
   return {
     board: state.history[state.history.length - 1],
-    moves: state.moves.slice(0, -1),
+    moves: state.moves.slice(0, state.moves.length - size),
     history: state.history.slice(0, -1),
+    steps: state.steps.slice(0, -1),
   };
 }
 

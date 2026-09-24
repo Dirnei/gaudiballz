@@ -25,7 +25,7 @@ describe('useBoardPlay', () => {
 
     act(() => result.current.tapTube(0));
 
-    expect(result.current.selected).toBeNull();
+    expect(result.current.selected).toEqual([]);
   });
 
   it('picks up the tapped tube when the pour would be illegal', () => {
@@ -35,7 +35,7 @@ describe('useBoardPlay', () => {
     // Top 2 onto top 3: colour mismatch.
     act(() => result.current.tapTube(2));
 
-    expect(result.current.selected).toBe(2);
+    expect(result.current.selected).toEqual([2]);
     expect(result.current.moveCount).toBe(0);
   });
 
@@ -45,7 +45,7 @@ describe('useBoardPlay', () => {
     act(() => result.current.tapTube(1));
     act(() => result.current.tapTube(0));
 
-    expect(result.current.selected).toBeNull();
+    expect(result.current.selected).toEqual([]);
   });
 
   it('pours on the second tap and reports the move', () => {
@@ -57,7 +57,7 @@ describe('useBoardPlay', () => {
 
     expect(result.current.state?.moves).toEqual([{ from: 1, to: 3 }]);
     expect(result.current.moveCount).toBe(1);
-    expect(result.current.selected).toBeNull();
+    expect(result.current.selected).toEqual([]);
     expect(onMove).toHaveBeenCalledTimes(1);
   });
 
@@ -119,5 +119,43 @@ describe('useBoardPlay', () => {
     expect(result.current.board).toEqual(board);
     expect(result.current.moveCount).toBe(0);
     expect(result.current.undosRemaining).toBe(UNDOS_PER_ATTEMPT);
+  });
+});
+
+describe('multi-flask selection', () => {
+  // Three full tubes with red (1) on top, two spares.
+  const opening = createBoard([[2, 3, 1], [3, 2, 1], [2, 3, 1], [], []], 3, 3);
+
+  it('gathers full matching tubes and pours them together, in the order picked', () => {
+    const onMove = vi.fn();
+    const { result } = renderHook(() => useBoardPlay({ board: opening, resetKey: 1, onMove }));
+
+    act(() => result.current.tapTube(2));
+    act(() => result.current.tapTube(0));
+    act(() => result.current.tapTube(1));
+    expect(result.current.selected).toEqual([2, 0, 1]);
+
+    act(() => result.current.tapTube(3));
+
+    expect(result.current.board?.tubes[3]).toEqual([1, 1, 1]);
+    expect(result.current.state?.moves).toEqual([{ from: 2, to: 3 }, { from: 0, to: 3 }, { from: 1, to: 3 }]);
+    expect(result.current.moveCount).toBe(3);
+    expect(result.current.selected).toEqual([]);
+    expect(onMove).toHaveBeenCalledTimes(3);
+  });
+
+  it('undoes a multi-pour in one step, for one undo, and keeps its moves counted', () => {
+    const { result } = render({ board: opening, resetKey: 1 });
+
+    act(() => result.current.tapTube(0));
+    act(() => result.current.tapTube(1));
+    act(() => result.current.tapTube(2));
+    act(() => result.current.tapTube(3));
+    act(() => result.current.undo());
+
+    expect(result.current.board).toEqual(opening);
+    expect(result.current.state?.moves).toEqual([]);
+    expect(result.current.moveCount).toBe(3);
+    expect(result.current.undosRemaining).toBe(UNDOS_PER_ATTEMPT - 1);
   });
 });

@@ -50,14 +50,14 @@ describe('finished column tap lock', () => {
     const result = await loadBoard();
 
     act(() => result.current.tapTube(0));
-    expect(result.current.selected).toBeNull();
+    expect(result.current.selected).toEqual([]);
   });
 
   it('tapping a non-finished column still selects it', async () => {
     const result = await loadBoard();
 
     act(() => result.current.tapTube(2));
-    expect(result.current.selected).toBe(2);
+    expect(result.current.selected).toEqual([2]);
   });
 
   it('undo re-enables selection on a previously finished column', async () => {
@@ -65,12 +65,12 @@ describe('finished column tap lock', () => {
 
     // Tube 0 is finished — cannot select
     act(() => result.current.tapTube(0));
-    expect(result.current.selected).toBeNull();
+    expect(result.current.selected).toEqual([]);
 
     // Pour from tube 1 into tube 0 is not valid (colour mismatch: tube 1 top is 2, tube 0 top is 1)
     // Instead, pour tube 1 top (colour 2) into empty tube 3 — this makes tube 1 shorter, not finished
     act(() => result.current.tapTube(1));
-    expect(result.current.selected).toBe(1);
+    expect(result.current.selected).toEqual([1]);
     act(() => result.current.tapTube(3));
 
     // Now tube 1 is [2, 3] — not finished. Tube 3 is [2]. Undo should restore tube 1 to [2, 3, 2]
@@ -78,16 +78,16 @@ describe('finished column tap lock', () => {
 
     // After undo, tube 1 is [2, 3, 2] again — not finished, selectable
     act(() => result.current.tapTube(1));
-    expect(result.current.selected).toBe(1);
+    expect(result.current.selected).toEqual([1]);
   });
 
   it('tapping a finished column with a source selected attempts a pour to it', async () => {
     const result = await loadBoard();
 
     act(() => result.current.tapTube(2));
-    expect(result.current.selected).toBe(2);
+    expect(result.current.selected).toEqual([2]);
 
     act(() => result.current.tapTube(0));
-    expect(result.current.selected).not.toBe(0);
+    expect(result.current.selected).not.toContain(0);
   });
 });
