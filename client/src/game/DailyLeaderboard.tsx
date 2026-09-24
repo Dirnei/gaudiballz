@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useGameContext } from './GameContext';
 import { API, authHeaders } from './identity';
 import { ballForAccount } from './profileBall';
 import { ballStyle } from '../skins';
@@ -14,9 +15,19 @@ interface DailyLeaderboardEntry {
   readonly stars: number;
 }
 
+/** The viewer's own result, which has a rank but no name — they know who they are. */
+interface DailyLeaderboardViewer {
+  readonly playerId: string;
+  readonly rank: number;
+  readonly ball: number | null;
+  readonly moves: number;
+  readonly elapsedTimeMs: number;
+  readonly stars: number;
+}
+
 interface DailyLeaderboardResponse {
   readonly entries: DailyLeaderboardEntry[];
-  readonly viewer: DailyLeaderboardEntry | null;
+  readonly viewer: DailyLeaderboardViewer | null;
 }
 
 function formatElapsed(ms: number): string {
@@ -26,6 +37,10 @@ function formatElapsed(ms: number): string {
 
 export function DailyLeaderboard() {
   const { t } = useTranslation();
+  const { identity } = useGameContext();
+  // Defaulting to null, not undefined, is what keeps a response with no ids from matching
+  // every row at once.
+  const myId = identity?.playerId ?? null;
   const [data, setData] = useState<DailyLeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,7 +75,7 @@ export function DailyLeaderboard() {
       {data && data.entries.length > 0 && (
         <div className="mt-3 space-y-1">
           {data.entries.map((e) => {
-            const isViewer = data.viewer?.playerId === e.playerId;
+            const isViewer = e.playerId === myId;
             return (
               <div
                 key={e.playerId}
@@ -102,7 +117,7 @@ export function DailyLeaderboard() {
       )}
 
       {/* Viewer's own result, if not already in the top list */}
-      {data?.viewer && !data.entries.some((e) => e.playerId === data.viewer!.playerId) && (
+      {data?.viewer && !data.entries.some((e) => e.playerId === myId) && (
         <div className="mt-3 rounded-xl px-3 py-2" style={{ background: 'rgba(147,51,234,0.12)', border: '1px solid rgba(147,51,234,0.4)' }}>
           <p className="text-xs font-semibold text-violet-300" style={fredoka}>
             {t('daily.yourResult')} — #{data.viewer.rank}

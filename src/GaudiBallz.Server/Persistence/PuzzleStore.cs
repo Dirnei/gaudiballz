@@ -836,6 +836,46 @@ public sealed class PuzzleStore
             .Find(d => d.Id == DailyResultDocument.KeyFor(playerId, date))
             .FirstOrDefaultAsync(token);
 
+    /// <summary>
+    /// Where a player stands on one day's board, counting everyone ahead of them rather than
+    /// scanning the board itself — the board is capped at ten, and a player outside it still
+    /// wants to know their number.
+    ///
+    /// "Ahead" is the same three-tier order the board sorts by, and it excludes players with
+    /// no username for the same reason the board does: they are not on it to be ahead of.
+    /// </summary>
+    public async Task<(int Rank, DailyResultDocument? Entry)> GetDailyPlayerRankAsync(
+        string playerId, string date, CancellationToken token = default)
+    {
+        var entry = await _dailyResults
+            .Find(d => d.Id == DailyResultDocument.KeyFor(playerId, date))
+            .FirstOrDefaultAsync(token);
+
+        if (entry is null)
+        {
+            return (0, null);
+        }
+
+        var betterFilter = Builders<DailyResultDocument>.Filter.Or(
+            Builders<DailyResultDocument>.Filter.Gt(d => d.Stars, entry.Stars),
+            Builders<DailyResultDocument>.Filter.And(
+                Builders<DailyResultDocument>.Filter.Eq(d => d.Stars, entry.Stars),
+                Builders<DailyResultDocument>.Filter.Lt(d => d.Moves, entry.Moves)),
+            Builders<DailyResultDocument>.Filter.And(
+                Builders<DailyResultDocument>.Filter.Eq(d => d.Stars, entry.Stars),
+                Builders<DailyResultDocument>.Filter.Eq(d => d.Moves, entry.Moves),
+                Builders<DailyResultDocument>.Filter.Lt(d => d.ElapsedTimeMs, entry.ElapsedTimeMs)));
+
+        var rank = await _dailyResults.CountDocumentsAsync(
+            Builders<DailyResultDocument>.Filter.And(
+                Builders<DailyResultDocument>.Filter.Eq(d => d.Date, date),
+                Builders<DailyResultDocument>.Filter.Ne(d => d.Username, null),
+                betterFilter),
+            cancellationToken: token);
+
+        return ((int)rank + 1, entry);
+    }
+
     public async Task<List<DailyResultDocument>> GetDailyLeaderboardAsync(
         string date, int limit = 10, CancellationToken token = default) =>
         await _dailyResults

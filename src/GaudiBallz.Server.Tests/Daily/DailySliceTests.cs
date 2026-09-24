@@ -252,6 +252,67 @@ public sealed class DailySliceTests : IClassFixture<DailyApiFixture>
 
         Assert.NotEqual(JsonValueKind.Null, viewer.ValueKind);
         Assert.Equal(18, viewer.GetProperty("moves").GetInt32());
+
+        // Without this the client cannot tell the viewer's row apart from anyone else's.
+        Assert.Equal(account.PlayerId, viewer.GetProperty("playerId").GetString());
+        Assert.True(viewer.GetProperty("rank").GetInt32() >= 1);
+    }
+
+    [Fact]
+    public async Task Leaderboard_entries_carry_player_ids()
+    {
+        var client = _fixture.CreateClient();
+        var account = await NewAccountAsync(client);
+
+        (await client.SendAsync(
+            Post("/api/v1/daily/completions", account.Token,
+                new { moves = 14, hints = 0, elapsedTimeMs = 20000 }),
+            Token)).EnsureSuccessStatusCode();
+
+        var response = await client.GetAsync("/api/v1/daily/leaderboard", Token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Token);
+        var entries = body.GetProperty("entries").EnumerateArray().ToArray();
+
+        Assert.All(entries, e =>
+            Assert.False(string.IsNullOrEmpty(e.GetProperty("playerId").GetString())));
+        Assert.Contains(entries, e => e.GetProperty("playerId").GetString() == account.PlayerId);
+    }
+
+    [Fact]
+    public async Task Leaderboard_viewer_rank_counts_every_player_ahead()
+    {
+        var client = _fixture.CreateClient();
+        var account = await NewAccountAsync(client, $"rk{Guid.NewGuid():N}"[..12]);
+
+        // A day of its own, so the seeded field is the whole field. The board itself only
+        // lists ten, which is exactly what makes the viewer's own rank worth sending.
+        const string date = "2001-02-03";
+
+        for (var i = 0; i < 11; i++)
+        {
+            await _fixture.Store.UpsertDailyResultAsync(
+                $"ahead{i}", date, $"Ahead{i}",
+                moves: 10, hints: 0, stars: 3, points: 500, elapsedTimeMs: 10000 + i,
+                token: Token);
+        }
+
+        // Worse than all eleven: fewer stars.
+        await _fixture.Store.UpsertDailyResultAsync(
+            account.PlayerId, date, "Straggler",
+            moves: 40, hints: 5, stars: 1, points: 100, elapsedTimeMs: 90000,
+            token: Token);
+
+        var response = await client.SendAsync(
+            Get($"/api/v1/daily/leaderboard?date={date}", account.Token), Token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Token);
+
+        // Ten listed, and the viewer knows they are twelfth despite not being among them.
+        Assert.Equal(10, body.GetProperty("entries").GetArrayLength());
+        Assert.Equal(12, body.GetProperty("viewer").GetProperty("rank").GetInt32());
     }
 
     [Fact]

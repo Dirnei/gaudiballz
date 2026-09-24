@@ -151,6 +151,7 @@ public sealed class DailySlice : ISlice
                     return new
                     {
                         rank = i + 1,
+                        playerId = e.PlayerId,
                         username = e.Username,
                         ball,
                         stars = e.Stars,
@@ -163,12 +164,14 @@ public sealed class DailySlice : ISlice
                 object? viewer = null;
                 if (playerId is not null)
                 {
-                    var result = await store.FindDailyResultAsync(playerId, dateStr);
+                    var (rank, result) = await store.GetDailyPlayerRankAsync(playerId, dateStr);
                     if (result is not null)
                     {
                         balls.TryGetValue(playerId, out var viewerBall);
                         viewer = new
                         {
+                            playerId,
+                            rank,
                             ball = viewerBall,
                             stars = result.Stars,
                             moves = result.Moves,
