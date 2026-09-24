@@ -360,6 +360,22 @@ public sealed class PuzzleStoreTests
     }
 
     [Fact]
+    public async Task Game_starts_upsert_and_increment_without_touching_daily_play()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var day = new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc);
+
+        await _store.RecordGameStartAsync(id, day, Token);
+        await _store.RecordGameStartAsync(id, day, Token);
+
+        var doc = Assert.Single(await _store.LoadGameStartsAsync(id, Token));
+        Assert.Equal(2, doc.Starts);
+        Assert.Equal(day, doc.Date);
+        // A start is not a completion: streaks and "active this week" read daily_play.
+        Assert.Empty(await _store.LoadDailyPlayAsync(id, Token));
+    }
+
+    [Fact]
     public async Task Achievements_load_only_for_the_requested_player()
     {
         var mine = Guid.NewGuid().ToString("N");

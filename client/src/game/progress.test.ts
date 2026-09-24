@@ -25,7 +25,7 @@ vi.mock('./identity', () => ({
   sessionId: 'test-session-abc',
 }));
 
-const { recordCompletion } = await import('./progress');
+const { recordCompletion, reportGameStarted } = await import('./progress');
 
 describe('recordCompletion metadata', () => {
   afterEach(() => {
@@ -109,5 +109,32 @@ describe('recordCompletion metadata', () => {
     });
 
     expect(result.newAchievements).toEqual([]);
+  });
+});
+
+describe('reportGameStarted', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the mode with the player token', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
+
+    reportGameStarted('daily');
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toBe('http://test/api/v1/progress/attempts/start');
+    expect(init?.method).toBe('POST');
+    expect(JSON.parse(init?.body as string)).toEqual({ mode: 'daily' });
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer t');
+  });
+
+  it('swallows a network failure', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('offline'));
+
+    expect(() => reportGameStarted('campaign')).not.toThrow();
+    // Let the rejection settle; an unhandled one would fail the run.
+    await new Promise((resolve) => setTimeout(resolve, 0));
   });
 });

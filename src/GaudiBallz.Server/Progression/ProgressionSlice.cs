@@ -46,6 +46,28 @@ public sealed class ProgressionSlice : ISlice
             return Results.Ok(Shape(snapshot, walletBalance));
         });
 
+        // Reports that a game started, on its first move. "Games played" counts these, so a game
+        // counts however it ends - including a closed tab, which may never manage to report its
+        // ending. Nothing is deduplicated: the client sends one per game, and the figure is a
+        // tally with no points attached.
+        group.MapPost("/attempts/start",
+            async (HttpContext http, StartGameRequest request, PlayerTokens tokens, PuzzleStore store) =>
+            {
+                var playerId = tokens.Verify(BearerFrom(http));
+                if (playerId is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                if (request.Mode is not ("campaign" or "daily"))
+                {
+                    return Results.BadRequest(new { error = "A game starts in the campaign or the daily challenge.", code = "start-mode-invalid" });
+                }
+
+                await store.RecordGameStartAsync(playerId, DateTime.UtcNow);
+                return Results.NoContent();
+            });
+
         // Reports an attempt that ended without a completion. A completion arrives through
         // /completions instead, because it carries the facts the journal records with it.
         group.MapPost("/attempts/end",
@@ -504,6 +526,9 @@ public sealed class ProgressionSlice : ISlice
         string AttemptId,
         string? Outcome,
         string? Token = null);
+
+    /// <param name="Mode">"campaign" or "daily". Validated, not yet stored.</param>
+    public sealed record StartGameRequest(string? Mode);
 
     public sealed record MergeEntry(int Level, int Moves, int Hints, int Stars = 0, int Points = 0);
 

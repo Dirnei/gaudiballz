@@ -99,22 +99,21 @@ public sealed class HubSlice : ISlice
         {
             long solvedToday;
             long activeThisWeek;
-            Dictionary<DateTime, int> dailyActivity;
+            Dictionary<DateTime, int> gamesByDay;
 
             try
             {
+                // Solved and active stay on completions; games played counts every start.
                 solvedToday = await store.CountSolvedTodayAsync();
                 activeThisWeek = await store.CountActivePlayersThisWeekAsync();
-                dailyActivity = await store.GetGlobalDailyActivityAsync();
+                gamesByDay = await store.GetGamesPlayedByDayAsync(null);
             }
             catch
             {
                 solvedToday = 0;
                 activeThisWeek = 0;
-                dailyActivity = new();
+                gamesByDay = new();
             }
-
-            var allActivity = await store.GetGlobalDailyActivityAsync(days: 365);
 
             var today = DateTime.UtcNow.Date;
             var historyStart = today.AddDays(-27);
@@ -123,15 +122,15 @@ public sealed class HubSlice : ISlice
                 .Select(d => new
                 {
                     date = d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                    count = dailyActivity.GetValueOrDefault(d, 0),
+                    count = gamesByDay.GetValueOrDefault(d, 0),
                 })
                 .ToArray();
 
             var weekStart = today.AddDays(-(int)(today.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)today.DayOfWeek - 1));
             var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-            var gamesThisWeek = allActivity.Where(kv => kv.Key >= weekStart).Sum(kv => kv.Value);
-            var gamesThisMonth = allActivity.Where(kv => kv.Key >= monthStart).Sum(kv => kv.Value);
-            var gamesAllTime = allActivity.Sum(kv => kv.Value);
+            var gamesThisWeek = gamesByDay.Where(kv => kv.Key >= weekStart).Sum(kv => kv.Value);
+            var gamesThisMonth = gamesByDay.Where(kv => kv.Key >= monthStart).Sum(kv => kv.Value);
+            var gamesAllTime = gamesByDay.Sum(kv => kv.Value);
 
             return Results.Ok(new
             {
@@ -178,14 +177,16 @@ public sealed class HubSlice : ISlice
             var today = DateTime.UtcNow.Date;
             var weekStart = today.AddDays(-(int)(today.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)today.DayOfWeek - 1));
             var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-            var gamesThisWeek = dailyPlay.Where(d => d.Date >= weekStart).Sum(d => d.CompletionCount);
-            var gamesThisMonth = dailyPlay.Where(d => d.Date >= monthStart).Sum(d => d.CompletionCount);
-            var gamesAllTime = dailyPlay.Sum(d => d.CompletionCount);
+            // Streaks above stay on completions; games played counts every start.
+            var gamesByDay = await store.GetGamesPlayedByDayAsync(playerId);
+            var gamesThisWeek = gamesByDay.Where(kv => kv.Key >= weekStart).Sum(kv => kv.Value);
+            var gamesThisMonth = gamesByDay.Where(kv => kv.Key >= monthStart).Sum(kv => kv.Value);
+            var gamesAllTime = gamesByDay.Sum(kv => kv.Value);
 
             var historyStart = today.AddDays(-27);
-            var dailyLookup = dailyPlay
-                .Where(d => d.Date >= historyStart)
-                .ToDictionary(d => d.Date, d => d.CompletionCount);
+            var dailyLookup = gamesByDay
+                .Where(kv => kv.Key >= historyStart)
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
             var dailyHistory = Enumerable.Range(0, 28)
                 .Select(i => historyStart.AddDays(i))
                 .Select(d => new { date = d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), count = dailyLookup.GetValueOrDefault(d, 0) })

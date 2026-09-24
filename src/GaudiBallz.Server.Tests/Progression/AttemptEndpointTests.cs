@@ -54,6 +54,59 @@ public sealed class AttemptEndpointTests
         return (body.GetProperty("attempts").GetInt32(), body.GetProperty("completions").GetInt32());
     }
 
+    private static async Task<HttpResponseMessage> StartAsync(
+        HttpClient client, string? bearer, object body)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/progress/attempts/start")
+        {
+            Content = JsonContent.Create(body),
+        };
+        if (bearer is not null)
+        {
+            request.Headers.Add("Authorization", $"Bearer {bearer}");
+        }
+
+        return await client.SendAsync(request, Token);
+    }
+
+    [Theory]
+    [InlineData("campaign")]
+    [InlineData("daily")]
+    public async Task A_started_game_is_counted_for_today(string mode)
+    {
+        var client = _fixture.CreateClient();
+        var player = await NewPlayerAsync(client);
+
+        var response = await StartAsync(client, player.Token, new { mode });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var start = Assert.Single(await _fixture.Store.LoadGameStartsAsync(player.PlayerId, Token));
+        Assert.Equal(1, start.Starts);
+        Assert.Equal(DateTime.UtcNow.Date, start.Date);
+    }
+
+    [Fact]
+    public async Task Starting_a_game_needs_a_token()
+    {
+        var client = _fixture.CreateClient();
+
+        var response = await StartAsync(client, null, new { mode = "campaign" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Starting_a_game_in_an_unknown_mode_is_refused()
+    {
+        var client = _fixture.CreateClient();
+        var player = await NewPlayerAsync(client);
+
+        var response = await StartAsync(client, player.Token, new { mode = "arcade" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(await _fixture.Store.LoadGameStartsAsync(player.PlayerId, Token));
+    }
+
     [Fact]
     public async Task An_abandoned_attempt_is_recorded_as_a_loss()
     {

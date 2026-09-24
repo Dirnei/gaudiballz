@@ -26,6 +26,7 @@ public sealed class PuzzleStore
     private readonly IMongoCollection<AchievementDocument> _achievements;
     private readonly IMongoCollection<BadgeDocument> _badges;
     private readonly IMongoCollection<DailyPlayDocument> _dailyPlay;
+    private readonly IMongoCollection<GameStartDocument> _gameStarts;
     private readonly IMongoCollection<LeaderboardDocument> _leaderboard;
     private readonly IMongoCollection<DailyResultDocument> _dailyResults;
     private readonly IMongoCollection<LevelLeaderboardDocument> _levelLeaderboard;
@@ -59,6 +60,7 @@ public sealed class PuzzleStore
         _achievements = _database.GetCollection<AchievementDocument>("player_achievements", durable);
         _badges = _database.GetCollection<BadgeDocument>("player_badges", durable);
         _dailyPlay = _database.GetCollection<DailyPlayDocument>("daily_play", durable);
+        _gameStarts = _database.GetCollection<GameStartDocument>("game_starts", durable);
         _leaderboard = _database.GetCollection<LeaderboardDocument>("leaderboard", durable);
         _dailyResults = _database.GetCollection<DailyResultDocument>("daily_results", durable);
         _levelLeaderboard = _database.GetCollection<LevelLeaderboardDocument>("level_leaderboard", durable);
@@ -496,6 +498,29 @@ public sealed class PuzzleStore
             new UpdateOptions { IsUpsert = true },
             token);
 
+    /// <summary>
+    /// Records that a game started on a given UTC day, however it ends. Concurrent calls on
+    /// the same day increment rather than overwrite.
+    /// </summary>
+    public Task RecordGameStartAsync(
+        string playerId, DateTime utcDate, CancellationToken token = default) =>
+        _gameStarts.UpdateOneAsync(
+            d => d.Id == GameStartDocument.KeyFor(playerId, utcDate),
+            Builders<GameStartDocument>.Update
+                .SetOnInsert(d => d.PlayerId, playerId)
+                .SetOnInsert(d => d.Date, utcDate.Date)
+                .Inc(d => d.Starts, 1),
+            new UpdateOptions { IsUpsert = true },
+            token);
+
+    public async Task<List<GameStartDocument>> LoadGameStartsAsync(
+        string playerId, CancellationToken token = default) =>
+        await _gameStarts
+            .Find(Builders<GameStartDocument>.Filter.And(
+                Builders<GameStartDocument>.Filter.Gte(d => d.Id, $"{playerId}#"),
+                Builders<GameStartDocument>.Filter.Lt(d => d.Id, $"{playerId}$")))
+            .ToListAsync(token);
+
     public async Task<List<DailyPlayDocument>> LoadDailyPlayAsync(
         string playerId, CancellationToken token = default) =>
         await _dailyPlay
@@ -913,17 +938,48 @@ public sealed class PuzzleStore
         return docs.Select(d => d.PlayerId).Distinct().Count();
     }
 
-    public async Task<Dictionary<DateTime, int>> GetGlobalDailyActivityAsync(
-        int days = 28, CancellationToken token = default)
+    /// <summary>
+    /// Games played per UTC day, for one player or (with no player) for everyone.
+    ///
+    /// A game counts when it starts. Starts have only been recorded since that rule arrived,
+    /// so a day with no starts falls back to its completions - which is what "games played"
+    /// meant then - instead of reading as zero. For the community the switch is per day: once
+    /// any start is recorded on a day, that day is counted by starts.
+    /// </summary>
+    public async Task<Dictionary<DateTime, int>> GetGamesPlayedByDayAsync(
+        string? playerId, DateTime? since = null, CancellationToken token = default)
     {
-        var start = DateTime.UtcNow.Date.AddDays(-(days - 1));
-        var docs = await _dailyPlay
-            .Find(d => d.Date >= start)
-            .ToListAsync(token);
+        var startFilter = Builders<GameStartDocument>.Filter.Empty;
+        var playFilter = Builders<DailyPlayDocument>.Filter.Empty;
 
-        return docs
+        if (playerId is not null)
+        {
+            startFilter &= Builders<GameStartDocument>.Filter.Gte(d => d.Id, $"{playerId}#")
+                & Builders<GameStartDocument>.Filter.Lt(d => d.Id, $"{playerId}$");
+            playFilter &= Builders<DailyPlayDocument>.Filter.Gte(d => d.Id, $"{playerId}#")
+                & Builders<DailyPlayDocument>.Filter.Lt(d => d.Id, $"{playerId}$");
+        }
+
+        if (since is not null)
+        {
+            startFilter &= Builders<GameStartDocument>.Filter.Gte(d => d.Date, since.Value.Date);
+            playFilter &= Builders<DailyPlayDocument>.Filter.Gte(d => d.Date, since.Value.Date);
+        }
+
+        var starts = (await _gameStarts.Find(startFilter).ToListAsync(token))
+            .GroupBy(d => d.Date)
+            .ToDictionary(g => g.Key, g => g.Sum(d => d.Starts));
+        var completions = (await _dailyPlay.Find(playFilter).ToListAsync(token))
             .GroupBy(d => d.Date)
             .ToDictionary(g => g.Key, g => g.Sum(d => d.CompletionCount));
+
+        var games = new Dictionary<DateTime, int>(completions);
+        foreach (var (day, count) in starts)
+        {
+            games[day] = count;
+        }
+
+        return games;
     }
 
     public async Task<List<(string PlayerId, PlayerProgress Progress)>> LoadAllProgressForMigrationAsync(

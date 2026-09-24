@@ -200,4 +200,82 @@ public sealed class HubStoreTests
         var count = await _store.CountActivePlayersThisWeekAsync(Token);
         Assert.True(count >= 2);
     }
+
+    // ---- games played ------------------------------------------------------
+
+    /// <summary>A day no other test writes to, so community sums can be checked exactly.</summary>
+    private static DateTime QuietDay() =>
+        new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddDays(Random.Shared.Next(0, 7000));
+
+    [Fact]
+    public async Task A_player_day_with_starts_counts_its_starts()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var day = QuietDay();
+
+        await _store.RecordGameStartAsync(id, day, Token);
+        await _store.RecordGameStartAsync(id, day, Token);
+        await _store.RecordGameStartAsync(id, day, Token);
+        await _store.RecordDailyPlayAsync(id, day, Token);
+
+        var games = await _store.GetGamesPlayedByDayAsync(id, token: Token);
+
+        Assert.Equal(3, games[day]);
+    }
+
+    [Fact]
+    public async Task A_player_day_from_before_starts_counts_its_completions()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var day = QuietDay();
+
+        await _store.RecordDailyPlayAsync(id, day, Token);
+        await _store.RecordDailyPlayAsync(id, day, Token);
+
+        var games = await _store.GetGamesPlayedByDayAsync(id, token: Token);
+
+        Assert.Equal(2, games[day]);
+    }
+
+    [Fact]
+    public async Task A_player_day_with_only_unfinished_games_still_counts()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var day = QuietDay();
+
+        await _store.RecordGameStartAsync(id, day, Token);
+
+        var games = await _store.GetGamesPlayedByDayAsync(id, token: Token);
+
+        Assert.Equal(1, games[day]);
+    }
+
+    [Fact]
+    public async Task Community_games_sum_every_player_by_start()
+    {
+        var day = QuietDay();
+        var one = Guid.NewGuid().ToString("N");
+        var two = Guid.NewGuid().ToString("N");
+
+        await _store.RecordGameStartAsync(one, day, Token);
+        await _store.RecordGameStartAsync(one, day, Token);
+        await _store.RecordGameStartAsync(two, day, Token);
+        await _store.RecordDailyPlayAsync(two, day, Token);
+
+        var games = await _store.GetGamesPlayedByDayAsync(null, since: day, token: Token);
+
+        Assert.Equal(3, games[day]);
+    }
+
+    [Fact]
+    public async Task Community_days_before_starts_count_completions()
+    {
+        var day = QuietDay();
+        await _store.RecordDailyPlayAsync(Guid.NewGuid().ToString("N"), day, Token);
+        await _store.RecordDailyPlayAsync(Guid.NewGuid().ToString("N"), day, Token);
+
+        var games = await _store.GetGamesPlayedByDayAsync(null, since: day, token: Token);
+
+        Assert.Equal(2, games[day]);
+    }
 }

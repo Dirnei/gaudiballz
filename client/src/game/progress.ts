@@ -238,6 +238,27 @@ export async function flushAndClear(): Promise<void> {
   }
 }
 
+/** Where a game was started. */
+export type GameMode = 'campaign' | 'daily';
+
+/**
+ * Reports that a game started, on its first move. "Games played" counts these, so every game
+ * counts once however it ends.
+ *
+ * Best-effort and not queued: a lost report costs one uncounted game in a tally with no points
+ * attached, which is not worth a place in the completion queue.
+ */
+export function reportGameStarted(mode: GameMode): void {
+  void fetch(`${API}/api/v1/progress/attempts/start`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ mode }),
+    keepalive: true,
+  }).catch(() => {
+    // Best-effort by design; see above.
+  });
+}
+
 /** How an attempt ended, for the endings the server cannot infer from a completion. */
 export type AttemptEnding = 'restarted' | 'abandoned';
 

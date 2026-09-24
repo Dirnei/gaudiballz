@@ -152,6 +152,24 @@ public sealed class DailyPlayDocument
 }
 
 /// <summary>
+/// How many games a player started on one calendar day, finished or not.
+///
+/// Kept apart from <see cref="DailyPlayDocument"/> on purpose: streaks and "active this week"
+/// read whether a completion row exists at all, and a day of only unfinished games must not
+/// look like a day played to them. Same composite id and $inc upsert as that document.
+/// </summary>
+public sealed class GameStartDocument
+{
+    public string Id { get; set; } = string.Empty;
+    public string PlayerId { get; set; } = string.Empty;
+    public DateTime Date { get; set; }
+    public int Starts { get; set; }
+
+    public static string KeyFor(string playerId, DateTime utcDate) =>
+        $"{playerId}#{utcDate:yyyy-MM-dd}";
+}
+
+/// <summary>
 /// One entry in the leaderboard materialized view. Upserted on each completion that changes
 /// the player's point total, so reads are a simple index scan.
 /// </summary>
@@ -318,6 +336,13 @@ public static class BsonRegistration
             });
 
             BsonClassMap.RegisterClassMap<DailyPlayDocument>(map =>
+            {
+                map.AutoMap();
+                map.MapIdMember(d => d.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+            });
+
+            BsonClassMap.RegisterClassMap<GameStartDocument>(map =>
             {
                 map.AutoMap();
                 map.MapIdMember(d => d.Id).SetSerializer(new StringSerializer(BsonType.String));

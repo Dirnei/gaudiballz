@@ -6,7 +6,7 @@ import { loadBallUnlocks, setProfileBall, type BallUnlock } from './profileBall'
 import { newAttemptId } from './attempt';
 import { ceilingFor, forgetUnlocked, readUnlocked, rememberUnlocked } from './ceiling';
 import {
-  drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion, reportAttemptEnded,
+  drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion, reportAttemptEnded, reportGameStarted,
   type NewAchievement, type NewBadge, type Progress, type RankUpEvent,
 } from './progress';
 import { createBoard, isSolved, type Board } from '../engine';
@@ -116,6 +116,13 @@ export function useGame() {
 
   /** Marks the attempt as begun. Called on every move; only the first one matters. */
   const beginAttempt = useCallback(() => setAttemptOpen(true), []);
+
+  // Every attempt is a game played, counted as it opens - however it ends.
+  useEffect(() => {
+    if (attemptOpen) {
+      reportGameStarted('campaign');
+    }
+  }, [attemptOpen]);
   const [colourCount, setColourCount] = useState(0);
   const [newAchievements, setNewAchievements] = useState<NewAchievement[]>([]);
   const [newBadges, setNewBadges] = useState<NewBadge[]>([]);

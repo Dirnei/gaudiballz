@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API, authHeaders } from './identity';
 import { useBoardPlay } from './board/useBoardPlay';
+import { reportGameStarted } from './progress';
 import { createBoard, isSolved, type Board } from '../engine';
 
 export type DailyLoadState = 'loading' | 'ready' | 'error';
@@ -41,8 +42,22 @@ export function useDailyGame() {
   const [completion, setCompletion] = useState<CompletionResult | null>(null);
   const [alreadyDone, setAlreadyDone] = useState(isDailyDoneToday);
 
-  // One puzzle per visit, so one attempt: the reset key never changes.
-  const game = useBoardPlay({ board, resetKey: 'daily' });
+  /**
+   * Whether the current game has begun. Like a campaign attempt it opens on the first move,
+   * not on load, so looking at the board and leaving counts nothing; a restart closes it,
+   * and the next move opens - and counts - a new game.
+   */
+  const [gameOpen, setGameOpen] = useState(false);
+  const openGame = useCallback(() => setGameOpen(true), []);
+
+  useEffect(() => {
+    if (gameOpen) {
+      reportGameStarted('daily');
+    }
+  }, [gameOpen]);
+
+  // One puzzle per visit: the reset key never changes, and restarts go through `restart`.
+  const game = useBoardPlay({ board, resetKey: 'daily', onMove: openGame });
   const { state, elapsed, hintsUsed } = game;
 
   /** Fetch today's puzzle on mount. */
@@ -72,6 +87,7 @@ export function useDailyGame() {
   const restart = useCallback(() => {
     restartBoard();
     setCompletion(null);
+    setGameOpen(false);
   }, [restartBoard]);
 
   /** Record completion once per solved attempt. */
