@@ -10,6 +10,12 @@ vi.mock('react-router-dom', async () => {
 
 const { TutorialScreen } = await import('./TutorialScreen');
 
+/** A tap as the board receives it: press and release without moving. */
+function tap(el: HTMLElement) {
+  fireEvent.pointerDown(el, { clientX: 100, clientY: 100, pointerId: 1 });
+  fireEvent.pointerUp(el, { clientX: 100, clientY: 100, pointerId: 1 });
+}
+
 function setup() {
   render(
     <MemoryRouter>
@@ -32,7 +38,7 @@ describe('tutorial prompts', () => {
   it('advances to pick-target after tapping a non-empty tube', () => {
     setup();
     const tubes = screen.getAllByRole('button', { name: /tube/i });
-    fireEvent.click(tubes[0]);
+    tap(tubes[0]);
 
     expect(screen.getByTestId('tutorial-prompt').textContent).toMatch(/another tube/i);
   });
@@ -40,8 +46,8 @@ describe('tutorial prompts', () => {
   it('advances to free-play after completing first pour', () => {
     setup();
     const tubes = screen.getAllByRole('button', { name: /tube/i });
-    fireEvent.click(tubes[0]);
-    fireEvent.click(tubes[2]);
+    tap(tubes[0]);
+    tap(tubes[2]);
 
     expect(screen.getByTestId('tutorial-prompt').textContent).toMatch(/sort all/i);
   });
@@ -70,13 +76,13 @@ describe('completion', () => {
 
     // The board is [[1,2,1],[2,1,2],[]]
     // Pour tube 0 -> tube 2 (move colour 1 to empty)
-    fireEvent.click(tubes()[0]);
-    fireEvent.click(tubes()[2]);
+    tap(tubes()[0]);
+    tap(tubes()[2]);
     // Board: [[1,2],[2,1,2],[1]]
 
     // Pour tube 1 -> tube 0 (move colour 2 onto 2)
-    fireEvent.click(tubes()[1]);
-    fireEvent.click(tubes()[0]);
+    tap(tubes()[1]);
+    tap(tubes()[0]);
     // Board: [[1,2,2],[1,2],[1]]
 
     // Pour tube 1 -> tube 2 (move colour 2 onto... wait, tube 2 has colour 1)
@@ -85,18 +91,18 @@ describe('completion', () => {
     // Move: tube0 top=1 -> tube2 (empty, accepts): tube0=[1,2] tube1=[2,1,2] tube2=[1]
     // Move: tube1 top=2 -> tube0 (top=2, matches): tube0=[1,2,2] tube1=[2,1] tube2=[1]
     // Move: tube1 top=1 -> tube2 (top=1, matches): tube0=[1,2,2] tube1=[2] tube2=[1,1]
-    fireEvent.click(tubes()[1]);
-    fireEvent.click(tubes()[2]);
+    tap(tubes()[1]);
+    tap(tubes()[2]);
     // Board: [[1,2,2],[2],[1,1]]
 
     // Move: tube0 top run=2,2 -> tube1 (top=2, matches, 2 fit): tube0=[1] tube1=[2,2,2] tube2=[1,1]
-    fireEvent.click(tubes()[0]);
-    fireEvent.click(tubes()[1]);
+    tap(tubes()[0]);
+    tap(tubes()[1]);
     // Board: [[1],[2,2,2],[1,1]] - tube1 done!
 
     // Move: tube0 top=1 -> tube2 (top=1, matches): tube0=[] tube1=[2,2,2] tube2=[1,1,1] - solved!
-    fireEvent.click(tubes()[0]);
-    fireEvent.click(tubes()[2]);
+    tap(tubes()[0]);
+    tap(tubes()[2]);
   }
 
   it('shows the success overlay when solved', () => {
@@ -113,5 +119,52 @@ describe('completion', () => {
     solveTutorial();
     fireEvent.click(screen.getByTestId('tutorial-continue'));
     expect(mockNavigate).toHaveBeenCalledWith('/play');
+  });
+});
+
+describe('same board as every other mode', () => {
+  // jsdom does not lay anything out, so it has no scrolling to do.
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it('a drag pour advances to free play', () => {
+    setup();
+    const tubes = screen.getAllByRole('button', { name: /tube/i });
+    const original = document.elementFromPoint;
+    document.elementFromPoint = vi.fn().mockReturnValue(tubes[2]);
+
+    try {
+      fireEvent.pointerDown(tubes[0], { clientX: 100, clientY: 100, pointerId: 1 });
+      fireEvent.pointerMove(tubes[0], { clientX: 100, clientY: 140, pointerId: 1 });
+      fireEvent.pointerUp(tubes[0], { clientX: 100, clientY: 140, pointerId: 1 });
+    } finally {
+      document.elementFromPoint = original;
+    }
+
+    expect(screen.getByTestId('tutorial-prompt').textContent).toMatch(/sort all/i);
+  });
+
+  it('a keyboard pour works', () => {
+    setup();
+
+    fireEvent.keyDown(document, { key: 'ArrowRight' });
+    fireEvent.keyDown(document, { key: 'Enter' });
+    expect(screen.getByTestId('tutorial-prompt').textContent).toMatch(/another tube/i);
+
+    fireEvent.keyDown(document, { key: '3' });
+
+    expect(screen.getByTestId('tutorial-prompt').textContent).toMatch(/sort all/i);
+  });
+
+  it('shows no undo, hint, restart, timer or move counter', () => {
+    setup();
+
+    expect(screen.queryByRole('button', { name: /undo/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /hint|move/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /restart/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /menu/i })).toBeNull();
+    expect(screen.queryByRole('timer')).toBeNull();
+    expect(document.querySelector('footer')).toBeNull();
   });
 });

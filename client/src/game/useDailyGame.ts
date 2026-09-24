@@ -1,33 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useElapsedTime } from './useElapsedTime';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { API, authHeaders } from './identity';
-import {
-  HINT_COOLDOWN_MS,
-  canHint as canHintBudget,
-  canUndo as canUndoBudget,
-  restartLevel,
-  spendHint,
-  spendUndo,
-  startLevel,
-  type Attempt,
-} from './attempt';
-import {
-  AFTER_EACH_MOVE,
-  ON_REQUEST,
-  legalMoves,
-  canUndo as canUndoState,
-  createBoard,
-  isLegal,
-  isSolved,
-  play,
-  restart as restartState,
-  solve,
-  startGame,
-  undo as undoState,
-  type Board,
-  type GameState,
-  type Move,
-} from '../engine';
+import { useBoardPlay } from './board/useBoardPlay';
+import { createBoard, isSolved, type Board } from '../engine';
 
 export type DailyLoadState = 'loading' | 'ready' | 'error';
 
@@ -63,18 +37,13 @@ function isDailyDoneToday(): boolean {
 export function useDailyGame() {
   const [load, setLoad] = useState<DailyLoadState>('loading');
   const [puzzle, setPuzzle] = useState<DailyPuzzle | null>(null);
-  const [state, setState] = useState<GameState | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [hintsUsed, setHintsUsed] = useState(0);
-  const [attempt, setAttempt] = useState<Attempt>(startLevel);
-  const [cooldownEnd, setCooldownEnd] = useState<number | null>(null);
-  const [hinted, setHinted] = useState<{ from: number; to: number } | null>(null);
+  const [board, setBoard] = useState<Board | null>(null);
   const [completion, setCompletion] = useState<CompletionResult | null>(null);
   const [alreadyDone, setAlreadyDone] = useState(isDailyDoneToday);
 
-  const plan = useRef<Move[]>([]);
-  const totalMoves = useRef(0);
-  const elapsed = useElapsedTime();
+  // One puzzle per visit, so one attempt: the reset key never changes.
+  const game = useBoardPlay({ board, resetKey: 'daily' });
+  const { state, elapsed, hintsUsed } = game;
 
   /** Fetch today's puzzle on mount. */
   useEffect(() => {
@@ -88,10 +57,8 @@ export function useDailyGame() {
       })
       .then((data) => {
         if (cancelled) return;
-        const board: Board = createBoard(data.tubes, data.capacity, data.colourCount);
         setPuzzle(data);
-        setState(startGame(board));
-        setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
+        setBoard(createBoard(data.tubes, data.capacity, data.colourCount));
         setLoad('ready');
       })
       .catch(() => {
@@ -101,155 +68,18 @@ export function useDailyGame() {
     return () => { cancelled = true; };
   }, []);
 
-  const board = state?.board ?? null;
-  const solved = state !== null && isSolved(state.board);
-
-  const noMoves = useMemo(
-    () => state !== null && !isSolved(state.board) && legalMoves(state.board).length === 0,
-    [state],
-  );
-
-  const dead = useMemo(() => {
-    if (state === null || noMoves || isSolved(state.board)) return false;
-    const result = solve(state.board, AFTER_EACH_MOVE);
-    return result.verdict === 'dead' && result.positionsReached <= 2;
-  }, [state, noMoves]);
-
-  const stuck = noMoves || dead;
-
-  /** Start / stop timer based on game state. */
-  useEffect(() => {
-    if (state === null) return;
-    if (isSolved(state.board)) {
-      elapsed.stop();
-    } else if (selected !== null || totalMoves.current > 0) {
-      elapsed.start();
-    }
-  }, [state, selected, elapsed]);
-
-  /** Clear cooldown when time arrives. */
-  useEffect(() => {
-    if (cooldownEnd === null) return undefined;
-    const remaining = Math.max(0, cooldownEnd - Date.now());
-    const timer = setTimeout(() => setCooldownEnd(null), remaining);
-    return () => clearTimeout(timer);
-  }, [cooldownEnd]);
-
-  const tapTube = useCallback(
-    (index: number) => {
-      if (state === null) return;
-
-      if (selected === null) {
-        if (state.board.tubes[index].length > 0) setSelected(index);
-        return;
-      }
-
-      if (selected === index) {
-        setSelected(null);
-        return;
-      }
-
-      const next = play(state, { from: selected, to: index });
-      if (next !== state) {
-        plan.current = [];
-        totalMoves.current += 1;
-        setState(next);
-        setSelected(null);
-      } else {
-        setSelected(state.board.tubes[index].length > 0 ? index : null);
-      }
-    },
-    [state, selected],
-  );
-
-  const pour = useCallback(
-    (from: number, to: number) => {
-      if (state === null) return;
-      const next = play(state, { from, to });
-      if (next !== state) {
-        plan.current = [];
-        totalMoves.current += 1;
-        setState(next);
-        setSelected(null);
-      }
-    },
-    [state],
-  );
-
-  const useHint = useCallback(() => {
-    if (state === null) return;
-    if (!canHintBudget(attempt) || cooldownEnd !== null) return;
-
-    let planned: Move | null = plan.current[0] ?? null;
-    if (planned === null || !isLegal(state.board, planned)) {
-      const found = solve(state.board, ON_REQUEST);
-      plan.current = [...found.path];
-      planned = plan.current[0] ?? null;
-    }
-
-    if (planned === null) {
-      const fallback = legalMoves(state.board)[0] ?? null;
-      if (fallback !== null) {
-        planned = fallback;
-      } else if (canUndoState(state)) {
-        setSelected(null);
-        setHinted(null);
-        plan.current = [];
-        setAttempt(spendHint(attempt));
-        setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
-        setState(undoState(state));
-        return;
-      } else {
-        return;
-      }
-    }
-
-    const suggestion = planned;
-    plan.current = plan.current.slice(1);
-
-    setHinted(suggestion);
-    setSelected(null);
-    setHintsUsed((n) => n + 1);
-    setAttempt(spendHint(attempt));
-    setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
-
-    const next = play(state, suggestion);
-    if (next !== state) {
-      totalMoves.current += 1;
-      setState(next);
-    }
-
-    setTimeout(() => setHinted(null), 700);
-  }, [state, attempt, cooldownEnd]);
-
-  const undo = useCallback(() => {
-    if (!canUndoBudget(attempt)) return;
-    setSelected(null);
-    setHinted(null);
-    plan.current = [];
-    setAttempt(spendUndo(attempt));
-    setState((current) => (current === null ? current : undoState(current)));
-  }, [attempt]);
-
+  const restartBoard = game.restart;
   const restart = useCallback(() => {
-    setSelected(null);
-    setHinted(null);
-    plan.current = [];
-    setAttempt(restartLevel());
-    setHintsUsed(0);
-    totalMoves.current = 0;
-    setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
-    elapsed.reset();
+    restartBoard();
     setCompletion(null);
-    setState((current) => (current === null ? current : restartState(current)));
-  }, [elapsed]);
+  }, [restartBoard]);
 
   /** Record completion once per solved attempt. */
   const recorded = useRef<string | null>(null);
   useEffect(() => {
     if (state === null || !isSolved(state.board)) return;
 
-    const key = `${totalMoves.current}:${hintsUsed}`;
+    const key = `${game.moveCount}:${hintsUsed}`;
     if (recorded.current === key) return;
     recorded.current = key;
 
@@ -259,7 +89,7 @@ export function useDailyGame() {
           method: 'POST',
           headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
-            moves: totalMoves.current,
+            moves: game.moveCount,
             hints: hintsUsed,
             elapsedTimeMs: elapsed.elapsedMs(),
           }),
@@ -275,34 +105,14 @@ export function useDailyGame() {
         }
       } catch { /* network failure, the solve is still visible locally */ }
     })();
-  }, [state, hintsUsed, elapsed, puzzle]);
+  }, [state, hintsUsed, elapsed, puzzle, game.moveCount]);
 
   return {
+    ...game,
     load,
     puzzle,
-    board,
-    state,
-    selected,
-    solved,
-    stuck,
     alreadyDone,
     completion,
-    elapsed,
-    moveCount: totalMoves.current,
-    hintsUsed,
-    undosRemaining: attempt.undosRemaining,
-    hintsRemaining: attempt.hintsRemaining,
-    hintCooldownEnd: cooldownEnd,
-    canHint:
-      state !== null && !isSolved(state.board) && canHintBudget(attempt)
-      && cooldownEnd === null
-      && (!noMoves || canUndoState(state)),
-    canUndo: state !== null && canUndoState(state) && canUndoBudget(attempt),
-    hinted,
-    tapTube,
-    pour,
-    useHint,
-    undo,
     restart,
   };
 }

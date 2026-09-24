@@ -1,11 +1,10 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Tube } from './Tube';
 import { FlaskLogo } from './FlaskLogo';
-import { isSolved } from '../engine/rules';
-import { play, startGame, type GameState } from '../engine/history';
+import { useBoardPlay } from './board/useBoardPlay';
+import { GameBoard } from './board/GameBoard';
 import {
   advanceTutorial,
   completeTutorial,
@@ -19,56 +18,34 @@ import {
 export function TutorialScreen() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [gameState, setGameState] = useState<GameState>(() => startGame(createTutorialBoard()));
+  const [board] = useState(createTutorialBoard);
+  const game = useBoardPlay({ board, resetKey: 'tutorial' });
   const [tutorial, setTutorial] = useState<TutorialState>(startTutorial);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [solved, setSolved] = useState(false);
-
-  const board = gameState.board;
 
   const skip = useCallback(() => {
     markTutorialSeen();
     navigate('/play');
   }, [navigate]);
 
-  const tapTube = useCallback(
-    (index: number) => {
-      if (solved) return;
+  // The prompts follow what has happened on the board, not which input made it happen, so a
+  // drag or a key press teaches the same lesson as a tap.
+  const moves = game.state?.moves.length ?? 0;
+  const picked = game.selected !== null;
+  const solved = game.solved;
 
-      if (selected === null) {
-        if (board.tubes[index].length > 0) {
-          setSelected(index);
-          if (tutorial.step === 'pick-source') {
-            setTutorial((t) => advanceTutorial(t));
-          }
-        }
-        return;
-      }
-
-      if (selected === index) {
-        setSelected(null);
-        return;
-      }
-
-      const next = play(gameState, { from: selected, to: index });
-      if (next !== gameState) {
-        setGameState(next);
-        setSelected(null);
-        setTutorial((t) => {
-          const advanced = t.step === 'pick-target' ? advanceTutorial(t) : { ...t, moveCount: t.moveCount + 1 };
-          if (isSolved(next.board)) {
-            markTutorialSeen();
-            setSolved(true);
-            return completeTutorial(advanced);
-          }
-          return advanced;
-        });
-      } else {
-        setSelected(board.tubes[index].length > 0 ? index : null);
-      }
-    },
-    [gameState, selected, board, tutorial.step, solved],
-  );
+  useEffect(() => {
+    if (solved) {
+      markTutorialSeen();
+      setTutorial((current) => completeTutorial(current));
+    } else if (moves > 0) {
+      setTutorial((current) =>
+        current.step === 'pick-source' || current.step === 'pick-target'
+          ? { step: 'free-play', moveCount: moves }
+          : current);
+    } else if (picked) {
+      setTutorial((current) => (current.step === 'pick-source' ? advanceTutorial(current) : current));
+    }
+  }, [picked, moves, solved]);
 
   return (
     <>
@@ -93,8 +70,9 @@ export function TutorialScreen() {
         </div>
       </header>
 
-      <main className="relative flex flex-1 flex-col items-center justify-center px-2">
-        {tutorial.step !== 'done' && (
+      <GameBoard
+        game={game}
+        above={tutorial.step !== 'done' && (
           <motion.div
             key={tutorial.step}
             initial={{ opacity: 0, y: -8 }}
@@ -105,28 +83,7 @@ export function TutorialScreen() {
             {tutorialPrompt(tutorial.step)}
           </motion.div>
         )}
-
-        <div
-          className="grid max-w-full items-end justify-items-center"
-          style={{
-            gridTemplateColumns: `repeat(${board.tubes.length}, min-content)`,
-            justifyContent: 'center',
-            contain: 'layout style',
-          }}
-        >
-          {board.tubes.map((tube, index) => (
-            <Tube
-              key={index}
-              items={tube}
-              capacity={board.capacity}
-              selected={selected === index}
-              focused={false}
-              complete={tube.length === board.capacity && tube.every((c) => c === tube[0])}
-              onTap={() => tapTube(index)}
-            />
-          ))}
-        </div>
-      </main>
+      />
 
       <AnimatePresence>
         {solved && (

@@ -1,46 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isComplete } from './isComplete';
-import { useElapsedTime } from './useElapsedTime';
+import { useBoardPlay } from './board/useBoardPlay';
 import { ensureIdentity, forgetIdentity, remember, type Identity } from './identity';
 import { loadAchievements, type AchievementState } from './achievements';
 import { loadBallUnlocks, setProfileBall, type BallUnlock } from './profileBall';
-import {
-  HINT_COOLDOWN_MS,
-  canHint as canHintBudget,
-  canUndo as canUndoBudget,
-  restartLevel,
-  spendHint,
-  spendUndo,
-  newAttemptId,
-  startLevel,
-  type Attempt,
-} from './attempt';
+import { newAttemptId } from './attempt';
 import { ceilingFor, forgetUnlocked, readUnlocked, rememberUnlocked } from './ceiling';
 import {
   drain, flushAndClear, loadProgress, mergeIntoAccount, recordCompletion, reportAttemptEnded,
   type NewAchievement, type NewBadge, type Progress, type RankUpEvent,
 } from './progress';
-import {
-  AFTER_EACH_MOVE,
-  ON_REQUEST,
-  legalMoves,
-  canUndo as canUndoState,
-  createBoard,
-  isLegal,
-  isSolved,
-  play,
-  restart as restartState,
-  solve,
-  startGame,
-  undo as undoState,
-  type Board,
-  type GameState,
-  type Move,
-} from '../engine';
+import { createBoard, isSolved, type Board } from '../engine';
 
 /**
- * Binds the pure engine to the screen: which tube is picked up, the level lifecycle, and
- * loading boards from the server. The engine itself knows nothing about any of this.
+ * The campaign around the shared board: the level lifecycle, loading boards from the server,
+ * progression and the account. How the board itself is played lives in `useBoardPlay`.
  */
 
 export interface LevelInfo {
@@ -113,42 +86,17 @@ export function useGame() {
     }
   });
 
-  const [state, setState] = useState<GameState | null>(null);
+  const [board, setBoard] = useState<Board | null>(null);
   const [loadKey, setLoadKey] = useState(0);
   const [info, setInfo] = useState<LevelInfo | null>(null);
   const [levelCode, setLevelCode] = useState<string | null>(null);
   const [load, setLoad] = useState<LoadState>('loading');
-  const [selected, setSelected] = useState<number | null>(null);
-  const [hintsUsed, setHintsUsed] = useState(0);
-  const [attempt, setAttempt] = useState<Attempt>(startLevel);
-
-  /**
-   * When the current hint cooldown ends, as a Date.now() target, or null when no wait is
-   * running.
-   *
-   * A target rather than a countdown on purpose: browsers throttle timers in background
-   * tabs, so anything counting elapsed ticks would drift. A wall-clock target is still
-   * correct when the tab comes back, however badly the timer was starved.
-   */
-  const [cooldownEnd, setCooldownEnd] = useState<number | null>(null);
-  const [hinted, setHinted] = useState<{ from: number; to: number } | null>(null);
-
   const [unlockedLevel, setUnlockedLevel] = useState(readUnlocked);
 
   const levelCeiling = ceilingFor(progress?.highestCompleted ?? null, unlockedLevel);
 
   /** Per-level completion data for the level select grid. O(1) lookup by level number. */
   const levelProgress = useMemo(() => buildLevelProgress(progress), [progress]);
-
-  /**
-   * The remaining moves of a winning line, kept between hints.
-   *
-   * Recomputing after every hint is what caused hints to cycle: each search is independent
-   * and may return a different, equally valid line, so hint N and hint N+1 could undo one
-   * another forever. Following one plan removes that entirely; it is only recomputed when
-   * the player deviates from it.
-   */
-  const plan = useRef<Move[]>([]);
 
   const restartedLevels = useRef(new Set<number>());
 
@@ -168,8 +116,6 @@ export function useGame() {
 
   /** Marks the attempt as begun. Called on every move; only the first one matters. */
   const beginAttempt = useCallback(() => setAttemptOpen(true), []);
-  const undosUsed = useRef(0);
-  const totalMoves = useRef(0);
   const [colourCount, setColourCount] = useState(0);
   const [newAchievements, setNewAchievements] = useState<NewAchievement[]>([]);
   const [newBadges, setNewBadges] = useState<NewBadge[]>([]);
@@ -182,7 +128,9 @@ export function useGame() {
   const [firstClearBonus, setFirstClearBonus] = useState(0);
   const [streakBonus, setStreakBonus] = useState(0);
   const [rankUp, setRankUp] = useState<RankUpEvent | null>(null);
-  const elapsed = useElapsedTime();
+
+  const game = useBoardPlay({ board, resetKey: `${levelId}:${loadKey}`, onMove: beginAttempt });
+  const { state, elapsed, hintsUsed } = game;
 
   /**
    * Identity and progress on launch. Silent: no form, no prompt, nothing to dismiss. If the
@@ -227,18 +175,9 @@ export function useGame() {
   useEffect(() => {
     let cancelled = false;
     setLoad('loading');
-    setSelected(null);
-    setHintsUsed(0);
-    setHinted(null);
-    setAttempt(startLevel());
-    setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
-    plan.current = [];
-    undosUsed.current = 0;
-    totalMoves.current = 0;
     restartedLevels.current.delete(levelId);
     attemptId.current = newAttemptId();
     setAttemptOpen(false);
-    elapsed.reset();
     setAttemptStars(0);
     setAttemptPoints(0);
     setStarDelta(0);
@@ -256,8 +195,7 @@ export function useGame() {
         if (cancelled) {
           return;
         }
-        const board: Board = createBoard(level.tubes, level.capacity, level.colourCount);
-        setState(startGame(board));
+        setBoard(createBoard(level.tubes, level.capacity, level.colourCount));
         setColourCount(level.colourCount);
         setInfo({
           levelId: level.levelId,
@@ -285,191 +223,9 @@ export function useGame() {
     };
   }, [levelId, loadKey]);
 
-  /**
-   * Tap to pick up, tap again to pour. The same gesture works under touch and mouse, which
-   * drag-and-drop does not on a small screen.
-   */
-  const tapTube = useCallback(
-    (index: number) => {
-      if (state === null) {
-        return;
-      }
-
-      if (selected === null) {
-        const tube = state.board.tubes[index];
-        if (tube.length > 0 && !isComplete(tube, state.board.capacity)) {
-          setSelected(index);
-        }
-        return;
-      }
-
-      if (selected === index) {
-        setSelected(null);
-        return;
-      }
-
-      const next = play(state, { from: selected, to: index });
-      if (next !== state) {
-        // The player moved for themselves; whatever line was planned no longer applies.
-        plan.current = [];
-        totalMoves.current += 1;
-        beginAttempt();
-        setState(next);
-        setSelected(null);
-      } else {
-        // Illegal: treat the tap as picking up the new tube instead of doing nothing, so
-        // a mis-tap never costs a second tap.
-        const tube = state.board.tubes[index];
-        setSelected(tube.length > 0 && !isComplete(tube, state.board.capacity) ? index : null);
-      }
-    },
-    [state, selected],
-  );
-
-  const pour = useCallback(
-    (from: number, to: number) => {
-      if (state === null) return;
-      const next = play(state, { from, to });
-      if (next !== state) {
-        plan.current = [];
-        totalMoves.current += 1;
-        beginAttempt();
-        setState(next);
-        setSelected(null);
-      }
-    },
-    [state],
-  );
-
-  /**
-   * Whether the position can still be won, recomputed after every move.
-   *
-   * Measured at well under a millisecond on every campaign board, so this runs inline
-   * rather than being deferred. An undecided search reports `unknown`, which the interface
-   * must never render as lost.
-   */
-  const noMoves = useMemo(
-    () => state !== null && !isSolved(state.board) && legalMoves(state.board).length === 0,
-    [state],
-  );
-
-  const dead = useMemo(() => {
-    if (state === null || noMoves || isSolved(state.board)) return false;
-    const result = solve(state.board, AFTER_EACH_MOVE);
-    return result.verdict === 'dead' && result.positionsReached <= 2;
-  }, [state, noMoves]);
-
-  useEffect(() => {
-    if (state === null) {
-      return;
-    }
-    if (isSolved(state.board)) {
-      elapsed.stop();
-    } else if (selected !== null || totalMoves.current > 0) {
-      elapsed.start();
-    }
-  }, [state, selected, elapsed]);
-
-  /** Asks for the next move on a winning line and plays it. Free, and never rationed. */
-  const useHint = useCallback(() => {
-    if (state === null) {
-      return;
-    }
-
-    // Budget first: when it is gone the cooldown is irrelevant, and checking it first keeps
-    // the two limits from having to know about each other.
-    if (!canHintBudget(attempt) || cooldownEnd !== null) {
-      return;
-    }
-
-    // Follow the existing plan while it still fits the board; only search again once the
-    // player has moved somewhere it does not account for.
-    let planned: Move | null = plan.current[0] ?? null;
-    if (planned === null || !isLegal(state.board, planned)) {
-      const found = solve(state.board, ON_REQUEST);
-      plan.current = [...found.path];
-      planned = plan.current[0] ?? null;
-    }
-
-    if (planned === null) {
-      const fallback = legalMoves(state.board)[0] ?? null;
-      if (fallback !== null) {
-        planned = fallback;
-      } else if (canUndoState(state)) {
-        setSelected(null);
-        setHinted(null);
-        plan.current = [];
-        setAttempt(spendHint(attempt));
-        setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
-        setState(undoState(state));
-        return;
-      } else {
-        return;
-      }
-    }
-
-    const suggestion = planned;
-
-    plan.current = plan.current.slice(1);
-
-    setHinted(suggestion);
-    setSelected(null);
-    setHintsUsed((n) => n + 1);
-    setAttempt(spendHint(attempt));
-    setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
-
-    const next = play(state, suggestion);
-    if (next !== state) {
-      totalMoves.current += 1;
-      beginAttempt();
-      setState(next);
-    }
-
-    // The highlight is a flourish, not state the game depends on.
-    setTimeout(() => setHinted(null), 700);
-  }, [state, attempt, cooldownEnd]);
-
-  const undo = useCallback(() => {
-    if (!canUndoBudget(attempt)) {
-      return;
-    }
-
-    setSelected(null);
-    setHinted(null);
-    plan.current = [];
-    undosUsed.current += 1;
-    setAttempt(spendUndo(attempt));
-    setState((current) => (current === null ? current : undoState(current)));
-  }, [attempt]);
-
-  /**
-   * Clears the cooldown when its moment arrives.
-   *
-   * Re-armed whenever the target moves, and the remaining time is measured against the
-   * clock rather than assumed to be the full duration, so a target set in the past expires
-   * immediately instead of waiting all over again.
-   */
-  useEffect(() => {
-    if (cooldownEnd === null) {
-      return undefined;
-    }
-
-    // Never below zero, and never cleared synchronously: a target already in the past still
-    // goes through the timer, one tick later, rather than setting state during the effect.
-    const remaining = Math.max(0, cooldownEnd - Date.now());
-
-    const timer = setTimeout(() => setCooldownEnd(null), remaining);
-    return () => clearTimeout(timer);
-  }, [cooldownEnd]);
-
+  const restartBoard = game.restart;
   const restart = useCallback(() => {
-    setSelected(null);
-    setHinted(null);
-    plan.current = [];
-    setAttempt(restartLevel());
-    setHintsUsed(0);
-    undosUsed.current = 0;
-    totalMoves.current = 0;
+    restartBoard();
     restartedLevels.current.add(levelId);
     // Only an attempt that was actually played is lost by restarting; wiping an untouched
     // board throws nothing away.
@@ -478,8 +234,6 @@ export function useGame() {
     }
     attemptId.current = newAttemptId();
     setAttemptOpen(false);
-    setCooldownEnd(Date.now() + HINT_COOLDOWN_MS);
-    elapsed.reset();
     setAttemptStars(0);
     setAttemptPoints(0);
     setStarDelta(0);
@@ -489,8 +243,7 @@ export function useGame() {
     setFirstClearBonus(0);
     setStreakBonus(0);
     setRankUp(null);
-    setState((current) => (current === null ? current : restartState(current)));
-  }, [levelId, attemptOpen]);
+  }, [levelId, attemptOpen, restartBoard]);
 
   /**
    * Records a completion once per solved attempt.
@@ -517,7 +270,7 @@ export function useGame() {
       return;
     }
 
-    const attempt = `${levelId}:${totalMoves.current}:${hintsUsed}`;
+    const attempt = `${levelId}:${game.moveCount}:${hintsUsed}`;
     if (recorded.current === attempt) {
       return;
     }
@@ -526,9 +279,9 @@ export function useGame() {
     setAttemptOpen(false);
 
     void (async () => {
-      const result = await recordCompletion(levelId, totalMoves.current, hintsUsed, {
+      const result = await recordCompletion(levelId, game.moveCount, hintsUsed, {
         elapsedTimeMs: elapsed.elapsedMs(),
-        undoCount: undosUsed.current,
+        undoCount: game.undosUsed,
         restarted: restartedLevels.current.has(levelId),
         attemptId: attemptId.current,
         colourCount,
@@ -556,14 +309,14 @@ export function useGame() {
 
       setUnlockedLevel(rememberUnlocked(levelId + 1));
     })();
-  }, [state, levelId, hintsUsed, colourCount, info]);
+  }, [state, levelId, hintsUsed, colourCount, info, game.moveCount, game.undosUsed, elapsed]);
 
   const goToLevel = useCallback((next: number) => {
     const clamped = Math.max(1, next);
     if (clamped > levelCeiling) {
       return;
     }
-    setState(null);
+    setBoard(null);
     setLevelId(clamped);
     setLoadKey((k) => k + 1);
   }, [levelCeiling]);
@@ -685,7 +438,7 @@ export function useGame() {
     info,
     load,
     state,
-    selected,
+    selected: game.selected,
     identity,
     progress,
     loggedIn: signedIn,
@@ -698,20 +451,17 @@ export function useGame() {
     achievements,
     ensureAchievements,
     chooseBall,
-    solved: state !== null && isSolved(state.board),
-    stuck: noMoves || dead,
-    undosRemaining: attempt.undosRemaining,
-    hintsRemaining: attempt.hintsRemaining,
-    hintCooldownEnd: cooldownEnd,
-    canHint:
-      state !== null && !isSolved(state.board) && canHintBudget(attempt)
-      && cooldownEnd === null
-      && (!noMoves || canUndoState(state)),
+    solved: game.solved,
+    stuck: game.stuck,
+    undosRemaining: game.undosRemaining,
+    hintsRemaining: game.hintsRemaining,
+    hintCooldownEnd: game.hintCooldownEnd,
+    canHint: game.canHint,
     hintsUsed,
-    hinted,
-    useHint,
-    canUndo: state !== null && canUndoState(state) && canUndoBudget(attempt),
-    moveCount: totalMoves.current,
+    hinted: game.hinted,
+    useHint: game.useHint,
+    canUndo: game.canUndo,
+    moveCount: game.moveCount,
     attemptStars,
     attemptPoints,
     starDelta,
@@ -725,9 +475,10 @@ export function useGame() {
     newBadges,
     clearNewAchievements,
     elapsed,
-    tapTube,
-    pour,
-    undo,
+    tapTube: game.tapTube,
+    pour: game.pour,
+    clearSelection: game.clearSelection,
+    undo: game.undo,
     restart,
     goToLevel,
   };

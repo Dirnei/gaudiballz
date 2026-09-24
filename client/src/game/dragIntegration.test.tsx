@@ -59,6 +59,7 @@ function playing(overrides: Record<string, unknown> = {}) {
     moveCount: 0,
     elapsed: { elapsedMs: () => 0, start: vi.fn(), stop: vi.fn(), pause: vi.fn(), resume: vi.fn(), reset: vi.fn() },
     tapTube: vi.fn(),
+    clearSelection: vi.fn(),
     undo: vi.fn(),
     restart: vi.fn(),
     goToLevel: vi.fn(),
