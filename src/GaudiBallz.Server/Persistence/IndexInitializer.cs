@@ -81,12 +81,12 @@ public sealed partial class IndexInitializer(
             {
                 if (result.Points > 0)
                 {
-                    wallet.ActorRef.Tell(new CreditPoints(playerId, level, PointCategory.BaseScore, result.Points));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, level, PointCategory.BaseScore, result.Points), ActorRefs.NoSender);
                 }
 
                 if (result.BonusPoints > 0)
                 {
-                    wallet.ActorRef.Tell(new CreditPoints(playerId, level, PointCategory.Migration, result.BonusPoints));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, level, PointCategory.Migration, result.BonusPoints), ActorRefs.NoSender);
                 }
             }
         }

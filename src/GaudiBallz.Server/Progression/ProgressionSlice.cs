@@ -235,6 +235,10 @@ public sealed class ProgressionSlice : ISlice
                     }
                 }
 
+                // Fire-and-forget sends name NoSender on purpose. A bare Tell picks up whatever
+                // actor is ambient on this thread, and under the Akka TestKit that can be another
+                // test's TestActor, which then receives the wallet's and journal's replies.
+
                 // Journal: record raw completion facts for event sourcing (fire-and-forget)
                 journal.ActorRef.Tell(new JournalCompletion(
                     playerId,
@@ -246,33 +250,33 @@ public sealed class ProgressionSlice : ISlice
                     request.Restarted ?? false,
                     request.ElapsedTimeMs,
                     player?.ProfileBall,
-                    request.AttemptId));
+                    request.AttemptId), ActorRefs.NoSender);
 
                 // Wallet: credit each earning (fire-and-forget)
-                wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.BaseScore, attemptPoints));
+                wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.BaseScore, attemptPoints), ActorRefs.NoSender);
                 if (bonus.FirstClearBonus > 0)
                 {
-                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.FirstClearBonus, bonus.FirstClearBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.FirstClearBonus, bonus.FirstClearBonus), ActorRefs.NoSender);
                 }
 
                 if (bonus.NoHintBonus > 0)
                 {
-                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.NoHintBonus, bonus.NoHintBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.NoHintBonus, bonus.NoHintBonus), ActorRefs.NoSender);
                 }
 
                 if (bonus.StreakBonus > 0)
                 {
-                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.StreakBonus, bonus.StreakBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.StreakBonus, bonus.StreakBonus), ActorRefs.NoSender);
                 }
 
                 if (bonus.ReplayBonus > 0)
                 {
-                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.ReplayBonus, bonus.ReplayBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.ReplayBonus, bonus.ReplayBonus), ActorRefs.NoSender);
                 }
 
                 if (bonus.TimeBonus > 0)
                 {
-                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.TimeBeatBonus, bonus.TimeBonus));
+                    wallet.ActorRef.Tell(new CreditPoints(playerId, request.Level, PointCategory.TimeBeatBonus, bonus.TimeBonus), ActorRefs.NoSender);
                 }
 
                 // Hub: update leaderboard and activity feed (fire-and-forget, never blocks the response)
