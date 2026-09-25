@@ -73,6 +73,9 @@ cd client && npm run test:conformance
   field anywhere. Never introduce one.
 - **No signup prompts**: Account creation is available but never pushed. No nags, no
   interstitials, no "secure your progress" banners.
+- **Changelog**: Root `CHANGELOG.md` is written by release-please and shown in-game under
+  "What's new" (English only; features and fixes only). Don't hand-edit it except to
+  polish wording in a release PR before merging.
 - **Port 8123**: Docker maps to 8123 because 8080 and 8090 are taken on this machine.
 - **OpenSpec for planning**: Use `openspec` for non-trivial changes. Specs describe
   observable behaviour only; implementation details go in `design.md`.
@@ -83,4 +86,12 @@ cd client && npm run test:conformance
 ## Git
 
 - Commit messages: subject line only, 74 chars max. No body, no trailers, no attribution.
+- Conventional Commits prefix on that subject: `feat:`, `fix:`, `refactor:`, `perf:`,
+  `test:`, `docs:`, `build:`, `ci:`, `chore:` (optional scope, e.g. `fix(daily):`).
+- `feat:` and `fix:` subjects appear verbatim in the in-game changelog, so write them for
+  players ("feat: Pick up several full flasks and pour them together"). Internal work
+  uses any other type and stays hidden. OpenSpec archive commits are `chore:`.
+- Releases: release-please keeps a release PR open on `main`. Merging it (rebase or
+  squash) bumps the version, updates `CHANGELOG.md`, tags `vX.Y.Z` and publishes the image.
+  Don't push version tags by hand.
 - Always rebase, never merge. Linear history only.
