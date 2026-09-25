@@ -8,7 +8,11 @@ import { haptics } from '../haptics';
 import { DragOverlay } from '../DragOverlay';
 import { useDrag, type Point } from '../useDrag';
 import { topColour, topRunLength } from '../../engine/board';
-import { validate } from '../../engine/rules';
+import { isSolved, validate } from '../../engine/rules';
+import { playSound } from '../../sound/sounds';
+import { useSoundSetting } from '../../sound/useSoundSetting';
+import { SoundMenu } from './SoundMenu';
+import { tapSound } from './tapSound';
 import { APP_VERSION } from '../version';
 import { isComplete } from '../isComplete';
 import { ControlButton, CooldownSweep, hintLabel } from './controls';
@@ -123,6 +127,50 @@ export function GameBoard({
     if (game.stuck) haptics.blocked();
   }, [game.stuck]);
 
+  /**
+   * The sounds of a move landing, from the state rather than from whoever made the move, so a
+   * pour by tap, drag, keyboard or hint sounds the same. Only a state with more moves than the
+   * last one counts: undo, restart and a newly loaded board all have fewer, and stay silent here.
+   */
+  const soundedState = useRef(game.state);
+  useEffect(() => {
+    const before = soundedState.current;
+    const after = game.state;
+    soundedState.current = after;
+    if (before === null || after === null || after.moves.length <= before.moves.length) return;
+
+    const last = after.moves[after.moves.length - 1];
+    playSound('drop', after.board.tubes[last.to].length);
+
+    const complete = (b: typeof after.board) => b.tubes.filter((tube) => isComplete(tube, b.capacity)).length;
+    if (isSolved(after.board)) {
+      playSound('solved', 1, 0.09);
+    } else if (complete(after.board) > complete(before.board)) {
+      playSound('full', 1, 0.09);
+    }
+  }, [game.state]);
+
+  const sound = useSoundSetting();
+  const [soundMenuOpen, setSoundMenuOpen] = useState(false);
+  const soundArea = useRef<HTMLSpanElement>(null);
+
+  // A tap anywhere outside the Sound button and its menu closes the menu. The button counts as
+  // inside, so tapping it toggles rather than closing and instantly reopening.
+  useEffect(() => {
+    if (!soundMenuOpen) return undefined;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!soundArea.current?.contains(e.target as Node)) setSoundMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [soundMenuOpen]);
+
+  const undoWithSound = useCallback(() => {
+    if (!game.canUndo) return;
+    playSound('undo');
+    game.undo();
+  }, [game]);
+
   const [confirmingReset, setConfirmingReset] = useState(false);
 
   useEffect(() => {
@@ -140,13 +188,26 @@ export function GameBoard({
     setFocusedTube(null);
   }, [focusResetKey]);
 
+  /** A tap on a tube, however it arrived: pointer, Enter/Space or a number key. */
+  const tapWithSound = useCallback(
+    (index: number) => {
+      const state = game.state;
+      if (state !== null) {
+        const sound = tapSound(state.board, game.selected, index);
+        if (sound !== null) playSound(sound);
+      }
+      game.tapTube(index);
+    },
+    [game],
+  );
+
   const handleTubeTap = useCallback(
     (index: number) => {
       haptics.move();
-      game.tapTube(index);
+      tapWithSound(index);
       setFocusedTube(index);
     },
-    [game],
+    [tapWithSound],
   );
 
   const [dragSource, setDragSource] = useState<number | null>(null);
@@ -229,6 +290,8 @@ export function GameBoard({
       if (validate(board, { from: src, to: targetIndex }) === 'None') {
         haptics.move();
         game.pour(src, targetIndex);
+      } else {
+        playSound('invalid');
       }
     },
   });
@@ -242,6 +305,19 @@ export function GameBoard({
     function onKeyDown(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       const inTextInput = tag === 'INPUT' || tag === 'TEXTAREA';
+
+      // The sound menu takes the keyboard while it is open: Escape closes it and nothing else,
+      // so it can't also put the balls down or leave the level. M keeps working.
+      if (soundMenuOpen) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setSoundMenuOpen(false);
+        } else if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          e.preventDefault();
+          sound.toggle();
+        }
+        return;
+      }
 
       if (confirmingReset) {
         if (e.key === 'Enter') {
@@ -302,7 +378,7 @@ export function GameBoard({
           if (game.selected.length === 0 && board && isComplete(board.tubes[focusedTube], board.capacity)) return;
           e.preventDefault();
           haptics.move();
-          game.tapTube(focusedTube);
+          tapWithSound(focusedTube);
           return;
         }
         case 'Escape': {
@@ -324,7 +400,7 @@ export function GameBoard({
         if (index < tubeCount) {
           e.preventDefault();
           haptics.move();
-          game.tapTube(index);
+          tapWithSound(index);
           setFocusedTube(index);
         }
         return;
@@ -334,7 +410,7 @@ export function GameBoard({
         case 'u':
           if (controls.undo && game.canUndo) {
             e.preventDefault();
-            game.undo();
+            undoWithSound();
           }
           return;
         case 'h':
@@ -343,6 +419,10 @@ export function GameBoard({
             haptics.move();
             game.useHint();
           }
+          return;
+        case 'm':
+          e.preventDefault();
+          sound.toggle();
           return;
         case 'r':
           if (controls.restart) {
@@ -355,7 +435,7 @@ export function GameBoard({
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [board, focusedTube, confirmingReset, game, controls, onHome, onSolvedKey]);
+  }, [board, focusedTube, confirmingReset, game, controls, onHome, onSolvedKey, tapWithSound, undoWithSound, sound, soundMenuOpen]);
 
   const showFooter = onHome !== undefined || controls.undo || controls.hint || controls.restart;
 
@@ -459,7 +539,7 @@ export function GameBoard({
             <ControlButton
               label={t('game.undoLabel', { count: game.undosRemaining })}
               text={t('game.undo')}
-              onClick={game.undo}
+              onClick={undoWithSound}
               disabled={!game.canUndo}
               badge={game.undosRemaining}
             >
@@ -497,6 +577,28 @@ export function GameBoard({
               </svg>
             </ControlButton>
           )}
+          <span ref={soundArea} className="relative inline-flex">
+          <AnimatePresence>
+            {soundMenuOpen && (
+              <SoundMenu muted={sound.muted} volume={sound.volume} onToggle={sound.toggle} onVolume={sound.setVolume} />
+            )}
+          </AnimatePresence>
+          <ControlButton
+            label={sound.muted ? t('game.soundButtonOff') : t('game.soundButtonOn')}
+            text={t('game.sound')}
+            onClick={() => setSoundMenuOpen((open) => !open)}
+            expanded={soundMenuOpen}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M10.5 3.75a.75.75 0 0 0-1.264-.546L5.203 7H3.167a.75.75 0 0 0-.7.48A6.985 6.985 0 0 0 2 10c0 .887.165 1.737.468 2.52.111.29.39.48.7.48h2.035l4.033 3.796a.75.75 0 0 0 1.264-.546V3.75Z" />
+              {sound.muted ? (
+                <path d="M13.28 7.22a.75.75 0 1 0-1.06 1.06L13.94 10l-1.72 1.72a.75.75 0 1 0 1.06 1.06L15 11.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L16.06 10l1.72-1.72a.75.75 0 0 0-1.06-1.06L15 8.94l-1.72-1.72Z" />
+              ) : (
+                <path d="M14.94 5.06a.75.75 0 0 1 1.06 0 7 7 0 0 1 0 9.88.75.75 0 1 1-1.06-1.06 5.5 5.5 0 0 0 0-7.76.75.75 0 0 1 0-1.06Zm-2.12 2.12a.75.75 0 0 1 1.06 0 4 4 0 0 1 0 5.64.75.75 0 0 1-1.06-1.06 2.5 2.5 0 0 0 0-3.52.75.75 0 0 1 0-1.06Z" />
+              )}
+            </svg>
+          </ControlButton>
+          </span>
           <span className="absolute bottom-1.5 right-3 text-[0.55rem] tabular-nums text-slate-600">{APP_VERSION}</span>
         </footer>
       )}
@@ -558,7 +660,7 @@ export function GameBoard({
               {controls.undo && (
                 <button
                   type="button"
-                  onClick={game.undo}
+                  onClick={undoWithSound}
                   disabled={!game.canUndo}
                   className="rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-100 disabled:opacity-40"
                 >

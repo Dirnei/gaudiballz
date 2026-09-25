@@ -63,6 +63,7 @@ export function ControlButton({
   disabled,
   children,
   badge,
+  expanded,
 }: {
   label: string;
   text: string;
@@ -70,11 +71,14 @@ export function ControlButton({
   disabled?: boolean;
   children: React.ReactNode;
   badge?: number;
+  /** For a button that opens a menu: whether that menu is open. */
+  expanded?: boolean;
 }) {
   return (
     <motion.button
       type="button"
       aria-label={label}
+      aria-expanded={expanded}
       onClick={onClick}
       disabled={disabled}
       whileTap={{ scale: 0.9 }}
