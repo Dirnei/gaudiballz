@@ -5,14 +5,69 @@ on:
     branches: [main]
   pull_request:
 
+# A newer push to the same branch or PR supersedes the run still going; it tests
+# everything the older one would have.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DOTNET_NOLOGO: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   CI: true
 
 jobs:
+  # Each job runs only when something it checks has changed, so an OpenSpec archive commit
+  # does not spin up Testcontainers and a client tweak does not rebuild the backend. A job
+  # skipped here still counts as passing for required checks. Editing this file runs all.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      specs: ${{ steps.filter.outputs.specs }}
+      backend: ${{ steps.filter.outputs.backend }}
+      client: ${{ steps.filter.outputs.client }}
+      conformance: ${{ steps.filter.outputs.conformance }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            specs:
+              - 'openspec/**'
+              - '.github/workflows/ci.yml'
+            backend:
+              - 'src/**'
+              - 'conformance/**'
+              - 'global.json'
+              - 'Directory.Build.props'
+              - 'Directory.Packages.props'
+              - 'gaudiballz.slnx'
+              - '.editorconfig'
+              - '.github/workflows/ci.yml'
+            client:
+              - 'client/**'
+              - 'conformance/**'
+              - 'CHANGELOG.md'
+              - '.github/workflows/ci.yml'
+            conformance:
+              - 'src/GaudiBallz.Rules/**'
+              - 'src/GaudiBallz.Rules.Tests/**'
+              - 'client/src/engine/**'
+              - 'client/package-lock.json'
+              - 'conformance/**'
+              - 'global.json'
+              - 'Directory.Build.props'
+              - 'Directory.Packages.props'
+              - '.github/workflows/ci.yml'
+
   specs:
     name: Specs
+    needs: changes
+    if: needs.changes.outputs.specs == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +84,8 @@ jobs:
 
   backend:
     name: Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +103,8 @@ jobs:
 
   client:
     name: Client
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -67,6 +126,8 @@ jobs:
   # player solving a puzzle and being told they did not.
   conformance:
     name: Cross-language conformance
+    needs: changes
+    if: needs.changes.outputs.conformance == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
