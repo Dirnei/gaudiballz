@@ -32,6 +32,43 @@ public sealed class HubStoreTests
         Assert.Equal(1000, alice.TotalPoints);
     }
 
+    /// <summary>
+    /// A completion updates the leaderboard in the background with the ball the player had when
+    /// it started. If the player changes their ball in between, that late write must not put the
+    /// old ball back: the ball change already updated every row.
+    /// </summary>
+    [Fact]
+    public async Task A_late_leaderboard_update_does_not_undo_a_ball_change()
+    {
+        var id = Guid.NewGuid().ToString("N");
+        await _store.UpsertLeaderboardAsync(id, "Alice", 500, 3, 2, profileBall: null, token: Token);
+        await _store.UpsertPeriodLeaderboardAsync(id, "Alice", "2026-W39", 500, profileBall: null, token: Token);
+
+        await _store.UpdateLeaderboardBallAsync(id, 2, Token);
+
+        // The late writes from a completion that read the player before the change.
+        await _store.UpsertLeaderboardAsync(id, "Alice", 700, 4, 3, profileBall: null, token: Token);
+        await _store.UpsertPeriodLeaderboardAsync(id, "Alice", "2026-W39", 200, profileBall: null, token: Token);
+
+        var (_, allTime) = await _store.GetPlayerRankAsync(id, null, Token);
+        var (_, week) = await _store.GetPlayerRankAsync(id, "2026-W39", Token);
+        Assert.Equal(2, allTime!.ProfileBall);
+        Assert.Equal(700, allTime.TotalPoints);
+        Assert.Equal(2, week!.ProfileBall);
+        Assert.Equal(700, week.TotalPoints);
+    }
+
+    [Fact]
+    public async Task A_new_leaderboard_row_starts_with_the_players_ball()
+    {
+        var id = Guid.NewGuid().ToString("N");
+
+        await _store.UpsertLeaderboardAsync(id, "Bob", 100, 1, 1, profileBall: 4, token: Token);
+
+        var (_, entry) = await _store.GetPlayerRankAsync(id, null, Token);
+        Assert.Equal(4, entry!.ProfileBall);
+    }
+
     [Fact]
     public async Task Leaderboard_is_sorted_descending_by_points()
     {

@@ -565,7 +565,10 @@ public sealed class PuzzleStore
             Builders<LeaderboardDocument>.Update
                 .SetOnInsert(l => l.PlayerId, playerId)
                 .Set(l => l.Username, username)
-                .Set(l => l.ProfileBall, profileBall)
+                // Only a new row takes the ball from here. After that the ball belongs to
+                // UpdateLeaderboardBallAsync: completions write in the background with the ball
+                // read when they started, and a late one would otherwise undo a ball change.
+                .SetOnInsert(l => l.ProfileBall, profileBall)
                 .Set(l => l.TotalPoints, totalPoints)
                 .Set(l => l.GamesPlayed, gamesPlayed)
                 .Set(l => l.GamesWon, gamesWon)
@@ -590,7 +593,9 @@ public sealed class PuzzleStore
             Builders<LeaderboardDocument>.Update
                 .SetOnInsert(l => l.PlayerId, playerId)
                 .Set(l => l.Username, username)
-                .Set(l => l.ProfileBall, profileBall)
+                // As in UpsertLeaderboardAsync: set on insert only, so a late write can't undo
+                // a ball change.
+                .SetOnInsert(l => l.ProfileBall, profileBall)
                 .Set(l => l.Period, period)
                 .Inc(l => l.TotalPoints, periodPoints)
                 .Inc(l => l.GamesPlayed, 1)
@@ -682,7 +687,9 @@ public sealed class PuzzleStore
                 .SetOnInsert(l => l.Level, level)
                 .SetOnInsert(l => l.PlayerId, playerId)
                 .Set(l => l.Username, username)
-                .Set(l => l.ProfileBall, profileBall)
+                // As in UpsertLeaderboardAsync: set on insert only, so a late write can't undo
+                // a ball change.
+                .SetOnInsert(l => l.ProfileBall, profileBall)
                 .Set(l => l.Period, period)
                 .Set(l => l.BestStars, stars)
                 .Set(l => l.BestMoves, moves)
