@@ -12,6 +12,7 @@ import { Impressum } from './Impressum';
 import { Datenschutz } from './Datenschutz';
 import { LeaderboardPage } from './LeaderboardPage';
 import { StatsPage } from './StatsPage';
+import { ChangelogPage } from './ChangelogPage';
 import { ErrorFallback } from './ErrorFallback';
 
 export const routes: RouteObject[] = [
@@ -26,6 +27,7 @@ export const routes: RouteObject[] = [
       { path: 'stats', element: <StatsPage /> },
       { path: 'impressum', element: <Impressum /> },
       { path: 'datenschutz', element: <Datenschutz /> },
+      { path: 'changelog', element: <ChangelogPage /> },
     ],
   },
   {

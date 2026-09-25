@@ -10,6 +10,8 @@ COPY client/package.json client/package-lock.json ./
 RUN npm ci
 
 COPY client/ ./
+# Parsed into the bundle by the client build; it sits beside client/ just as in the repo.
+COPY CHANGELOG.md /CHANGELOG.md
 ARG APP_VERSION=local-dev
 ENV VITE_APP_VERSION=$APP_VERSION
 RUN npm run build

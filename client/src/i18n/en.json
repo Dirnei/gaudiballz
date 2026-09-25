@@ -376,5 +376,15 @@
     "body": "An unexpected error occurred. No worries — your progress is safe.",
     "backToMenu": "Back to menu",
     "details": "Error details (dev only)"
+  },
+  "changelog": {
+    "title": "What's new",
+    "footerLink": "What's new",
+    "dialogTitle": "What's new since your last visit",
+    "gotIt": "Got it",
+    "seeAll": "See all changes",
+    "version": "Version {{version}}",
+    "features": "New",
+    "fixes": "Fixed"
   }
 }

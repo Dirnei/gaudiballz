@@ -376,5 +376,15 @@
     "body": "Ein unerwarteter Fehler ist aufgetreten. Keine Sorge — dein Fortschritt ist sicher.",
     "backToMenu": "Zurück zum Menü",
     "details": "Fehlerdetails (nur Entwicklung)"
+  },
+  "changelog": {
+    "title": "Was ist neu",
+    "footerLink": "Was ist neu",
+    "dialogTitle": "Neu seit deinem letzten Besuch",
+    "gotIt": "Alles klar",
+    "seeAll": "Alle Änderungen ansehen",
+    "version": "Version {{version}}",
+    "features": "Neu",
+    "fixes": "Behoben"
   }
 }

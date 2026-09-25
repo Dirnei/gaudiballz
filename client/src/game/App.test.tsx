@@ -8,6 +8,8 @@ vi.mock('./useGame', () => ({ useGame: () => game.current }));
 
 const { routes } = await import('./App');
 const { GameProvider } = await import('./GameContext');
+const { SEEN_KEY } = await import('../changelog/seen');
+const { CHANGELOG } = await import('../changelog/entries');
 
 function playing(overrides: Record<string, unknown> = {}) {
   return {
@@ -74,6 +76,7 @@ function renderApp(initialRoute = '/') {
 
 beforeEach(() => {
   localStorage.setItem('puzzle.tutorialSeen', '1');
+  localStorage.setItem(SEEN_KEY, CHANGELOG[0]!.version);
   game.current = playing();
 });
 
@@ -245,5 +248,42 @@ describe('the level select can scroll', () => {
 
     expect(scroller).not.toBeNull();
     expect(scroller!.querySelectorAll('.aspect-square').length).toBe(50);
+  });
+});
+
+describe('the changelog', () => {
+  it('is linked from the footer', async () => {
+    renderApp();
+
+    fireEvent.click(screen.getByRole('link', { name: "What's new" }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: "What's new" })).toBeInTheDocument();
+  });
+
+  const notice = () => screen.queryByRole('dialog', { name: "What's new since your last visit" });
+
+  it('says nothing on a first visit', () => {
+    renderApp();
+
+    expect(notice()).not.toBeInTheDocument();
+  });
+
+  it('greets a returning player with what is new', () => {
+    localStorage.setItem(SEEN_KEY, '0.0.0');
+    renderApp();
+
+    expect(notice()).toBeInTheDocument();
+  });
+
+  it('waits until the player is off the game screen', async () => {
+    localStorage.setItem(SEEN_KEY, '0.0.0');
+    renderApp('/play');
+
+    const back = await screen.findByRole('button', { name: /back to menu/i });
+    expect(notice()).not.toBeInTheDocument();
+
+    fireEvent.click(back);
+
+    expect(await screen.findByRole('dialog', { name: "What's new since your last visit" })).toBeInTheDocument();
   });
 });

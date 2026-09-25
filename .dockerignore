@@ -9,3 +9,4 @@ client/.vitest
 openspec
 docker
 *.md
+!CHANGELOG.md

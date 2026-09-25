@@ -9,6 +9,7 @@ import { useGameContext } from './GameContext';
 import { useHeartbeat } from './useHeartbeat';
 import { APP_VERSION } from './version';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { WhatsNewDialog } from './WhatsNewDialog';
 
 export function AppShell() {
   const { t } = useTranslation();
@@ -91,7 +92,7 @@ export function AppShell() {
         <Outlet />
       </div>
 
-      <footer className="relative z-10 flex items-center justify-center gap-4 px-5 pb-3 pt-2 text-xs text-slate-500">
+      <footer className="relative z-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-5 pb-3 pt-2 text-xs text-slate-500">
         <Link to="/impressum" className="transition-colors hover:text-slate-300">
           {t('footer.impressum')}
         </Link>
@@ -111,6 +112,10 @@ export function AppShell() {
           </svg>
           {t('footer.kofi')}
         </a>
+        <span aria-hidden>·</span>
+        <Link to="/changelog" className="transition-colors hover:text-slate-300">
+          {t('changelog.footerLink')}
+        </Link>
         <span aria-hidden>·</span>
         <span className="tabular-nums">{APP_VERSION}</span>
         <span aria-hidden>·</span>
@@ -138,6 +143,8 @@ export function AppShell() {
         highestCompleted={game.progress?.highestCompleted ?? 0}
         onChooseBall={game.chooseBall}
       />
+
+      <WhatsNewDialog />
     </div>
   );
 }
