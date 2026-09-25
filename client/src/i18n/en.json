@@ -118,6 +118,15 @@
     "moves_one": "{{count}} move",
     "moves_other": "{{count}} moves",
     "underPar": "under par",
+    "missedHint": "A hint caps the rating at 1 star",
+    "missedMoves_one": "{{count}} move over par",
+    "missedMoves_other": "{{count}} moves over par",
+    "missedTime": "{{time}}s over the time target",
+    "share": "Share result",
+    "copied": "Copied!",
+    "shareTitle": "I played Gaudi Ballz / Level {{id}}",
+    "shareLink": "Check out on {{url}}",
+    "shareMoves": "{{moves}}/{{par}} moves",
     "hints_one": "{{count}} hint",
     "hints_other": "{{count}} hints",
     "nextLevel": "Next level",
@@ -367,6 +376,7 @@
     "nextIn": "Next challenge in {{time}}",
     "leaderboardTitle": "Today's Leaderboard",
     "newBest": "New best!",
+    "shareTitle": "I played Gaudi Ballz / Daily {{date}}",
     "yourResult": "Your result",
     "notPlayed": "Not played yet",
     "completed": "Completed"
@@ -386,5 +396,22 @@
     "version": "Version {{version}}",
     "features": "New",
     "fixes": "Fixed"
+  },
+  "shared": {
+    "title": "Shared result",
+    "loading": "Loading result...",
+    "notFound": "This result could not be found.",
+    "toGame": "Go to the game",
+    "aPlayer": "A player",
+    "solvedLevel": "solved Level {{id}}",
+    "solvedDaily": "solved the daily challenge of {{date}}",
+    "starsLabel": "{{stars}} of 3 stars",
+    "time": "{{time}}s / {{target}}s",
+    "rankLevel": "#{{position}} of {{total}} on this level",
+    "rankDaily": "#{{position}} of {{total}} on that day's leaderboard",
+    "boardLabel": "Starting board",
+    "playLevel": "Play Level {{id}}",
+    "playDaily": "Play today's daily",
+    "dailyEnded": "That daily challenge has ended."
   }
 }

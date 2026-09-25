@@ -13,6 +13,7 @@ import { Datenschutz } from './Datenschutz';
 import { LeaderboardPage } from './LeaderboardPage';
 import { StatsPage } from './StatsPage';
 import { ChangelogPage } from './ChangelogPage';
+import { SharedResultPage } from './SharedResultPage';
 import { ErrorFallback } from './ErrorFallback';
 
 export const routes: RouteObject[] = [
@@ -28,6 +29,7 @@ export const routes: RouteObject[] = [
       { path: 'impressum', element: <Impressum /> },
       { path: 'datenschutz', element: <Datenschutz /> },
       { path: 'changelog', element: <ChangelogPage /> },
+      { path: 'r/:id', element: <SharedResultPage /> },
     ],
   },
   {

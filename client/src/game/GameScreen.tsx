@@ -6,30 +6,15 @@ import { useGameContext } from './GameContext';
 import { AchievementToast } from './AchievementToast';
 import { AccountBall } from './AccountBall';
 import { AccountPanel } from './AccountPanel';
+import { copyText } from './clipboard';
 import { FlaskLogo } from './FlaskLogo';
 import { formatTime } from './LiveTimer';
 import { LevelLeaderboard } from './LevelLeaderboard';
 import { LeaveAttemptPrompt } from './LeaveAttemptPrompt';
+import { MissedStars } from './MissedStars';
+import { ShareResultButton } from './ShareResultButton';
+import { buildShareText, resultUrl } from './shareResult';
 import { ALL_CONTROLS, GameBoard } from './board/GameBoard';
-
-function copyText(text: string): Promise<void> {
-  if (navigator.clipboard?.writeText) {
-    return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
-  }
-  return fallbackCopy(text);
-}
-
-function fallbackCopy(text: string): Promise<void> {
-  const el = document.createElement('textarea');
-  el.value = text;
-  el.style.position = 'fixed';
-  el.style.opacity = '0';
-  document.body.appendChild(el);
-  el.select();
-  document.execCommand('copy');
-  document.body.removeChild(el);
-  return Promise.resolve();
-}
 
 function LevelBadge({ levelId, code }: { levelId: number; code: string | null }) {
   const { t } = useTranslation();
@@ -229,6 +214,17 @@ export function GameScreen() {
                       </span>
                     </div>
 
+                    <MissedStars
+                      stars={game.attemptStars}
+                      attempt={{
+                        moves: game.moveCount,
+                        par,
+                        elapsedMs: game.elapsed.elapsedMs(),
+                        timeTargetMs: game.info?.timeTargetMs,
+                        hintsUsed: game.hintsUsed,
+                      }}
+                    />
+
                     {totalEarned > 0 && (
                       <div className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-xs text-slate-400">
                         {game.starDelta > 0 && <span className="text-amber-400/80">{t('game.starUpgrade', { points: game.starDelta })}</span>}
@@ -310,6 +306,23 @@ export function GameScreen() {
               >
                 {t('game.nextLevel')}
               </motion.button>
+              {game.attemptStars > 0 && game.info && (
+                <ShareResultButton
+                  text={() => buildShareText(
+                    {
+                      title: t('game.shareTitle', { id: game.levelId }),
+                      stars: game.attemptStars,
+                      moves: game.moveCount,
+                      par,
+                      elapsedMs: game.elapsed.elapsedMs(),
+                      timeTargetMs: game.info!.timeTargetMs,
+                      hintsUsed: game.hintsUsed,
+                      url: resultUrl(game.shareId, '/'),
+                    },
+                    t,
+                  )}
+                />
+              )}
               <button
                 type="button"
                 onClick={game.restart}

@@ -350,9 +350,22 @@ public sealed class ProgressionSlice : ISlice
                     });
                 }
 
+                var shareId = await store.RecordSharedResultAsync(new SharedResultDocument
+                {
+                    Kind = "level",
+                    Level = request.Level,
+                    PlayerId = playerId,
+                    Moves = request.Moves,
+                    Hints = request.Hints,
+                    Stars = attemptStars,
+                    ElapsedTimeMs = request.ElapsedTimeMs ?? 0,
+                    Par = par,
+                    TimeTargetMs = timeTargetMs,
+                });
+
                 return Results.Ok(ShapeCompletion(
                     snapshot, attemptStars, attemptPoints, starDelta, bonus,
-                    rankUp, newAchievements, newBadges));
+                    rankUp, newAchievements, newBadges, shareId));
             });
 
         // Used once, when a device with local progress signs in to an existing account.
@@ -462,7 +475,7 @@ public sealed class ProgressionSlice : ISlice
     private static object ShapeCompletion(
         ProgressSnapshot snapshot, int attemptStars, int attemptPoints,
         int starDelta, CompletionBonusResult bonus, RankUpEvent rankUp,
-        object[] newAchievements, object[] newBadges) => new
+        object[] newAchievements, object[] newBadges, string shareId) => new
     {
         levelsCompleted = snapshot.Progress.LevelsCompleted,
         highestCompleted = snapshot.Progress.HighestCompleted,
@@ -486,6 +499,7 @@ public sealed class ProgressionSlice : ISlice
         noHintBonus = bonus.NoHintBonus,
         firstClearBonus = bonus.FirstClearBonus,
         streakBonus = bonus.StreakBonus,
+        shareId,
         rankUp = rankUp.Kind == RankUpKind.None ? null : new
         {
             kind = rankUp.Kind == RankUpKind.TierPromotion ? "tierPromotion" : "subLevel",

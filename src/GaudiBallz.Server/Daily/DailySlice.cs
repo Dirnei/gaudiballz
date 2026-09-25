@@ -111,7 +111,20 @@ public sealed class DailySlice : ISlice
                     });
                 }
 
-                return Results.Ok(new { stars, points, isNewBest });
+                var shareId = await store.RecordSharedResultAsync(new SharedResultDocument
+                {
+                    Kind = "daily",
+                    Date = dateStr,
+                    PlayerId = playerId,
+                    Moves = request.Moves,
+                    Hints = request.Hints,
+                    Stars = stars,
+                    ElapsedTimeMs = request.ElapsedTimeMs ?? 0,
+                    Par = par,
+                    TimeTargetMs = timeTargetMs,
+                });
+
+                return Results.Ok(new { stars, points, isNewBest, shareId });
             });
 
         group.MapGet("/leaderboard",

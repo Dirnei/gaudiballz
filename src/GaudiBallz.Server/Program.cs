@@ -14,6 +14,7 @@ using GaudiBallz.Server.Persistence;
 using GaudiBallz.Server.PlayerIdentity;
 using GaudiBallz.Server.ProfileBall;
 using GaudiBallz.Server.Progression;
+using GaudiBallz.Server.Sharing;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Net.Http.Headers;
 
@@ -151,6 +152,7 @@ AchievementsSlice.AddServices(builder.Services);
 HubSlice.AddServices(builder.Services);
 DailySlice.AddServices(builder.Services);
 LegalSlice.AddServices(builder.Services);
+SharingSlice.AddServices(builder.Services);
 
 builder.Services.AddOutputCache();
 
@@ -220,6 +222,7 @@ AchievementsSlice.MapEndpoints(app);
 HubSlice.MapEndpoints(app);
 DailySlice.MapEndpoints(app);
 LegalSlice.MapEndpoints(app);
+SharingSlice.MapEndpoints(app);
 
 // Anything that is not an API route or a real file is the SPA: the client owns its own
 // routing, so a deep link has to reach index.html rather than 404.

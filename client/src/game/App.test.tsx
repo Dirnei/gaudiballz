@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 
 const game = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
@@ -115,6 +115,20 @@ describe('nothing announces an earned ball', () => {
       .map((button) => button.textContent);
 
     expect(offered).toEqual(['Leaderboard ▸', 'Next level', 'Play again']);
+  });
+
+  it('adds sharing to those once the result is scored', async () => {
+    game.current = playing({ solved: true, attemptStars: 2, attemptPoints: 250 });
+
+    renderApp();
+    await goToPlay();
+
+    const card = screen.getByText('Solved').closest('div')!;
+    const offered = within(card)
+      .getAllByRole('button')
+      .map((button) => button.textContent);
+
+    expect(offered).toEqual(['Leaderboard ▸', 'Next level', 'Share result', 'Play again']);
   });
 
   it('leaves the account control unchanged whatever has been earned', async () => {
@@ -285,5 +299,53 @@ describe('the changelog', () => {
     fireEvent.click(back);
 
     expect(await screen.findByRole('dialog', { name: "What's new since your last visit" })).toBeInTheDocument();
+  });
+});
+
+describe('win screen explains missed stars', () => {
+  it('says how far over par a 1-star attempt was', async () => {
+    game.current = playing({ solved: true, attemptStars: 1, attemptPoints: 100, moveCount: 32 });
+
+    renderApp();
+    await goToPlay();
+
+    expect(screen.getByText('2 moves over par')).toBeInTheDocument();
+  });
+
+  it('says nothing about missed stars at 3 stars', async () => {
+    game.current = playing({ solved: true, attemptStars: 3, attemptPoints: 500, moveCount: 30 });
+
+    renderApp();
+    await goToPlay();
+
+    expect(screen.queryByText(/over par|over the time target/)).not.toBeInTheDocument();
+  });
+});
+
+describe('sharing a level result', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('copies the level result text and says so', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+    game.current = playing({
+      solved: true,
+      attemptStars: 2,
+      attemptPoints: 250,
+      moveCount: 28,
+      shareId: 'k3F9x2Ab',
+      elapsed: { ...(playing().elapsed as object), elapsedMs: () => 95_000 },
+    });
+
+    renderApp();
+    await goToPlay();
+    fireEvent.click(screen.getByRole('button', { name: 'Share result' }));
+
+    await screen.findByRole('button', { name: 'Copied!' });
+    expect(writeText).toHaveBeenCalledWith(
+      `I played Gaudi Ballz / Level 26\n\n⭐️⭐️☆ 28/30 moves | ⏱️ 95.0s/90.0s\n\nCheck out on ${window.location.origin}/r/k3F9x2Ab`,
+    );
   });
 });

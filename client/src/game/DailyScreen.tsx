@@ -2,8 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
+import { formatDailyDate } from './dailyDate';
 import { FlaskLogo } from './FlaskLogo';
 import { formatTime } from './LiveTimer';
+import { MissedStars } from './MissedStars';
+import { ShareResultButton } from './ShareResultButton';
+import { buildShareText, resultUrl } from './shareResult';
 import { useDailyGame } from './useDailyGame';
 import { DailyLeaderboard } from './DailyLeaderboard';
 import { ALL_CONTROLS, GameBoard } from './board/GameBoard';
@@ -40,15 +44,6 @@ function msUntilMidnightUTC(): number {
   const now = new Date();
   const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
   return tomorrow.getTime() - now.getTime();
-}
-
-function formatDailyDate(dateStr: string, lng: string): string {
-  try {
-    const d = new Date(dateStr + 'T00:00:00Z');
-    return d.toLocaleDateString(lng, { month: 'short', day: 'numeric', timeZone: 'UTC' });
-  } catch {
-    return dateStr;
-  }
 }
 
 export function DailyScreen() {
@@ -168,6 +163,17 @@ export function DailyScreen() {
                     </span>
                   </div>
 
+                  <MissedStars
+                    stars={game.completion.stars}
+                    attempt={{
+                      moves: game.moveCount,
+                      par,
+                      elapsedMs: game.elapsed.elapsedMs(),
+                      timeTargetMs: game.puzzle?.timeTargetMs,
+                      hintsUsed: game.hintsUsed,
+                    }}
+                  />
+
                   {game.completion.isNewBest && (
                     <p className="mt-1 text-xs font-semibold text-amber-400/80">
                       {t('daily.newBest')}
@@ -198,6 +204,23 @@ export function DailyScreen() {
               >
                 {t('daily.viewLeaderboard')}
               </motion.button>
+              {game.completion && game.puzzle && (
+                <ShareResultButton
+                  text={() => buildShareText(
+                    {
+                      title: t('daily.shareTitle', { date: formatDailyDate(game.puzzle!.date, i18n.language) }),
+                      stars: game.completion!.stars,
+                      moves: game.moveCount,
+                      par,
+                      elapsedMs: game.elapsed.elapsedMs(),
+                      timeTargetMs: game.puzzle!.timeTargetMs,
+                      hintsUsed: game.hintsUsed,
+                      url: resultUrl(game.completion!.shareId ?? null, '/daily'),
+                    },
+                    t,
+                  )}
+                />
+              )}
               <button
                 type="button"
                 onClick={() => navigate('/')}

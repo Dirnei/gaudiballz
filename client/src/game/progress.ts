@@ -51,6 +51,8 @@ export interface CompletionResult {
   readonly noHintBonus: number;
   readonly firstClearBonus: number;
   readonly streakBonus: number;
+  /** The id of this attempt's result page; null when the server did not score it. */
+  readonly shareId: string | null;
   readonly rankUp: RankUpEvent | null;
 }
 
@@ -113,7 +115,7 @@ export async function recordCompletion(
  *
  * Returns any newly earned achievements from the last successful response.
  */
-const EMPTY_RESULT: CompletionResult = { newAchievements: [], newBadges: [], attemptStars: 0, attemptPoints: 0, starDelta: 0, replayBonus: 0, timeBonus: 0, noHintBonus: 0, firstClearBonus: 0, streakBonus: 0, rankUp: null };
+const EMPTY_RESULT: CompletionResult = { newAchievements: [], newBadges: [], attemptStars: 0, attemptPoints: 0, starDelta: 0, replayBonus: 0, timeBonus: 0, noHintBonus: 0, firstClearBonus: 0, streakBonus: 0, shareId: null, rankUp: null };
 
 export async function drain(): Promise<CompletionResult> {
   let waiting: PendingCompletion[];
@@ -157,6 +159,7 @@ export async function drain(): Promise<CompletionResult> {
             noHintBonus?: number;
             firstClearBonus?: number;
             streakBonus?: number;
+            shareId?: string;
             rankUp?: RankUpEvent | null;
           };
           lastResult = {
@@ -170,6 +173,7 @@ export async function drain(): Promise<CompletionResult> {
             noHintBonus: body.noHintBonus ?? 0,
             firstClearBonus: body.firstClearBonus ?? 0,
             streakBonus: body.streakBonus ?? 0,
+            shareId: body.shareId ?? null,
             rankUp: body.rankUp ?? null,
           };
         } catch {

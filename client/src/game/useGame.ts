@@ -134,6 +134,7 @@ export function useGame() {
   const [noHintBonus, setNoHintBonus] = useState(0);
   const [firstClearBonus, setFirstClearBonus] = useState(0);
   const [streakBonus, setStreakBonus] = useState(0);
+  const [shareId, setShareId] = useState<string | null>(null);
   const [rankUp, setRankUp] = useState<RankUpEvent | null>(null);
 
   const game = useBoardPlay({ board, resetKey: `${levelId}:${loadKey}`, onMove: beginAttempt });
@@ -186,6 +187,7 @@ export function useGame() {
     attemptId.current = newAttemptId();
     setAttemptOpen(false);
     setAttemptStars(0);
+    setShareId(null);
     setAttemptPoints(0);
     setStarDelta(0);
     setReplayBonus(0);
@@ -242,6 +244,7 @@ export function useGame() {
     attemptId.current = newAttemptId();
     setAttemptOpen(false);
     setAttemptStars(0);
+    setShareId(null);
     setAttemptPoints(0);
     setStarDelta(0);
     setReplayBonus(0);
@@ -308,6 +311,7 @@ export function useGame() {
       setNoHintBonus(result.noHintBonus);
       setFirstClearBonus(result.firstClearBonus);
       setStreakBonus(result.streakBonus);
+      setShareId(result.shareId);
       setRankUp(result.rankUp);
       const refreshed = await loadProgress();
       if (refreshed !== null) {
@@ -477,6 +481,7 @@ export function useGame() {
     noHintBonus,
     firstClearBonus,
     streakBonus,
+    shareId,
     rankUp,
     newAchievements,
     newBadges,

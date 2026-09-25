@@ -30,6 +30,7 @@ public sealed class PuzzleStore
     private readonly IMongoCollection<LeaderboardDocument> _leaderboard;
     private readonly IMongoCollection<DailyResultDocument> _dailyResults;
     private readonly IMongoCollection<LevelLeaderboardDocument> _levelLeaderboard;
+    private readonly IMongoCollection<SharedResultDocument> _sharedResults;
     private readonly IMongoDatabase _database;
 
     public PuzzleStore(MongoOptions options)
@@ -64,6 +65,7 @@ public sealed class PuzzleStore
         _leaderboard = _database.GetCollection<LeaderboardDocument>("leaderboard", durable);
         _dailyResults = _database.GetCollection<DailyResultDocument>("daily_results", durable);
         _levelLeaderboard = _database.GetCollection<LevelLeaderboardDocument>("level_leaderboard", durable);
+        _sharedResults = _database.GetCollection<SharedResultDocument>("shared_results", durable);
     }
 
     /// <summary>Idempotent: creating an index that already exists is a no-op.</summary>
@@ -912,6 +914,81 @@ public sealed class PuzzleStore
             .ThenBy(d => d.ElapsedTimeMs)
             .Limit(limit)
             .ToListAsync(token);
+
+    // ---- shared results -----------------------------------------------------
+
+    private const string IdAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    private const int IdLength = 8;
+
+    /// <summary>
+    /// Stores a scored attempt under a fresh random id and returns the id.
+    ///
+    /// Eight base62 characters is about 47 bits: short enough for a link, and far too many to
+    /// walk through looking for other people's results. A collision is practically impossible,
+    /// but the primary key catches it anyway and the next id is drawn.
+    /// </summary>
+    public async Task<string> RecordSharedResultAsync(
+        SharedResultDocument result, CancellationToken token = default)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            result.Id = System.Security.Cryptography.RandomNumberGenerator.GetString(IdAlphabet, IdLength);
+            result.CreatedAt = DateTime.UtcNow;
+
+            try
+            {
+                await _sharedResults.InsertOneAsync(result, cancellationToken: token);
+                return result.Id;
+            }
+            catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey && attempt < 3)
+            {
+                // Drawn an id that exists: draw again.
+            }
+        }
+    }
+
+    public async Task<SharedResultDocument?> FindSharedResultAsync(
+        string id, CancellationToken token = default) =>
+        await _sharedResults.Find(s => s.Id == id).FirstOrDefaultAsync(token);
+
+    /// <summary>
+    /// Where a shared level result places on the level's all-time board, counted rather than
+    /// scanned, with the same three-tier order the board sorts by. The sharer's own entry is left
+    /// out: it is usually their best, and a shared older attempt should not be ranked behind the
+    /// same player's later one.
+    /// </summary>
+    public async Task<(int Position, int Total)> RankLevelResultAsync(
+        int level, string playerId, int stars, int moves, int timeMs, CancellationToken token = default)
+    {
+        var f = Builders<LevelLeaderboardDocument>.Filter;
+        var board = f.And(f.Eq(l => l.Level, level), f.Eq(l => l.Period, null), f.Ne(l => l.PlayerId, playerId));
+        var better = f.Or(
+            f.Gt(l => l.BestStars, stars),
+            f.And(f.Eq(l => l.BestStars, stars), f.Lt(l => l.BestMoves, moves)),
+            f.And(f.Eq(l => l.BestStars, stars), f.Eq(l => l.BestMoves, moves), f.Lt(l => l.BestTimeMs, timeMs)));
+
+        var ahead = await _levelLeaderboard.CountDocumentsAsync(f.And(board, better), cancellationToken: token);
+        var others = await _levelLeaderboard.CountDocumentsAsync(board, cancellationToken: token);
+
+        return ((int)ahead + 1, (int)others + 1);
+    }
+
+    /// <summary>The same as <see cref="RankLevelResultAsync"/>, against one day's daily board.</summary>
+    public async Task<(int Position, int Total)> RankDailyResultAsync(
+        string date, string playerId, int stars, int moves, int timeMs, CancellationToken token = default)
+    {
+        var f = Builders<DailyResultDocument>.Filter;
+        var board = f.And(f.Eq(d => d.Date, date), f.Ne(d => d.Username, null), f.Ne(d => d.PlayerId, playerId));
+        var better = f.Or(
+            f.Gt(d => d.Stars, stars),
+            f.And(f.Eq(d => d.Stars, stars), f.Lt(d => d.Moves, moves)),
+            f.And(f.Eq(d => d.Stars, stars), f.Eq(d => d.Moves, moves), f.Lt(d => d.ElapsedTimeMs, timeMs)));
+
+        var ahead = await _dailyResults.CountDocumentsAsync(f.And(board, better), cancellationToken: token);
+        var others = await _dailyResults.CountDocumentsAsync(board, cancellationToken: token);
+
+        return ((int)ahead + 1, (int)others + 1);
+    }
 
     // ---- community stats ----------------------------------------------------
 

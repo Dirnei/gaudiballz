@@ -244,6 +244,37 @@ public sealed class DailyResultDocument
 }
 
 /// <summary>
+/// One scored attempt, kept so it can be shown on its own public page.
+///
+/// Written once when the server scores a completion and never changed, so a shared link shows
+/// exactly what was scored. It stores numbers only: who the player is now is looked up when the
+/// page is viewed, and the board is regenerated from the level or date.
+/// </summary>
+public sealed class SharedResultDocument
+{
+    /// <summary>The short random id in the link.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>"level" or "daily".</summary>
+    public string Kind { get; set; } = string.Empty;
+
+    /// <summary>The campaign level; null for a daily.</summary>
+    public int? Level { get; set; }
+
+    /// <summary>The daily's UTC date as yyyy-MM-dd; null for a level.</summary>
+    public string? Date { get; set; }
+
+    public string PlayerId { get; set; } = string.Empty;
+    public int Moves { get; set; }
+    public int Hints { get; set; }
+    public int Stars { get; set; }
+    public int ElapsedTimeMs { get; set; }
+    public int Par { get; set; }
+    public int TimeTargetMs { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>
 /// One entry in the per-level leaderboard materialized view. Keyed by
 /// "{level:D6}#{playerId}#{period|'alltime'}". The Akka.Streams projection upserts this
 /// with a dominance check so only the best result per (level, player, period) is kept.
@@ -385,6 +416,15 @@ public static class BsonRegistration
                 map.GetMemberMap(l => l.Username).SetIgnoreIfNull(true);
                 map.GetMemberMap(l => l.ProfileBall).SetIgnoreIfNull(true);
                 map.GetMemberMap(l => l.Period).SetIgnoreIfNull(true);
+            });
+
+            BsonClassMap.RegisterClassMap<SharedResultDocument>(map =>
+            {
+                map.AutoMap();
+                map.MapIdMember(s => s.Id).SetSerializer(new StringSerializer(BsonType.String));
+                map.SetIgnoreExtraElements(true);
+                map.GetMemberMap(s => s.Level).SetIgnoreIfNull(true);
+                map.GetMemberMap(s => s.Date).SetIgnoreIfNull(true);
             });
 
             _registered = true;

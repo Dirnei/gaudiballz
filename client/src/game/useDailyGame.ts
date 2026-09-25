@@ -19,6 +19,8 @@ interface CompletionResult {
   readonly stars: number;
   readonly points: number;
   readonly isNewBest: boolean;
+  /** The id of this attempt's result page. */
+  readonly shareId?: string;
 }
 
 const DAILY_DONE_KEY = 'puzzle.dailyDone';
