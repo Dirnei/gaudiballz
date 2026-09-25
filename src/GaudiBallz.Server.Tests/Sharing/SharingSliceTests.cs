@@ -233,6 +233,30 @@ public sealed class SharingSliceTests : IClassFixture<SharingApiFixture>
     }
 
     [Fact]
+    public async Task A_verified_result_carries_its_moves_and_a_legacy_one_does_not()
+    {
+        var client = _fixture.CreateClient();
+        var player = await NewPlayerAsync(client);
+        var level = FreshLevel();
+        var solution = GaudiBallz.Server.Levels.LevelCatalogue.Build(level).ConstructiveSolution
+            .Select(m => new[] { (int)m.From, m.To })
+            .ToArray();
+
+        var verified = await client.SendAsync(
+            Post("/api/v1/progress/completions", player.Token,
+                new { level, moves = solution.Length, hints = 0, elapsedTimeMs = 30_000, moveList = solution, rulesVersion = 1 }),
+            Token);
+        verified.EnsureSuccessStatusCode();
+        var verifiedId = (await verified.Content.ReadFromJsonAsync<JsonElement>(Token)).GetProperty("shareId").GetString()!;
+
+        var legacy = await CompleteLevelAsync(client, player, level, moves: 40);
+
+        Assert.Equal(solution.Length, (await GetShareAsync(client, verifiedId)).GetProperty("moveList").GetArrayLength());
+        Assert.Equal(JsonValueKind.Null,
+            (await GetShareAsync(client, legacy.GetProperty("shareId").GetString()!)).GetProperty("moveList").ValueKind);
+    }
+
+    [Fact]
     public async Task An_unknown_id_is_not_found()
     {
         var client = _fixture.CreateClient();

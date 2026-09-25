@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API, authHeaders } from './identity';
 import { useBoardPlay } from './board/useBoardPlay';
-import { reportGameStarted } from './progress';
-import { createBoard, isSolved, type Board } from '../engine';
+import { reportGameStarted, toPairs } from './progress';
+import { createBoard, isSolved, RULES_VERSION, type Board } from '../engine';
 
 export type DailyLoadState = 'loading' | 'ready' | 'error';
 
@@ -110,6 +110,8 @@ export function useDailyGame() {
             moves: game.moveCount,
             hints: hintsUsed,
             elapsedTimeMs: elapsed.elapsedMs(),
+            moveList: toPairs(state.moves),
+            rulesVersion: RULES_VERSION,
           }),
         });
         if (res.ok) {

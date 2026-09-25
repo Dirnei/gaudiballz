@@ -272,6 +272,15 @@ public sealed class SharedResultDocument
     public int Par { get; set; }
     public int TimeTargetMs { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// The moves that solved the board, as [from, to] pairs, once the server has replayed them.
+    /// Null for a completion from an older build that sent none: that one has no replay.
+    /// </summary>
+    public int[][]? MoveList { get; set; }
+
+    /// <summary>Whether <see cref="MoveList"/> was replayed and found to solve the board.</summary>
+    public bool Verified { get; set; }
 }
 
 /// <summary>
@@ -425,6 +434,7 @@ public static class BsonRegistration
                 map.SetIgnoreExtraElements(true);
                 map.GetMemberMap(s => s.Level).SetIgnoreIfNull(true);
                 map.GetMemberMap(s => s.Date).SetIgnoreIfNull(true);
+                map.GetMemberMap(s => s.MoveList).SetIgnoreIfNull(true);
             });
 
             _registered = true;

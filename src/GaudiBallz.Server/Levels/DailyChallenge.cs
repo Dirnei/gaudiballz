@@ -26,7 +26,32 @@ public static class DailyChallenge
     /// </summary>
     private const double TargetTightness = 0.26;
 
+    /// <summary>
+    /// Boards already generated, by date. Every daily completion now replays its moves on the
+    /// day's board, and generating one runs <see cref="Candidates"/> boards, so the result is kept.
+    /// Only yesterday's and today's stay: older ones are dropped as a new day is added.
+    /// </summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<DateOnly, Level> Cache = new();
+
     public static Level BoardForDate(DateOnly date)
+    {
+        if (Cache.TryGetValue(date, out var cached))
+        {
+            return cached;
+        }
+
+        var level = Generate(date);
+        Cache[date] = level;
+
+        foreach (var old in Cache.Keys.Where(d => d < date.AddDays(-1)))
+        {
+            Cache.TryRemove(old, out _);
+        }
+
+        return level;
+    }
+
+    private static Level Generate(DateOnly date)
     {
         var dateInt = (ulong)(date.Year * 10000 + date.Month * 100 + date.Day);
 

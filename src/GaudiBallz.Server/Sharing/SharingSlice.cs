@@ -58,6 +58,7 @@ public sealed class SharingSlice : ISlice
                     par = result.Par,
                     timeTargetMs = result.TimeTargetMs,
                     player = who,
+                    moveList = result.MoveList,
                     board = BoardOf(DailyChallenge.BoardForDate(date)),
                     rank = new { position, total },
                 });
@@ -79,6 +80,7 @@ public sealed class SharingSlice : ISlice
                 par = result.Par,
                 timeTargetMs = result.TimeTargetMs,
                 player = who,
+                moveList = result.MoveList,
                 board = BoardOf(LevelCatalogue.Build(levelId)),
                 rank = new { position = levelPosition, total = levelTotal },
             });

@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { REPLAY_STEP_MS } from './useReplay';
 
 const context = vi.hoisted(() => ({ unlockWithCode: vi.fn() }));
 
@@ -170,6 +171,15 @@ describe('shared result page', () => {
     expect(await screen.findByText('home')).toBeInTheDocument();
   });
 
+  it('offers no replay for a result without a move list', async () => {
+    serve(levelResult({ moveList: null }));
+
+    renderPage();
+
+    await screen.findByText('dirnei');
+    expect(screen.queryByRole('button', { name: 'Watch replay' })).not.toBeInTheDocument();
+  });
+
   it('never asks the viewer to sign up', async () => {
     serve(levelResult({ player: null }));
 
@@ -177,5 +187,94 @@ describe('shared result page', () => {
 
     await screen.findByText('A player');
     expect(container.textContent).not.toMatch(/sign ?up|register|account|passkey/i);
+  });
+});
+
+describe('shared result replay', () => {
+  // Two pours solve it: the 1 from tube 1 onto tube 0, then the 2 left in tube 1 onto tube 2.
+  const replayable = {
+    board: { tubes: [[1], [2, 1], [2], []], capacity: 2 },
+    moveList: [[1, 0], [1, 2]],
+    moves: 2,
+  };
+
+  function motion(reduced: boolean) {
+    window.matchMedia = ((query: string) => ({
+      matches: reduced && query.includes('prefers-reduced-motion'),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+  }
+
+  beforeEach(() => {
+    motion(false);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('plays the moves on the board, counting them', async () => {
+    serve(levelResult(replayable));
+    renderPage();
+
+    const watch = await screen.findByRole('button', { name: 'Watch replay' });
+    vi.useFakeTimers();
+    fireEvent.click(watch);
+    expect(screen.getByText('Move 0 of 2')).toBeInTheDocument();
+
+    act(() => { vi.advanceTimersByTime(REPLAY_STEP_MS); });
+    expect(screen.getByText('Move 1 of 2')).toBeInTheDocument();
+
+    const board = screen.getByRole('img', { name: 'Starting board' });
+    const tubes = board.querySelectorAll('[data-tube]');
+    expect(tubes[1]).toHaveAttribute('data-highlight', 'from');
+    expect(tubes[0]).toHaveAttribute('data-highlight', 'to');
+
+    act(() => { vi.advanceTimersByTime(REPLAY_STEP_MS); });
+    expect(screen.getByText('Move 2 of 2')).toBeInTheDocument();
+  });
+
+  it('pauses and restarts', async () => {
+    serve(levelResult(replayable));
+    renderPage();
+
+    const watch = await screen.findByRole('button', { name: 'Watch replay' });
+    vi.useFakeTimers();
+    fireEvent.click(watch);
+    act(() => { vi.advanceTimersByTime(REPLAY_STEP_MS); });
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    act(() => { vi.advanceTimersByTime(REPLAY_STEP_MS * 3); });
+    expect(screen.getByText('Move 1 of 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restart' }));
+    expect(screen.getByText('Move 0 of 2')).toBeInTheDocument();
+  });
+
+  it('says how many moves were undone', async () => {
+    serve(levelResult({ ...replayable, moves: 5 }));
+    renderPage();
+
+    expect(await screen.findByText('3 moves were undone')).toBeInTheDocument();
+  });
+
+  it('steps by hand with reduced motion', async () => {
+    motion(true);
+    serve(levelResult(replayable));
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Watch replay' }));
+    expect(screen.queryByRole('button', { name: 'Pause' })).not.toBeInTheDocument();
+    expect(screen.getByText('Move 0 of 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next move' }));
+    expect(screen.getByText('Move 1 of 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Previous move' }));
+    expect(screen.getByText('Move 0 of 2')).toBeInTheDocument();
   });
 });

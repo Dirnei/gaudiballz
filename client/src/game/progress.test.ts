@@ -138,3 +138,41 @@ describe('reportGameStarted', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 });
+
+describe('queued completions and move lists', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('still sends a completion that has no move list, as an older build queued it', async () => {
+    let body: Record<string, unknown> = {};
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      body = JSON.parse(init!.body as string) as Record<string, unknown>;
+      return { ok: true, json: () => Promise.resolve({}) } as Response;
+    });
+
+    await recordCompletion(3, 20, 0);
+
+    expect(body.level).toBe(3);
+    expect(body).not.toHaveProperty('moveList');
+    expect(body).not.toHaveProperty('rulesVersion');
+  });
+
+  it('drops a completion the server rejects instead of sending it again', async () => {
+    const { forget, pending } = await import('./completionQueue');
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ code: 'not-solved' }), { status: 400 }),
+    );
+
+    await recordCompletion(4, 1, 0, {
+      undoCount: 0,
+      restarted: false,
+      colourCount: 3,
+      parMoves: 10,
+      moveList: [{ from: 0, to: 1 }],
+    });
+
+    expect(forget).toHaveBeenCalled();
+    expect(await pending()).toEqual([]);
+  });
+});

@@ -7,6 +7,7 @@ using GaudiBallz.Server.Hub;
 using GaudiBallz.Server.Levels;
 using GaudiBallz.Server.Persistence;
 using GaudiBallz.Server.PlayerIdentity;
+using GaudiBallz.Server.Verification;
 
 namespace GaudiBallz.Server.Progression;
 
@@ -153,7 +154,7 @@ public sealed class ProgressionSlice : ISlice
             async (HttpContext http, CompletionRequest request, IRequiredActor<PlayerRegion> registry,
                    PlayerTokens tokens, PuzzleStore store, IRequiredActor<AchievementRegion> achievements,
                    PresenceTracker presence, IRequiredActor<CompletionJournalRegion> journal,
-                   IRequiredActor<WalletRegion> wallet) =>
+                   IRequiredActor<WalletRegion> wallet, ILogger<ProgressionSlice> logger) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null)
@@ -167,6 +168,14 @@ public sealed class ProgressionSlice : ISlice
                 }
 
                 var level = LevelCatalogue.Build(request.Level);
+
+                // Before anything is written: a completion that does not replay counts for nothing.
+                var rejected = CompletionVerifier.Check(
+                    level, request.Moves, request.MoveList, request.RulesVersion, logger, out var verifiedMoves);
+                if (rejected is not null)
+                {
+                    return rejected;
+                }
                 var par = level.ConstructiveSolution.Count;
                 var timeTargetMs = LevelCatalogue.TimeTargetMs(request.Level);
                 var (attemptStars, attemptPoints) = Scoring.Calculate(
@@ -361,6 +370,8 @@ public sealed class ProgressionSlice : ISlice
                     ElapsedTimeMs = request.ElapsedTimeMs ?? 0,
                     Par = par,
                     TimeTargetMs = timeTargetMs,
+                    MoveList = verifiedMoves,
+                    Verified = verifiedMoves is not null,
                 });
 
                 return Results.Ok(ShapeCompletion(
@@ -529,7 +540,10 @@ public sealed class ProgressionSlice : ISlice
         int? ColourCount = null,
         int? ParMoves = null,
         /// <summary>Identifies the attempt this completion closes, so it is counted once.</summary>
-        string? AttemptId = null);
+        string? AttemptId = null,
+        /// <summary>The moves that solved the board, as [from, to] pairs. Absent from older builds.</summary>
+        int[][]? MoveList = null,
+        int? RulesVersion = null);
 
     /// <param name="Token">
     /// Carried in the body for the unload beacon, which cannot set request headers. Ignored

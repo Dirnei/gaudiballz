@@ -4,6 +4,7 @@ using GaudiBallz.Rules;
 using GaudiBallz.Server.Levels;
 using GaudiBallz.Server.Persistence;
 using GaudiBallz.Server.PlayerIdentity;
+using GaudiBallz.Server.Verification;
 
 namespace GaudiBallz.Server.Daily;
 
@@ -50,7 +51,7 @@ public sealed class DailySlice : ISlice
 
         group.MapPost("/completions",
             async (HttpContext http, DailyCompletionRequest request,
-                   PuzzleStore store, PlayerTokens tokens) =>
+                   PuzzleStore store, PlayerTokens tokens, ILogger<DailySlice> logger) =>
             {
                 var playerId = tokens.Verify(BearerFrom(http));
                 if (playerId is null)
@@ -67,6 +68,15 @@ public sealed class DailySlice : ISlice
                 var dateStr = today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
                 var level = DailyChallenge.BoardForDate(today);
+
+                // Replayed on today's board before anything is written.
+                var rejected = CompletionVerifier.Check(
+                    level, request.Moves, request.MoveList, request.RulesVersion, logger, out var verifiedMoves);
+                if (rejected is not null)
+                {
+                    return rejected;
+                }
+
                 var par = level.ConstructiveSolution.Count;
                 var timeTargetMs = DailyChallenge.TimeTargetMs(level);
 
@@ -122,6 +132,8 @@ public sealed class DailySlice : ISlice
                     ElapsedTimeMs = request.ElapsedTimeMs ?? 0,
                     Par = par,
                     TimeTargetMs = timeTargetMs,
+                    MoveList = verifiedMoves,
+                    Verified = verifiedMoves is not null,
                 });
 
                 return Results.Ok(new { stars, points, isNewBest, shareId });
@@ -206,5 +218,9 @@ public sealed class DailySlice : ISlice
             : null;
     }
 
-    public sealed record DailyCompletionRequest(int Moves, int Hints, int? ElapsedTimeMs = null);
+    public sealed record DailyCompletionRequest(
+        int Moves, int Hints, int? ElapsedTimeMs = null,
+        /// <summary>The moves that solved the board, as [from, to] pairs. Absent from older builds.</summary>
+        int[][]? MoveList = null,
+        int? RulesVersion = null);
 }

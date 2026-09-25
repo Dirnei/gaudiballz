@@ -413,5 +413,16 @@
     "playLevel": "Level {{id}} spielen",
     "playDaily": "Heutige Herausforderung spielen",
     "dailyEnded": "Diese tägliche Herausforderung ist vorbei."
+  },
+  "replay": {
+    "watch": "Wiederholung ansehen",
+    "counter": "Zug {{n}} von {{total}}",
+    "play": "Abspielen",
+    "pause": "Pause",
+    "restart": "Von vorn",
+    "prev": "Vorheriger Zug",
+    "next": "Nächster Zug",
+    "undone_one": "{{count}} Zug wurde rückgängig gemacht",
+    "undone_other": "{{count}} Züge wurden rückgängig gemacht"
   }
 }

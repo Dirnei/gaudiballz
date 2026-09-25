@@ -413,5 +413,16 @@
     "playLevel": "Play Level {{id}}",
     "playDaily": "Play today's daily",
     "dailyEnded": "That daily challenge has ended."
+  },
+  "replay": {
+    "watch": "Watch replay",
+    "counter": "Move {{n}} of {{total}}",
+    "play": "Play",
+    "pause": "Pause",
+    "restart": "Restart",
+    "prev": "Previous move",
+    "next": "Next move",
+    "undone_one": "{{count}} move was undone",
+    "undone_other": "{{count}} moves were undone"
   }
 }

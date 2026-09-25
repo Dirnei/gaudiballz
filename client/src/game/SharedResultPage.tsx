@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BoardPreview } from './BoardPreview';
+import { createBoard, type Board } from '../engine';
+import { useReplay } from './useReplay';
 import { formatDailyDate } from './dailyDate';
 import { useGameContext } from './GameContext';
 import { API } from './identity';
@@ -25,6 +27,8 @@ interface SharedResult {
   readonly timeTargetMs: number;
   readonly player: { readonly username: string; readonly ball: number | null } | null;
   readonly board: { readonly tubes: number[][]; readonly capacity: number };
+  /** The verified moves as [from, to] pairs; null for a result recorded without them. */
+  readonly moveList?: readonly (readonly [number, number])[] | null;
   readonly rank: { readonly position: number; readonly total: number };
 }
 
@@ -125,7 +129,7 @@ export function SharedResultPage() {
         </p>
 
         <div className="mt-5">
-          <BoardPreview tubes={r.board.tubes} capacity={r.board.capacity} />
+          <ResultBoard result={r} />
         </div>
 
         {isDaily && !r.isToday && (
@@ -151,5 +155,102 @@ function PlayButton({ label, onClick }: { readonly label: string; readonly onCli
     >
       {label}
     </motion.button>
+  );
+}
+
+/** The starting board as the engine's own board, or null if it cannot be one. */
+function engineBoard(shape: SharedResult['board']): Board | null {
+  try {
+    const colourCount = Math.max(1, ...shape.tubes.flat());
+    return createBoard(shape.tubes, shape.capacity, colourCount);
+  } catch {
+    return null;
+  }
+}
+
+/** The board preview, with a replay of the attempt when the result carries its moves. */
+function ResultBoard({ result }: { readonly result: SharedResult }) {
+  const start = useMemo(() => engineBoard(result.board), [result.board]);
+  const moves = useMemo(
+    () => (result.moveList ?? []).map(([from, to]) => ({ from, to })),
+    [result.moveList],
+  );
+
+  if (start === null || !result.moveList) {
+    return <BoardPreview tubes={result.board.tubes} capacity={result.board.capacity} />;
+  }
+
+  return <ReplayBoard start={start} moves={moves} counted={result.moves} />;
+}
+
+function ReplayBoard({ start, moves, counted }: {
+  readonly start: Board;
+  readonly moves: readonly { readonly from: number; readonly to: number }[];
+  readonly counted: number;
+}) {
+  const { t } = useTranslation();
+  const replay = useReplay(start, moves);
+  const [watching, setWatching] = useState(false);
+  const undone = counted - moves.length;
+
+  function watch() {
+    setWatching(true);
+    replay.play();
+  }
+
+  return (
+    <div className="grid gap-3">
+      <BoardPreview
+        tubes={replay.board.tubes}
+        capacity={replay.board.capacity}
+        highlight={watching ? replay.lastMove : null}
+        animate={watching && !replay.reducedMotion}
+      />
+
+      {watching ? (
+        <div className="grid gap-2">
+          <p className="text-sm tabular-nums text-slate-300" aria-live="polite">
+            {t('replay.counter', { n: replay.index, total: replay.total })}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {replay.reducedMotion ? (
+              <>
+                <ReplayButton label={t('replay.prev')} onClick={replay.prev} disabled={replay.index === 0} />
+                <ReplayButton label={t('replay.next')} onClick={replay.next} disabled={replay.index === replay.total} />
+              </>
+            ) : (
+              <ReplayButton
+                label={replay.playing ? t('replay.pause') : t('replay.play')}
+                onClick={replay.playing ? replay.pause : replay.play}
+              />
+            )}
+            <ReplayButton label={t('replay.restart')} onClick={replay.restart} />
+          </div>
+        </div>
+      ) : (
+        <ReplayButton label={t('replay.watch')} onClick={watch} />
+      )}
+
+      {undone > 0 && (
+        <p className="text-xs text-slate-400">{t('replay.undone', { count: undone })}</p>
+      )}
+    </div>
+  );
+}
+
+function ReplayButton({ label, onClick, disabled = false }: {
+  readonly label: string;
+  readonly onClick: () => void;
+  readonly disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="rounded-xl bg-white/8 px-4 py-2 text-sm font-semibold text-violet-200 ring-1 ring-white/10 disabled:opacity-40"
+    >
+      {label}
+    </button>
   );
 }

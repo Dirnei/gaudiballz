@@ -27,6 +27,12 @@ export interface PendingCompletion {
   readonly sessionId?: string;
   readonly colourCount?: number;
   readonly parMoves?: number;
+  /**
+   * The moves that solved the board, as [from, to] pairs, for the server to replay. Optional
+   * because items queued by an older build have none; the server accepts those unverified.
+   */
+  readonly moveList?: readonly (readonly [number, number])[];
+  readonly rulesVersion?: number;
 }
 
 function open(): Promise<IDBDatabase> {

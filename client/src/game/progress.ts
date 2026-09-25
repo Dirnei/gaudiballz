@@ -4,6 +4,12 @@
 
 import { API, authHeaders, sessionId as clientSessionId, storedToken } from './identity';
 import { clearQueue, enqueue, forget, newId, pending, type PendingCompletion } from './completionQueue';
+import { RULES_VERSION, type Move } from '../engine';
+
+/** Moves as the [from, to] pairs a completion carries: small on the wire, and what the server reads. */
+export function toPairs(moves: readonly Move[]): [number, number][] {
+  return moves.map((m) => [m.from, m.to]);
+}
 
 export interface ProgressEntry {
   readonly level: number;
@@ -64,6 +70,8 @@ export interface CompletionMetadata {
   readonly parMoves: number;
   /** Which attempt this completion closes, so the server counts it exactly once. */
   readonly attemptId?: string;
+  /** The moves still on the board when it was solved, for the server to replay. */
+  readonly moveList?: readonly Move[];
 }
 
 export async function loadProgress(): Promise<Progress | null> {
@@ -105,6 +113,8 @@ export async function recordCompletion(
     colourCount: metadata?.colourCount,
     parMoves: metadata?.parMoves,
     attemptId: metadata?.attemptId,
+    moveList: metadata?.moveList === undefined ? undefined : toPairs(metadata.moveList),
+    rulesVersion: metadata?.moveList === undefined ? undefined : RULES_VERSION,
   });
   return drain();
 }
@@ -143,6 +153,8 @@ export async function drain(): Promise<CompletionResult> {
           colourCount: item.colourCount,
           parMoves: item.parMoves,
           attemptId: item.attemptId,
+          moveList: item.moveList,
+          rulesVersion: item.rulesVersion,
         }),
       });
 

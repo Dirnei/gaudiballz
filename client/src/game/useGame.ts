@@ -296,6 +296,7 @@ export function useGame() {
         attemptId: attemptId.current,
         colourCount,
         parMoves: info?.parMoves ?? 0,
+        moveList: state.moves,
       });
       if (result.newAchievements.length > 0) {
         setNewAchievements(result.newAchievements);
