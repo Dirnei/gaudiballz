@@ -1,6 +1,5 @@
 using MongoDB.Driver;
 using GaudiBallz.Server.Persistence;
-using Testcontainers.MongoDb;
 
 namespace GaudiBallz.Server.Tests;
 
@@ -14,45 +13,37 @@ namespace GaudiBallz.Server.Tests;
 /// and 113 seconds for the class — against 10 seconds for the thirteen API tests next door,
 /// which already shared their fixture.
 ///
-/// The container itself was never the problem: a single-node replica set is ready in about a
-/// second and a half, and a hundred writes at majority-with-journal cost 311 ms. Neither the
-/// topology nor the write concern is worth weakening to save test time.
+/// The container is the assembly-wide one in <see cref="SharedMongoContainer"/>; this fixture
+/// owns only its own database in it.
 ///
 /// Sharing one database across classes is safe because every test addresses its own data:
 /// players are random GUIDs and the smoke tests use collections of their own.
 /// </summary>
 public sealed class MongoFixture : IAsyncLifetime
 {
-    private readonly MongoDbContainer _container = new MongoDbBuilder("mongo:8")
-        // A single-node replica set rather than a standalone mongod, for the same reason
-        // docker-compose.yml uses one: majority write concern and TTL indexes are behaviours
-        // this application relies on and a standalone silently does without.
-        .WithReplicaSet()
-        .Build();
-
     public PuzzleStore Store { get; private set; } = null!;
 
     /// <summary>The same database the store writes to, for assertions about stored shape.</summary>
     public IMongoDatabase Database { get; private set; } = null!;
 
-    public string ConnectionString => _container.GetConnectionString();
+    public string ConnectionString { get; private set; } = string.Empty;
 
     public async ValueTask InitializeAsync()
     {
-        await _container.StartAsync();
+        ConnectionString = await SharedMongoContainer.ConnectionStringAsync();
 
         var database = $"puzzle_test_{Guid.NewGuid():N}";
         Store = new PuzzleStore(new MongoOptions
         {
-            ConnectionString = _container.GetConnectionString(),
+            ConnectionString = ConnectionString,
             Database = database,
         });
         await Store.EnsureIndexesAsync();
 
-        Database = new MongoClient(_container.GetConnectionString()).GetDatabase(database);
+        Database = new MongoClient(ConnectionString).GetDatabase(database);
     }
 
-    public async ValueTask DisposeAsync() => await _container.DisposeAsync();
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
 /// <summary>
