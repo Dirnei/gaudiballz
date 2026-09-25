@@ -1,4 +1,5 @@
-import { createBrowserRouter, Navigate, RouterProvider, type RouteObject } from 'react-router-dom';
+import { MotionConfig } from 'motion/react';
+import { createBrowserRouter, Navigate, Outlet, RouterProvider, type RouteObject } from 'react-router-dom';
 import { GameProvider } from './GameContext';
 import { AppShell } from './AppShell';
 import { ImmersiveLayout } from './ImmersiveLayout';
@@ -16,34 +17,52 @@ import { ChangelogPage } from './ChangelogPage';
 import { SharedResultPage } from './SharedResultPage';
 import { ErrorFallback } from './ErrorFallback';
 
+/**
+ * Every screen follows the system's reduced-motion setting: Motion skips slides, springs, lifts
+ * and pops (fades stay) while it is on, and picks the change up live. One root route rather than
+ * a flag in each animated component, so an animation added later can't forget it.
+ */
+function MotionRoot() {
+  return (
+    <MotionConfig reducedMotion="user">
+      <Outlet />
+    </MotionConfig>
+  );
+}
+
 export const routes: RouteObject[] = [
   {
-    element: <AppShell />,
-    errorElement: <ErrorFallback />,
+    element: <MotionRoot />,
     children: [
-      { index: true, element: <MainMenu /> },
-      { path: 'levels', element: <LevelSelect /> },
-      { path: 'achievements', element: <AchievementsScreen /> },
-      { path: 'leaderboard', element: <LeaderboardPage /> },
-      { path: 'stats', element: <StatsPage /> },
-      { path: 'impressum', element: <Impressum /> },
-      { path: 'datenschutz', element: <Datenschutz /> },
-      { path: 'changelog', element: <ChangelogPage /> },
-      { path: 'r/:id', element: <SharedResultPage /> },
+      {
+        element: <AppShell />,
+        errorElement: <ErrorFallback />,
+        children: [
+          { index: true, element: <MainMenu /> },
+          { path: 'levels', element: <LevelSelect /> },
+          { path: 'achievements', element: <AchievementsScreen /> },
+          { path: 'leaderboard', element: <LeaderboardPage /> },
+          { path: 'stats', element: <StatsPage /> },
+          { path: 'impressum', element: <Impressum /> },
+          { path: 'datenschutz', element: <Datenschutz /> },
+          { path: 'changelog', element: <ChangelogPage /> },
+          { path: 'r/:id', element: <SharedResultPage /> },
+        ],
+      },
+      {
+        element: <ImmersiveLayout />,
+        errorElement: <ErrorFallback />,
+        children: [
+          { path: 'play', element: <GameScreen /> },
+          { path: 'tutorial', element: <TutorialScreen /> },
+          { path: 'daily', element: <DailyScreen /> },
+        ],
+      },
+      {
+        path: '*',
+        element: <Navigate to="/" replace />,
+      },
     ],
-  },
-  {
-    element: <ImmersiveLayout />,
-    errorElement: <ErrorFallback />,
-    children: [
-      { path: 'play', element: <GameScreen /> },
-      { path: 'tutorial', element: <TutorialScreen /> },
-      { path: 'daily', element: <DailyScreen /> },
-    ],
-  },
-  {
-    path: '*',
-    element: <Navigate to="/" replace />,
   },
 ];
 

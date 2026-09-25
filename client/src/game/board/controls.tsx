@@ -46,8 +46,11 @@ export function CooldownSweep({ end, duration }: { end: number; duration: number
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeDasharray={circumference}
+        className="cooldown-ring"
         style={{
           ['--cooldown-circumference' as string]: `${circumference}`,
+          // Read back by index.css so reduced motion keeps the ring filling in real time.
+          ['--cooldown-duration' as string]: `${duration}ms`,
           animation: `hint-cooldown ${duration}ms linear forwards`,
           animationDelay: `-${elapsed}ms`,
         }}

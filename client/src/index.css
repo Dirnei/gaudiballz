@@ -115,6 +115,20 @@ button {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    /*
+     * Without this, an infinite animation cut to 0.01ms runs thousands of cycles a second and
+     * lands somewhere random every frame: the background drift became a full-screen strobe.
+     */
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /*
+   * Except the hint cooldown ring: how far round it is says how long is left, so it is a
+   * progress bar rather than decoration. Cut short it would read "ready" for the whole wait.
+   * The class outranks `*`, so this wins between the two !important declarations.
+   */
+  .cooldown-ring {
+    animation-duration: var(--cooldown-duration) !important;
   }
 }
