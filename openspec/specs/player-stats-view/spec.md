@@ -7,7 +7,7 @@ Gives a registered player a dedicated view of their own performance — points, 
 
 ### Requirement: Player stats view shows aggregated personal statistics
 
-The player stats view SHALL display the following for the authenticated player: total XP, games played, games won, win rate (percentage), highest level completed, best moves on any single level (with which level), current day streak, and global leaderboard rank.
+The player stats view SHALL display the following for the authenticated player: total XP, games played, games won, win rate (percentage), highest level completed, best moves on any single level (with which level), current day streak with the number of streak freezes held, and global leaderboard rank.
 
 Games played SHALL be the number of recorded attempts and games won the number that ended
 in completion, so an attempt ended by restarting or by leaving the level counts against the
@@ -19,7 +19,7 @@ All numeric values SHALL be computed server-side and served in a single response
 #### Scenario: A registered player views their stats
 
 - **WHEN** a registered player opens the stats view
-- **THEN** they see their total XP, games played, win count, win rate, highest level, best moves, current streak, and global rank
+- **THEN** they see their total XP, games played, win count, win rate, highest level, best moves, current streak, streak freezes held, and global rank
 
 #### Scenario: Win rate computation
 
@@ -36,6 +36,11 @@ All numeric values SHALL be computed server-side and served in a single response
 - **WHEN** a player has cleared levels in the past but recorded no attempts since attempt
   tracking began
 - **THEN** their stats show no win rate rather than 0%
+
+#### Scenario: Freezes held appear with the streak
+
+- **WHEN** a registered player with a 9-day streak holding 1 streak freeze opens the stats view
+- **THEN** the current streak shows 9 together with 1 freeze held
 
 ### Requirement: Player stats view shows achievements summary
 
