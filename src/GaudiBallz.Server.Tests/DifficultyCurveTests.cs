@@ -10,7 +10,7 @@ namespace GaudiBallz.Server.Tests;
 /// 40% and 76% tight, because whichever board the seed happened to produce was shipped. A
 /// level being solvable says nothing about whether it belongs where it sits.
 /// </summary>
-public sealed class DifficultyCurveTests
+public sealed class DifficultyCurveTests : IClassFixture<CampaignLevels>
 {
     private static readonly IRuleSet Rules = RuleSets.Current;
 

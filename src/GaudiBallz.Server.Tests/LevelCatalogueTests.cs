@@ -11,12 +11,12 @@ namespace GaudiBallz.Server.Tests;
 /// worth keeping separate: a difficulty curve is edited far more often than a generator,
 /// and it is the likelier source of a bad level.
 /// </summary>
-public sealed class LevelCatalogueTests
+public sealed class LevelCatalogueTests : IClassFixture<CampaignLevels>
 {
     private static readonly IRuleSet Rules = RuleSets.Current;
 
     /// <summary>Deep enough to cover every step of the curve, including past its last band.</summary>
-    private static IEnumerable<int> CampaignLevels() => Enumerable.Range(1, 200);
+    private static IEnumerable<int> CampaignLevels() => Tests.CampaignLevels.All();
 
     [Fact]
     public void Every_campaign_level_is_solvable()

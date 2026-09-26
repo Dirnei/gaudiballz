@@ -6,7 +6,7 @@ using GaudiBallz.Server.Progression;
 
 namespace GaudiBallz.Server.Tests;
 
-public sealed class AchievementCatalogueTests
+public sealed class AchievementCatalogueTests : IClassFixture<CampaignLevels>
 {
     private static PlayerProgress ProgressWith(int levels, int hints = 0)
     {
