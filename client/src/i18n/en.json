@@ -235,6 +235,17 @@
     "rankProgress": "Rank Progress",
     "rankLabel": "{{tier}} {{sub}}"
   },
+  "streakFreeze": {
+    "held_one": "{{count}} streak freeze",
+    "held_other": "{{count}} streak freezes",
+    "explain": "You earn one every 7 days in a row, up to 2. Each one covers a day you miss.",
+    "savedTitle": "Streak saved",
+    "savedBody_one": "A streak freeze covered the day you missed, so your {{streak}}-day streak lives on.",
+    "savedBody_other": "Streak freezes covered the {{count}} days you missed, so your {{streak}}-day streak lives on.",
+    "left_one": "{{count}} freeze left",
+    "left_other": "{{count}} freezes left",
+    "dismiss": "Dismiss"
+  },
   "rank": {
     "bronze": "Bronze",
     "silver": "Silver",

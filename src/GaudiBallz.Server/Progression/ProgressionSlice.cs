@@ -1,6 +1,7 @@
 using Akka.Actor;
 using Akka.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Driver;
 using GaudiBallz.Rules;
 using GaudiBallz.Server.Achievements;
 using GaudiBallz.Server.Hub;
@@ -17,7 +18,7 @@ namespace GaudiBallz.Server.Progression;
 /// Every request goes through the player's session actor rather than touching the database
 /// directly, so two devices submitting at once are serialised per player instead of racing.
 /// </summary>
-public sealed class ProgressionSlice : ISlice
+public sealed partial class ProgressionSlice : ISlice
 {
     private static readonly TimeSpan AskTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan AchievementAskTimeout = TimeSpan.FromSeconds(2);
@@ -195,6 +196,17 @@ public sealed class ProgressionSlice : ISlice
 
                 var bonus = await store.RecordCompletionBonusAsync(
                     playerId, request.Level, request.ElapsedTimeMs, isReplay, request.Hints);
+
+                // After the bonus, which reads whether today was already played. Anonymous
+                // players need the day too: their streak and streak freezes come from it.
+                try
+                {
+                    await store.RecordPlayedDayAsync(playerId, DateTime.UtcNow);
+                }
+                catch (Exception ex) when (ex is MongoException or InvalidOperationException)
+                {
+                    LogPlayedDayFailed(logger, ex, playerId);
+                }
 
                 var oldXp = before.Progress.TotalPoints;
                 var newXp = snapshot.Progress.TotalPoints + bonus.Total;
@@ -565,4 +577,7 @@ public sealed class ProgressionSlice : ISlice
     public sealed record MergeEntry(int Level, int Moves, int Hints, int Stars = 0, int Points = 0);
 
     public sealed record MergeRequest(IReadOnlyList<MergeEntry> Levels);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not record the played day for {PlayerId}")]
+    private static partial void LogPlayedDayFailed(ILogger logger, Exception ex, string playerId);
 }

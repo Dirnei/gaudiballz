@@ -92,8 +92,8 @@ public sealed class DailySlice : ISlice
                     request.Moves, request.Hints, stars, points, request.ElapsedTimeMs ?? 0,
                     ball);
 
-                // Record for streak tracking
-                await store.RecordDailyPlayAsync(playerId, DateTime.UtcNow);
+                // Record for streak tracking and settle streak freezes
+                await store.RecordPlayedDayAsync(playerId, DateTime.UtcNow);
 
                 // Activity feed for registered players
                 if (player is { IsAnonymous: false, Username: not null })

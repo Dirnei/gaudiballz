@@ -199,6 +199,33 @@ public sealed class AchievementCatalogueTests : IClassFixture<CampaignLevels>
     }
 
     [Fact]
+    public void Covered_day_keeps_the_streak_toward_an_achievement()
+    {
+        // Six played days, Sep 7 covered by a freeze, then played Sep 8.
+        var dailyPlay = DaysFrom(new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc), 6);
+        dailyPlay.AddRange(DaysFrom(new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc), 1));
+
+        var withFreeze = AchievementCatalogue.Evaluate(
+            MakeContext(dailyPlay: dailyPlay) with { FrozenDays = [new DateOnly(2026, 9, 7)] });
+        var withoutFreeze = AchievementCatalogue.Evaluate(MakeContext(dailyPlay: dailyPlay));
+
+        Assert.Contains("streak-7", withFreeze);
+        Assert.DoesNotContain("streak-7", withoutFreeze);
+    }
+
+    [Fact]
+    public void Frozen_day_does_not_complete_a_week()
+    {
+        // Mon Sep 7 through Sat Sep 12 played, Sun Sep 13 covered by a freeze.
+        var dailyPlay = DaysFrom(new DateTime(2026, 9, 7, 0, 0, 0, DateTimeKind.Utc), 6);
+
+        var awards = AchievementCatalogue.Evaluate(
+            MakeContext(dailyPlay: dailyPlay) with { FrozenDays = [new DateOnly(2026, 9, 13)] });
+
+        Assert.DoesNotContain("full-week", awards);
+    }
+
+    [Fact]
     public void Broken_streak_resets()
     {
         var dailyPlay = new List<DailyPlayDocument>();

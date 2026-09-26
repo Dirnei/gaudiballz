@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGameContext } from './GameContext';
 import { API, authHeaders } from './identity';
 import { rankFromXp, nextThreshold, currentThreshold, TIER_COLOURS, type TierName } from './rank';
+import { StreakFreezeBadge, StreakSavedNotice } from './StreakFreeze';
 
 interface HubStats {
   readonly currentStreak: number;
   readonly globalRank: number;
+  readonly streakFreezes?: number;
+  readonly streakSavedDays?: number;
+  readonly streakAnchorDay?: string | null;
 }
 
 export function ProgressTiles() {
@@ -15,10 +19,12 @@ export function ProgressTiles() {
   const totalPoints = game.progress?.totalPoints ?? 0;
   const highestLevel = game.progress?.highestCompleted ?? 0;
   const isRegistered = game.identity !== null && !game.identity.isAnonymous;
+  // Anonymous players have a server-side streak too, and streak freezes live there.
+  const playerId = game.identity?.playerId ?? null;
   const [hub, setHub] = useState<HubStats | null>(null);
 
   useEffect(() => {
-    if (!isRegistered) return;
+    if (playerId === null) return;
     let cancelled = false;
     (async () => {
       try {
@@ -30,7 +36,7 @@ export function ProgressTiles() {
       } catch { /* silent */ }
     })();
     return () => { cancelled = true; };
-  }, [isRegistered]);
+  }, [playerId]);
 
   if (totalPoints === 0 && highestLevel === 0) return null;
 
@@ -38,20 +44,32 @@ export function ProgressTiles() {
   const globalRank = hub?.globalRank;
   const playerRank = rankFromXp(totalPoints);
 
+  const freezes = hub?.streakFreezes ?? 0;
+
   return (
-    <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-      <RankTile tier={playerRank.tier} subLevel={playerRank.subLevel} xp={totalPoints} />
-      <Tile value={String(highestLevel)} label={t('stats.currentLevel')} color="text-violet-400" />
-      <Tile value={String(streak)} label={t('stats.dayStreak')} color="text-emerald-400" />
-      {isRegistered && globalRank != null && globalRank > 0
-        ? <Tile value={`#${globalRank}`} label={t('stats.globalRank')} color="text-sky-400" />
-        : <Tile value={totalPoints.toLocaleString()} label={t('stats.totalPoints')} color="text-amber-400" />
-      }
+    <div className="space-y-2.5">
+      {hub && (
+        <StreakSavedNotice
+          savedDays={hub.streakSavedDays ?? 0}
+          streak={hub.currentStreak}
+          freezesLeft={freezes}
+          anchorDay={hub.streakAnchorDay ?? null}
+        />
+      )}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <RankTile tier={playerRank.tier} subLevel={playerRank.subLevel} xp={totalPoints} />
+        <Tile value={String(highestLevel)} label={t('stats.currentLevel')} color="text-violet-400" />
+        <Tile value={String(streak)} label={t('stats.dayStreak')} color="text-emerald-400" badge={<StreakFreezeBadge count={freezes} />} />
+        {isRegistered && globalRank != null && globalRank > 0
+          ? <Tile value={`#${globalRank}`} label={t('stats.globalRank')} color="text-sky-400" />
+          : <Tile value={totalPoints.toLocaleString()} label={t('stats.totalPoints')} color="text-amber-400" />
+        }
+      </div>
     </div>
   );
 }
 
-function Tile({ value, label, color }: { value: string; label: string; color: string }) {
+function Tile({ value, label, color, badge }: { value: string; label: string; color: string; badge?: ReactNode }) {
   return (
     <div
       className="rounded-2xl p-4 text-center"
@@ -70,7 +88,10 @@ function Tile({ value, label, color }: { value: string; label: string; color: st
       >
         {value}
       </div>
-      <div className="mt-0.5 text-xs font-semibold text-slate-500">{label}</div>
+      <div className="mt-0.5 flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-500">
+        {label}
+        {badge}
+      </div>
     </div>
   );
 }

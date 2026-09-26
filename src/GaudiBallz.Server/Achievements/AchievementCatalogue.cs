@@ -29,7 +29,8 @@ public sealed record CompletionContext(
     AttemptMetadata Metadata,
     PlayerProgress Progress,
     IReadOnlyList<DailyPlayDocument> DailyPlay,
-    ImmutableHashSet<string> AlreadyAwarded);
+    ImmutableHashSet<string> AlreadyAwarded,
+    IReadOnlyList<DateOnly>? FrozenDays = null);
 
 public static class AchievementCatalogue
 {
@@ -92,7 +93,8 @@ public static class AchievementCatalogue
     public static IReadOnlyList<string> EvaluateRetroactive(
         PlayerProgress progress,
         IReadOnlyList<DailyPlayDocument> dailyPlay,
-        ImmutableHashSet<string> alreadyAwarded)
+        ImmutableHashSet<string> alreadyAwarded,
+        IReadOnlyList<DateOnly>? frozenDays = null)
     {
         var ctx = new CompletionContext(
             PlayerId: "",
@@ -102,7 +104,8 @@ public static class AchievementCatalogue
             Metadata: new AttemptMetadata(0, false, null, 0, 0),
             Progress: progress,
             DailyPlay: dailyPlay,
-            AlreadyAwarded: alreadyAwarded);
+            AlreadyAwarded: alreadyAwarded,
+            FrozenDays: frozenDays);
 
         var newAwards = new List<string>();
 
@@ -139,10 +142,10 @@ public static class AchievementCatalogue
         "purist-40"   => CountPuristLevels(ctx.Progress) >= 40,
         "speed-demon" => CountBelowParLevels(ctx.Progress) >= 5,
 
-        "streak-2"  => CurrentStreak(ctx.DailyPlay) >= 2,
-        "streak-7"  => CurrentStreak(ctx.DailyPlay) >= 7,
-        "streak-14" => CurrentStreak(ctx.DailyPlay) >= 14,
-        "streak-30" => CurrentStreak(ctx.DailyPlay) >= 30,
+        "streak-2"  => CurrentStreak(ctx.DailyPlay, ctx.FrozenDays) >= 2,
+        "streak-7"  => CurrentStreak(ctx.DailyPlay, ctx.FrozenDays) >= 7,
+        "streak-14" => CurrentStreak(ctx.DailyPlay, ctx.FrozenDays) >= 14,
+        "streak-30" => CurrentStreak(ctx.DailyPlay, ctx.FrozenDays) >= 30,
 
         "full-week" => HasFullWeek(ctx.DailyPlay),
 
@@ -166,10 +169,10 @@ public static class AchievementCatalogue
         "no-hint-10"    => CountLevelsWithZeroHints(ctx.Progress) >= 10,
         "no-hint-25"    => CountLevelsWithZeroHints(ctx.Progress) >= 25,
         "purist-40"     => CountPuristLevels(ctx.Progress) >= 40,
-        "streak-2"      => CurrentStreak(ctx.DailyPlay) >= 2,
-        "streak-7"      => CurrentStreak(ctx.DailyPlay) >= 7,
-        "streak-14"     => CurrentStreak(ctx.DailyPlay) >= 14,
-        "streak-30"     => CurrentStreak(ctx.DailyPlay) >= 30,
+        "streak-2"      => CurrentStreak(ctx.DailyPlay, ctx.FrozenDays) >= 2,
+        "streak-7"      => CurrentStreak(ctx.DailyPlay, ctx.FrozenDays) >= 7,
+        "streak-14"     => CurrentStreak(ctx.DailyPlay, ctx.FrozenDays) >= 14,
+        "streak-30"     => CurrentStreak(ctx.DailyPlay, ctx.FrozenDays) >= 30,
         "full-week"     => HasFullWeek(ctx.DailyPlay),
         _ => false,
     };
@@ -184,34 +187,9 @@ public static class AchievementCatalogue
         progress.Levels.Count(pair =>
             pair.Value.Moves <= LevelCatalogue.Build(pair.Key).ConstructiveSolution.Count);
 
-    internal static int CurrentStreak(IReadOnlyList<DailyPlayDocument> dailyPlay)
-    {
-        if (dailyPlay.Count == 0)
-        {
-            return 0;
-        }
-
-        var dates = dailyPlay
-            .Select(d => d.Date.Date)
-            .Distinct()
-            .OrderDescending()
-            .ToList();
-
-        var streak = 1;
-        for (var i = 1; i < dates.Count; i++)
-        {
-            if (dates[i - 1] - dates[i] == TimeSpan.FromDays(1))
-            {
-                streak++;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        return streak;
-    }
+    internal static int CurrentStreak(
+        IReadOnlyList<DailyPlayDocument> dailyPlay, IReadOnlyList<DateOnly>? frozenDays = null) =>
+        Streaks.LatestRun(dailyPlay.Select(d => DateOnly.FromDateTime(d.Date)), frozenDays ?? []);
 
     internal static bool HasFullWeek(IReadOnlyList<DailyPlayDocument> dailyPlay)
     {
@@ -247,7 +225,7 @@ public static class AchievementCatalogue
     }
 
     public static int ProgressFor(string achievementId, PlayerProgress progress,
-        IReadOnlyList<DailyPlayDocument> dailyPlay) => achievementId switch
+        IReadOnlyList<DailyPlayDocument> dailyPlay, IReadOnlyList<DateOnly>? frozenDays = null) => achievementId switch
     {
         "milestone-1" or "milestone-5" or "milestone-10" or "milestone-25"
             or "milestone-50" or "milestone-100" or "milestone-150" =>
@@ -255,7 +233,7 @@ public static class AchievementCatalogue
         "no-hint-10" or "no-hint-25" => CountLevelsWithZeroHints(progress),
         "purist-40" => CountPuristLevels(progress),
         "speed-demon" => CountBelowParLevels(progress),
-        "streak-2" or "streak-7" or "streak-14" or "streak-30" => CurrentStreak(dailyPlay),
+        "streak-2" or "streak-7" or "streak-14" or "streak-30" => CurrentStreak(dailyPlay, frozenDays),
         _ => 0,
     };
 }

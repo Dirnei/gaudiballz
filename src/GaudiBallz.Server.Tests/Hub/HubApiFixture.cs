@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using MongoDB.Driver;
 using GaudiBallz.Server.Persistence;
 
 namespace GaudiBallz.Server.Tests.Hub;
@@ -15,6 +16,9 @@ public sealed class HubApiFixture : WebApplicationFactory<Program>, IAsyncLifeti
 
     public PuzzleStore Store { get; private set; } = null!;
 
+    /// <summary>The same database the application writes to, for seeding stored state directly.</summary>
+    public IMongoDatabase Database { get; private set; } = null!;
+
     public async ValueTask InitializeAsync()
     {
         _connectionString = await SharedMongoContainer.ConnectionStringAsync();
@@ -26,6 +30,8 @@ public sealed class HubApiFixture : WebApplicationFactory<Program>, IAsyncLifeti
         });
         await Store.EnsureIndexesAsync();
         await Store.EnsureActivityFeedCollectionAsync();
+
+        Database = new MongoClient(_connectionString).GetDatabase(_database);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

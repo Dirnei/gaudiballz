@@ -50,10 +50,10 @@ public sealed class AchievementEvaluatorActor : ReceiveActor
 
             try
             {
-                await store.RecordDailyPlayAsync(command.PlayerId, DateTime.UtcNow);
-
+                // The completion endpoint has already recorded today and settled streak freezes.
                 var progress = await store.LoadProgressAsync(command.PlayerId);
                 var dailyPlay = await store.LoadDailyPlayAsync(command.PlayerId);
+                var frozenDays = await LoadFrozenDaysAsync(store, command.PlayerId);
                 var existingDocs = await store.LoadAchievementsAsync(command.PlayerId);
                 var alreadyAwarded = existingDocs
                     .Select(d => d.AchievementId)
@@ -67,7 +67,8 @@ public sealed class AchievementEvaluatorActor : ReceiveActor
                     command.Metadata,
                     progress,
                     dailyPlay,
-                    alreadyAwarded);
+                    alreadyAwarded,
+                    frozenDays);
 
                 var newIds = AchievementCatalogue.Evaluate(ctx);
                 var newAwards = new List<AwardedAchievement>();
@@ -136,7 +137,9 @@ public sealed class AchievementEvaluatorActor : ReceiveActor
                     .Select(d => d.AchievementId)
                     .ToImmutableHashSet();
 
-                var newIds = AchievementCatalogue.EvaluateRetroactive(progress, dailyPlay, alreadyAwarded);
+                var frozenDays = await LoadFrozenDaysAsync(store, command.PlayerId);
+
+                var newIds = AchievementCatalogue.EvaluateRetroactive(progress, dailyPlay, alreadyAwarded, frozenDays);
 
                 foreach (var id in newIds)
                 {
@@ -149,6 +152,9 @@ public sealed class AchievementEvaluatorActor : ReceiveActor
             }
         });
     }
+
+    private static async Task<IReadOnlyList<DateOnly>> LoadFrozenDaysAsync(PuzzleStore store, string playerId) =>
+        (await store.LoadStreakFreezeAsync(playerId))?.FrozenDays.Select(DateOnly.FromDateTime).ToList() ?? [];
 
     public static Props PropsFor(string playerId, PuzzleStore store) =>
         Props.Create(() => new AchievementEvaluatorActor(playerId, store));

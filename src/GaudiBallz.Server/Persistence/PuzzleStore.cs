@@ -27,6 +27,7 @@ public sealed class PuzzleStore
     private readonly IMongoCollection<BadgeDocument> _badges;
     private readonly IMongoCollection<DailyPlayDocument> _dailyPlay;
     private readonly IMongoCollection<GameStartDocument> _gameStarts;
+    private readonly IMongoCollection<StreakFreezeDocument> _streakFreezes;
     private readonly IMongoCollection<LeaderboardDocument> _leaderboard;
     private readonly IMongoCollection<DailyResultDocument> _dailyResults;
     private readonly IMongoCollection<LevelLeaderboardDocument> _levelLeaderboard;
@@ -62,6 +63,7 @@ public sealed class PuzzleStore
         _badges = _database.GetCollection<BadgeDocument>("player_badges", durable);
         _dailyPlay = _database.GetCollection<DailyPlayDocument>("daily_play", durable);
         _gameStarts = _database.GetCollection<GameStartDocument>("game_starts", durable);
+        _streakFreezes = _database.GetCollection<StreakFreezeDocument>("streak_freeze", durable);
         _leaderboard = _database.GetCollection<LeaderboardDocument>("leaderboard", durable);
         _dailyResults = _database.GetCollection<DailyResultDocument>("daily_results", durable);
         _levelLeaderboard = _database.GetCollection<LevelLeaderboardDocument>("level_leaderboard", durable);
@@ -530,6 +532,102 @@ public sealed class PuzzleStore
                 Builders<DailyPlayDocument>.Filter.Gte(d => d.Id, $"{playerId}#"),
                 Builders<DailyPlayDocument>.Filter.Lt(d => d.Id, $"{playerId}$")))
             .ToListAsync(token);
+
+    // ---- streak freezes ------------------------------------------------------
+
+    /// <summary>
+    /// Marks today as played and settles the player's streak freezes for it. Every verified
+    /// completion, campaign or daily, anonymous or registered, goes through here.
+    /// </summary>
+    public async Task RecordPlayedDayAsync(
+        string playerId, DateTime utcNow, CancellationToken token = default)
+    {
+        await RecordDailyPlayAsync(playerId, utcNow, token);
+        await SettleStreakAsync(playerId, utcNow, token);
+    }
+
+    public async Task<StreakFreezeDocument?> LoadStreakFreezeAsync(
+        string playerId, CancellationToken token = default) =>
+        await _streakFreezes.Find(f => f.Id == playerId).FirstOrDefaultAsync(token);
+
+    /// <summary>
+    /// Spends held freezes on the days missed before today and earns one when today's
+    /// completion takes the streak to a multiple of <see cref="Streaks.DaysPerFreeze"/>.
+    /// Call after <see cref="RecordDailyPlayAsync"/> for the same day.
+    ///
+    /// Runs once per UTC day: the first completion settles, later ones return at the gate.
+    /// Two first completions racing both compute, but only one write matches the version it
+    /// read; the other re-reads, finds the day settled and returns.
+    /// </summary>
+    public async Task<StreakFreezeDocument> SettleStreakAsync(
+        string playerId, DateTime utcNow, CancellationToken token = default)
+    {
+        var today = DateOnly.FromDateTime(utcNow);
+        var todayUtc = today.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
+
+        for (var attempt = 0; ; attempt++)
+        {
+            var existing = await LoadStreakFreezeAsync(playerId, token);
+            if (existing?.SettledThrough == todayUtc)
+            {
+                return existing;
+            }
+
+            var played = (await LoadDailyPlayAsync(playerId, token))
+                .Select(d => DateOnly.FromDateTime(d.Date))
+                .ToList();
+            var frozen = existing?.FrozenDays.Select(DateOnly.FromDateTime).ToList() ?? [];
+            var held = existing?.Held ?? 0;
+
+            var beforeToday = Streaks.Compute(played.Where(d => d < today), frozen, held, today);
+            if (beforeToday is { CoveredNow: > 0, LastActiveDay: { } lastActive })
+            {
+                frozen.AddRange(Enumerable.Range(1, beforeToday.CoveredNow).Select(lastActive.AddDays));
+                held = beforeToday.HeldShown;
+            }
+
+            var withToday = Streaks.Compute(played, frozen, held, today);
+            if (played.Contains(today) && withToday.Current > 0
+                && withToday.Current % Streaks.DaysPerFreeze == 0)
+            {
+                held = Math.Min(Streaks.MaxHeldFreezes, held + 1);
+            }
+
+            var settled = new StreakFreezeDocument
+            {
+                Id = playerId,
+                Held = held,
+                FrozenDays = frozen.Select(d => d.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)).ToList(),
+                SettledThrough = todayUtc,
+                Version = (existing?.Version ?? 0) + 1,
+            };
+
+            if (existing is null)
+            {
+                try
+                {
+                    await _streakFreezes.InsertOneAsync(settled, cancellationToken: token);
+                    return settled;
+                }
+                catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey && attempt < 5)
+                {
+                    continue;
+                }
+            }
+
+            var result = await _streakFreezes.ReplaceOneAsync(
+                f => f.Id == playerId && f.Version == existing.Version, settled, cancellationToken: token);
+            if (result.MatchedCount == 1)
+            {
+                return settled;
+            }
+
+            if (attempt >= 5)
+            {
+                throw new InvalidOperationException($"Streak settlement for {playerId} kept conflicting.");
+            }
+        }
+    }
 
     // ---- badges -------------------------------------------------------------
 

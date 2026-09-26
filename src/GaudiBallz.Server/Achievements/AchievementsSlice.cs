@@ -40,6 +40,8 @@ public sealed class AchievementsSlice : ISlice
 
             var progress = await store.LoadProgressAsync(playerId);
             var dailyPlay = await store.LoadDailyPlayAsync(playerId);
+            var frozenDays = (await store.LoadStreakFreezeAsync(playerId))?.FrozenDays
+                .Select(DateOnly.FromDateTime).ToList() ?? [];
 
             var achievements = AchievementCatalogue.All.Select(def =>
             {
@@ -54,7 +56,7 @@ public sealed class AchievementsSlice : ISlice
                     awardedAt = earned ? awardedAt : (DateTime?)null,
                     threshold = def.Threshold,
                     progress = def.Threshold is not null
-                        ? AchievementCatalogue.ProgressFor(def.Id, progress, dailyPlay)
+                        ? AchievementCatalogue.ProgressFor(def.Id, progress, dailyPlay, frozenDays)
                         : (int?)null,
                 };
             }).ToArray();

@@ -170,6 +170,23 @@ public sealed class GameStartDocument
 }
 
 /// <summary>
+/// A player's streak freezes: how many they hold and which missed days they covered.
+///
+/// Id is the player id. Frozen days live here rather than as <see cref="DailyPlayDocument"/>
+/// rows because everything reading daily_play takes a row to mean a level was completed.
+/// Settlement runs at most once per UTC day (<see cref="SettledThrough"/>) and writes only
+/// if <see cref="Version"/> is unchanged, so concurrent completions cannot earn or spend twice.
+/// </summary>
+public sealed class StreakFreezeDocument
+{
+    public string Id { get; set; } = string.Empty;
+    public int Held { get; set; }
+    public List<DateTime> FrozenDays { get; set; } = [];
+    public DateTime? SettledThrough { get; set; }
+    public int Version { get; set; }
+}
+
+/// <summary>
 /// One entry in the leaderboard materialized view. Upserted on each completion that changes
 /// the player's point total, so reads are a simple index scan.
 /// </summary>

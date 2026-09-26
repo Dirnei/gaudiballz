@@ -171,8 +171,14 @@ public sealed class HubSlice : ISlice
                 ?? progress.TotalPoints;
 
             var dailyPlay = await store.LoadDailyPlayAsync(playerId);
-            var currentStreak = CalculateStreak(dailyPlay);
-            var bestStreak = CalculateBestStreak(dailyPlay);
+            var freeze = await store.LoadStreakFreezeAsync(playerId);
+            var streak = Streaks.Compute(
+                dailyPlay.Select(d => DateOnly.FromDateTime(d.Date)),
+                freeze?.FrozenDays.Select(DateOnly.FromDateTime) ?? [],
+                freeze?.Held ?? 0,
+                DateOnly.FromDateTime(DateTime.UtcNow));
+            var currentStreak = streak.Current;
+            var bestStreak = streak.Best;
 
             var today = DateTime.UtcNow.Date;
             var weekStart = today.AddDays(-(int)(today.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)today.DayOfWeek - 1));
@@ -248,6 +254,10 @@ public sealed class HubSlice : ISlice
                 dailyHistory,
                 currentStreak,
                 bestStreak,
+                streakFreezes = streak.HeldShown,
+                streakSavedDays = streak.CoveredNow,
+                // Identifies the gap the freezes are covering, so a dismissed notice stays dismissed.
+                streakAnchorDay = streak.LastActiveDay?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 globalRank,
                 levelsCompleted = progress.LevelsCompleted,
                 totalLevels = 50,
@@ -389,73 +399,6 @@ public sealed class HubSlice : ISlice
         var cal = CultureInfo.InvariantCulture.Calendar;
         var week = cal.GetWeekOfYear(today, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
         return $"{today.Year}-W{week:D2}";
-    }
-
-    private static int CalculateStreak(List<DailyPlayDocument> dailyPlay)
-    {
-        if (dailyPlay.Count == 0)
-        {
-            return 0;
-        }
-
-        var dates = dailyPlay
-            .Select(d => d.Date.Date)
-            .Distinct()
-            .OrderByDescending(d => d)
-            .ToList();
-
-        var today = DateTime.UtcNow.Date;
-        if (dates[0] != today && dates[0] != today.AddDays(-1))
-        {
-            return 0;
-        }
-
-        var streak = 1;
-        for (var i = 1; i < dates.Count; i++)
-        {
-            if (dates[i - 1] - dates[i] == TimeSpan.FromDays(1))
-            {
-                streak++;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        return streak;
-    }
-
-    private static int CalculateBestStreak(List<DailyPlayDocument> dailyPlay)
-    {
-        if (dailyPlay.Count == 0)
-        {
-            return 0;
-        }
-
-        var dates = dailyPlay
-            .Select(d => d.Date.Date)
-            .Distinct()
-            .OrderBy(d => d)
-            .ToList();
-
-        var best = 1;
-        var current = 1;
-
-        for (var i = 1; i < dates.Count; i++)
-        {
-            if (dates[i] - dates[i - 1] == TimeSpan.FromDays(1))
-            {
-                current++;
-                best = Math.Max(best, current);
-            }
-            else
-            {
-                current = 1;
-            }
-        }
-
-        return best;
     }
 
     /// <summary>

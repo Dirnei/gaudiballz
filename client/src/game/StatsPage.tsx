@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { API, authHeaders } from './identity';
@@ -6,6 +6,7 @@ import { useGameContext } from './GameContext';
 import { AchievementsSection } from './AchievementsSection';
 import { currentThreshold, TIER_COLOURS, type TierName } from './rank';
 import { BadgeShelf } from './BadgeShelf';
+import { StreakFreezeBadge } from './StreakFreeze';
 
 interface RankInfo {
   readonly tier: TierName;
@@ -35,6 +36,7 @@ interface PlayerStats {
   readonly bestMovesLevel: number;
   readonly currentStreak: number;
   readonly bestStreak: number;
+  readonly streakFreezes?: number;
   readonly globalRank: number;
   readonly totalLevels: number;
   readonly levelsCompleted: number;
@@ -104,7 +106,7 @@ export function StatsPage() {
               <StatCard value={String(stats.gamesPlayed)} label={t('stats.gamesPlayed')} color="text-emerald-400" sub={t('stats.wonAndRate', { won: stats.gamesWon, rate: stats.winRate ?? '—' })} icon="check" iconBg="bg-emerald-400/12" />
               <StatCard value={String(stats.highestLevel)} label={t('stats.highestLevel')} color="text-violet-400" sub={stats.comparisons?.['level']} icon="arrow" iconBg="bg-violet-400/12" />
               <StatCard value={String(stats.bestMoves)} label={t('stats.bestMoves')} color="text-sky-400" sub={stats.bestMovesLevel > 0 ? t('stats.levelN', { level: stats.bestMovesLevel }) : undefined} icon="chart" iconBg="bg-sky-400/12" />
-              <StatCard value={String(stats.currentStreak)} label={t('stats.dayStreak')} color="text-emerald-400" sub={t('stats.bestDays', { days: stats.bestStreak })} icon="flame" iconBg="bg-emerald-400/12" />
+              <StatCard value={String(stats.currentStreak)} label={t('stats.dayStreak')} color="text-emerald-400" sub={t('stats.bestDays', { days: stats.bestStreak })} badge={<StreakFreezeBadge count={stats.streakFreezes ?? 0} />} icon="flame" iconBg="bg-emerald-400/12" />
               <StatCard value={`#${stats.globalRank}`} label={t('stats.globalRank')} color="text-slate-200" sub={stats.comparisons?.['rank']} icon="rank" iconBg="bg-white/6" />
             </div>
 
@@ -170,9 +172,9 @@ export function StatsPage() {
 }
 
 function StatCard({
-  value, label, color, sub, icon, iconBg,
+  value, label, color, sub, badge, icon, iconBg,
 }: {
-  value: string; label: string; color: string; sub?: string; icon: string; iconBg: string;
+  value: string; label: string; color: string; sub?: string; badge?: ReactNode; icon: string; iconBg: string;
 }) {
   return (
     <div
@@ -187,7 +189,10 @@ function StatCard({
     >
       <div className="flex items-start justify-between">
         <div>
-          <div className={`text-2xl font-bold tracking-tight tabular-nums ${color}`} style={fredoka}>{value}</div>
+          <div className="flex items-center gap-2">
+            <div className={`text-2xl font-bold tracking-tight tabular-nums ${color}`} style={fredoka}>{value}</div>
+            {badge}
+          </div>
           <div className="mt-0.5 text-xs font-semibold text-slate-500">{label}</div>
         </div>
         <div className={`flex h-8 w-8 items-center justify-center rounded-[10px] ${iconBg}`}>

@@ -235,6 +235,17 @@
     "rankProgress": "Rangfortschritt",
     "rankLabel": "{{tier}} {{sub}}"
   },
+  "streakFreeze": {
+    "held_one": "{{count}} Schutztag",
+    "held_other": "{{count}} Schutztage",
+    "explain": "Alle 7 Tage am Stück bekommst du einen, höchstens 2. Jeder deckt einen verpassten Tag ab.",
+    "savedTitle": "Strähne gerettet",
+    "savedBody_one": "Ein Schutztag hat den verpassten Tag abgedeckt – deine Strähne von {{streak}} Tagen hält.",
+    "savedBody_other": "{{count}} Schutztage haben die verpassten Tage abgedeckt – deine Strähne von {{streak}} Tagen hält.",
+    "left_one": "noch {{count}} Schutztag",
+    "left_other": "noch {{count}} Schutztage",
+    "dismiss": "Schließen"
+  },
   "rank": {
     "bronze": "Bronze",
     "silver": "Silber",

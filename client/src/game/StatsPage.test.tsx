@@ -45,7 +45,7 @@ describe('StatsPage', () => {
       json: async () => ({
         totalPoints: 5000, gamesPlayed: 50, gamesWon: 35, winRate: 70,
         highestLevel: 15, bestMoves: 8, bestMovesLevel: 3,
-        currentStreak: 5, bestStreak: 10, globalRank: 12,
+        currentStreak: 5, bestStreak: 10, globalRank: 12, streakFreezes: 1,
         totalLevels: 50, levelsCompleted: 15,
         comparisons: { points: 'Top 10%', level: '2 ahead of average', rank: 'Up 1 this week' },
       }),
@@ -65,5 +65,6 @@ describe('StatsPage', () => {
     expect(screen.getByText('Complete your first level')).toBeTruthy();
     expect(screen.getByText('Complete 10 levels')).toBeTruthy();
     expect(screen.getByText('5 / 10')).toBeTruthy();
+    expect(screen.getByLabelText('1 streak freeze')).toBeTruthy();
   });
 });
