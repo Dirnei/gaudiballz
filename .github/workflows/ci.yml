@@ -99,7 +99,11 @@ jobs:
       #
       # Test projects run on Microsoft Testing Platform: each is a self-hosting executable
       # rather than a library a VSTest host loads.
-      - run: dotnet test --no-build --configuration Release
+      #
+      # TestingPlatformCaptureOutput=false lets each executable's own output through. By
+      # default dotnet test keeps only the totals, so a red run said "Failed: 1" and nothing
+      # about which test or why.
+      - run: dotnet test --no-build --configuration Release -p:TestingPlatformCaptureOutput=false
 
   client:
     name: Client
@@ -146,7 +150,7 @@ jobs:
       # the TypeScript engine's recorded answers, and the client side checks the fixtures
       # generated from C#. Neither regenerates here — a behaviour change shows up as a
       # failure rather than a quietly rewritten fixture.
-      - run: dotnet test src/GaudiBallz.Rules.Tests -- --filter-trait "Category=Conformance"
+      - run: dotnet test src/GaudiBallz.Rules.Tests -p:TestingPlatformCaptureOutput=false -- --filter-trait "Category=Conformance"
       - run: npm ci
         working-directory: client
       - run: npm run test:conformance
