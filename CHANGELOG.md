@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/Dirnei/gaudiballz/compare/v0.7.0...v0.8.0) (2026-09-29)
+
+
+### Features
+
+* Earn streak freezes that save your streak when you miss a day ([9fe7375](https://github.com/Dirnei/gaudiballz/commit/9fe737527c6e089ee7ac0d838ca266889894be6f))
+
+
+### Bug Fixes
+
+* Play game sounds even when your iPhone is set to silent ([d33f4dc](https://github.com/Dirnei/gaudiballz/commit/d33f4dc367dc0c46b58192cf3e495e4c5c1b011d))
+
 ## [0.7.0](https://github.com/Dirnei/gaudiballz/compare/v0.6.0...v0.7.0) (2026-09-25)
 
 
