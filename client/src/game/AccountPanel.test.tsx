@@ -4,6 +4,11 @@ import { AccountPanel } from './AccountPanel';
 import type { BallUnlock } from './profileBall';
 import type { Identity } from './identity';
 
+vi.mock('./passkeys', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./passkeys')>()),
+  listPasskeys: vi.fn().mockResolvedValue([]),
+}));
+
 const UNLOCKS: readonly BallUnlock[] = [
   { colour: 1, unlocksAtLevel: 1 },
   { colour: 2, unlocksAtLevel: 1 },

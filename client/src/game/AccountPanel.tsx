@@ -121,9 +121,14 @@ export function AccountPanel({
   }, [controlActions]);
 
   useEffect(() => {
-    if (open && loggedIn) {
-      void listPasskeys().then(setPasskeys);
-    }
+    if (!open || !loggedIn) return undefined;
+    let cancelled = false;
+    void listPasskeys().then((found) => {
+      if (!cancelled) setPasskeys(found);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [open, loggedIn]);
 
   useEffect(() => {
