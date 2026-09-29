@@ -125,6 +125,35 @@ describe('playing', () => {
     expect(() => playSound('drop', 1)).not.toThrow();
   });
 
+  it('asks for playback audio, so the iPhone silent switch does not mute the game', async () => {
+    const session = { type: 'auto' };
+    let typeWhenCreated: string | null = null;
+    const { FakeContext } = fakeAudio();
+    vi.stubGlobal('navigator', { ...navigator, audioSession: session });
+    vi.stubGlobal('AudioContext', class extends FakeContext {
+      constructor() {
+        super();
+        typeWhenCreated = session.type;
+      }
+    });
+    const { playSound } = await freshModule();
+
+    playSound('pickup');
+
+    expect(typeWhenCreated).toBe('playback');
+  });
+
+  it('plays where the browser has no audio session', async () => {
+    const { FakeContext, started } = fakeAudio();
+    vi.stubGlobal('navigator', { ...navigator, audioSession: undefined });
+    vi.stubGlobal('AudioContext', FakeContext);
+    const { playSound } = await freshModule();
+
+    playSound('pickup');
+
+    expect(started.length).toBeGreaterThan(0);
+  });
+
   it('never lets a failing audio call reach the game', async () => {
     vi.stubGlobal('AudioContext', class { constructor() { throw new Error('no device'); } });
     const { playSound } = await freshModule();

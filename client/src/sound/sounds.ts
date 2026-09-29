@@ -87,12 +87,26 @@ export function subscribe(listener: () => void): () => void {
 let context: AudioContext | null = null;
 let master: GainNode | null = null;
 
+/**
+ * Claims the "playback" audio session where the browser has one (Safari 16.4+).
+ *
+ * iOS otherwise treats Web Audio as ambient sound, which the silent switch mutes outright: a
+ * phone left on silent heard no sound at all, in every iOS browser. The cost is that playback
+ * audio does not mix, so a game sound pauses music playing in another app. The in-game Sound
+ * switch is the way to keep the game quiet.
+ */
+function claimPlaybackSession(): void {
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (session) session.type = 'playback';
+}
+
 /** The shared context, created on first use - which is always inside a tap, click or key. */
 function audio(): AudioContext | null {
   if (context === null) {
     const Ctor = globalThis.AudioContext
       ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
+    claimPlaybackSession();
     context = new Ctor();
     master = context.createGain();
     master.gain.value = volume;

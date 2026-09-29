@@ -141,3 +141,19 @@ affect play in any way. Sounds SHALL work offline and SHALL NOT require download
 
 - **WHEN** the browser refuses to play audio
 - **THEN** every move still works exactly as it does with sound
+
+### Requirement: Sounds play when the device is set to silent
+
+While the game's own sound setting is on, sounds SHALL play even when the device's ring/silent
+switch or silent mode is set to silent, on browsers that let a page choose this. The game's sound
+setting SHALL be the way to silence it.
+
+#### Scenario: Phone on silent
+
+- **WHEN** a player whose phone is set to silent taps a flask with the game's sound on
+- **THEN** the pickup sound plays
+
+#### Scenario: Game sound off
+
+- **WHEN** a player turns the game's sound off
+- **THEN** no game sound plays, whatever the device's silent setting
